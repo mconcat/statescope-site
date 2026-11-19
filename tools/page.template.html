@@ -31,11 +31,11 @@
 <header class="hero" id="top">
   <h1>statescope</h1>
   <p class="subtitle">Reading language model computation as circuits of state groups and transforms</p>
-  <p class="sets">Dictionary weights are available for Qwen3.5-4B and Qwen3.5-0.8B so far; more models will follow.</p>
+  <p class="sets">Dictionary weights are available for <span class="nw">Qwen3.5-4B</span> and <span class="nw">Qwen3.5-0.8B</span> so far; more models will follow.</p>
   <nav class="links" aria-label="Code and weights">
     <a class="pill" href="https://github.com/mconcat/statescope"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M5.6 3.6 1.6 8l4 4.4M10.4 3.6l4 4.4-4 4.4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>Code</a>
-    <a class="pill" href="https://huggingface.co/mconcat/statescope-qwen3.5-4b"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M8 1.8 14 5 8 8.2 2 5zM2 8l6 3.2L14 8M2 11l6 3.2 6-3.2" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>Weights for Qwen3.5-4B</a>
-    <a class="pill" href="https://huggingface.co/mconcat/statescope-qwen3.5-0.8b"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M8 1.8 14 5 8 8.2 2 5zM2 8l6 3.2L14 8M2 11l6 3.2 6-3.2" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>Weights for Qwen3.5-0.8B</a>
+    <a class="pill" href="https://huggingface.co/mconcat/statescope-qwen3.5-4b"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M8 1.8 14 5 8 8.2 2 5zM2 8l6 3.2L14 8M2 11l6 3.2 6-3.2" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>Weights for <span class="nw">Qwen3.5-4B</span></a>
+    <a class="pill" href="https://huggingface.co/mconcat/statescope-qwen3.5-0.8b"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M8 1.8 14 5 8 8.2 2 5zM2 8l6 3.2L14 8M2 11l6 3.2 6-3.2" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>Weights for <span class="nw">Qwen3.5-0.8B</span></a>
   </nav>
 </header>
 
@@ -67,10 +67,10 @@
 <section class="band abstract" aria-labelledby="abstract">
   <div class="wrap narrow">
     <h2 id="abstract">Abstract</h2>
-    <p>We introduce statescope, a method and a reader for reading language model computation through per-layer dictionaries as a circuit of state groups and transforms. Each layer has two dictionaries: a state dictionary that writes the residual stream as a few active groups of directions, and an MLP dictionary that writes the layer’s MLP as a sum of small gated linear operations. The reader is one Python file. We provide sets of dictionary weights for Qwen3.5-4B and Qwen3.5-0.8B so far, and more models will follow.</p>
-    <p>We follow a line-break decision in Qwen3.5-0.8B through named units. A layer-8 transform fires on the first token of each line, and a head of the layer-9 mixer carries the count of characters since then. Two layer-9 transforms turn that count into the line-break decision. In text wrapped at 60 characters, swapping only the first transform's write through the mixer carries {{share|count:60|l8/t189}} of the change in the model's preference for a line break, and swapping the whole layer-8 MLP output the same way carries {{share|count:60|l8/mlp8_true}}.</p>
+    <p>We introduce statescope, a method and a reader for reading language model computation through per-layer dictionaries as a circuit of state groups and transforms. Each layer has two dictionaries: a state dictionary that writes the residual stream as a few active groups of directions, and an MLP dictionary that writes the layer’s MLP as a sum of small gated linear operations. The reader is one Python file. We provide sets of dictionary weights for <span class="nw">Qwen3.5-4B</span> and <span class="nw">Qwen3.5-0.8B</span> so far, and more models will follow.</p>
+    <p>We follow a line-break decision in <span class="nw">Qwen3.5-0.8B</span> through named units. A layer-8 transform fires on the first token of each line, and a head of the layer-9 mixer carries the count of characters since then. Two layer-9 transforms turn that count into the line-break decision. In text wrapped at 60 characters, swapping only the first transform's write through the mixer carries {{share|count:60|l8/t189}} of the change in the model's preference for a line break, and swapping the whole layer-8 MLP output the same way carries {{share|count:60|l8/mlp8_true}}.</p>
 <!--if 4b-->
-    <p>We steered Qwen3.5-4B with single state groups. In a Python rule-completion task, moving the residual stream inside one group's frame raised the rate of correct rules from {{b4u.rule_before}} to {{b4u.rule_after}}.</p>
+    <p>We steered <span class="nw">Qwen3.5-4B</span> with single state groups. In a Python rule-completion task, moving the residual stream inside one group's frame raised the rate of correct rules from {{b4u.rule_before}} to {{b4u.rule_after}}.</p>
 <!--endif 4b-->
   </div>
 </section>
@@ -79,7 +79,7 @@
 <section class="band tint" aria-labelledby="dictionaries">
   <div class="wrap">
     <h2 id="dictionaries">Two dictionaries per layer</h2>
-    <p class="lead"><!--if 4b-->Qwen3.5-4B has {{b4.layers}} layers and width {{b4.width}}, while Qwen3.5-0.8B has {{model.layers}} layers and width {{model.width}}. Both dictionary sets have the same form, and the examples in this section come from the Qwen3.5-0.8B set. <!--endif 4b-->Each layer has a <dfn>mixer</dfn>, which is its GatedDeltaNet or attention sublayer, and an MLP. Each layer has a state dictionary and an MLP dictionary that were trained separately. Figure {{fig|layer}} shows where each one reads.</p>
+    <p class="lead"><!--if 4b--><span class="nw">Qwen3.5-4B</span> has {{b4.layers}} layers and width {{b4.width}}, while <span class="nw">Qwen3.5-0.8B</span> has {{model.layers}} layers and width {{model.width}}. Both dictionary sets have the same form, and the examples in this section come from the <span class="nw">Qwen3.5-0.8B</span> set. <!--endif 4b-->Each layer has a <dfn>mixer</dfn>, which is its GatedDeltaNet or attention sublayer, and an MLP. Each layer has a state dictionary and an MLP dictionary that were trained separately. Figure {{fig|layer}} shows where each one reads.</p>
 
     <div class="split diagram">
       <figure id="fig-layer">
@@ -152,7 +152,7 @@
         <article class="unit mlp">
           <h3 class="unit-title"><i></i>MLP dictionary: transforms</h3>
           <p>The <dfn>MLP dictionary</dfn> represents the layer's MLP operations, taking the post-norm MLP input and reconstructing the raw MLP output. Our MLP dictionary’s form, a sparse mixture of linear transforms (MOLT), follows <a href="https://transformer-circuits.pub/2025/bulk-update/index.html">Lindsey et al. (2025)</a>, with <a href="https://arxiv.org/abs/2505.21364">Oldfield et al. (2025)</a> providing closely related work on decomposing MLP layers into sparse mixtures of linear maps.</p>
-          <p>A transform reads one direction of the MLP input, opens its gate when that reading passes a learned threshold, and writes a low-rank linear map of the input scaled by the gate value. Each Qwen3.5-0.8B layer has {{mlp.transforms}} transforms, with only a few gates open per token, and their writes sum to reconstruct the MLP output.</p>
+          <p>A transform reads one direction of the MLP input, opens its gate when that reading passes a learned threshold, and writes a low-rank linear map of the input scaled by the gate value. Each <span class="nw">Qwen3.5-0.8B</span> layer has {{mlp.transforms}} transforms, with only a few gates open per token, and their writes sum to reconstruct the MLP output.</p>
       <p>In Figure {{fig|lead}}, L8 transform {{demo.l8_transform}} marks the first token of each line: its gate opens on {{demo.t189_line_first}} of first tokens, {{demo.t189_newline}} of line-break tokens and {{demo.t189_other}} of other tokens. L9 transform {{demo.l9_transform_short}} fires on {{rate|L9 transform 410|40-49}} to {{rate|L9 transform 410|30-39}} of tokens at line lengths of 20 to 49 characters, falling to {{rate|L9 transform 410|70-79}} at 70 to 79 characters. L9 transform {{demo.l9_transform_long}} fires on {{rate|L9 transform 1749|60-69}} of tokens below 70 characters and {{rate|L9 transform 1749|90-99}} at 90 to 99 characters, as the bars in Figure {{fig|lead}} show.</p>
       <p>We can read where a transform's gate opens and what it adds to the MLP output, or change its gate and recompute the output.</p>
         </article>
@@ -169,7 +169,7 @@
     <h2 id="example">A worked example: when to break a line</h2>
     <div class="lead-block">
       <p class="lead">The demonstration uses the 0.8B set on texts wrapped to a fixed width. At the last word of a line, the model must predict a line break, so it must know how many characters the line already holds. Figure {{fig|lead}} shows three dictionary units that follow this count on one text.</p>
-      <p class="lead">Our worked example follows the line-counting task studied by <a href="https://arxiv.org/abs/2601.04480">Gurnee et al.</a>, which asks how a model decides where to break a line in text wrapped to a fixed width. We follow the same task in a different model, Qwen3.5-0.8B. In this model, head {{demo.head}} of the layer-9 GatedDeltaNet carries the count, and the layer-9 MLP reads it through one state group's frame.</p>
+      <p class="lead">Our worked example follows the line-counting task studied by <a href="https://arxiv.org/abs/2601.04480">Gurnee et al.</a>, which asks how a model decides where to break a line in text wrapped to a fixed width. We follow the same task in a different model, <span class="nw">Qwen3.5-0.8B</span>. In this model, head {{demo.head}} of the layer-9 GatedDeltaNet carries the count, and the layer-9 MLP reads it through one state group's frame.</p>
     </div>
 
     <h3 id="pairs">Pairs of texts and the margin</h3>
@@ -441,8 +441,8 @@ The frame part gives most, but not all, of the movement of the gate input; the r
 <!-- ============================================================================================ what we did with the 4B units -->
 <section class="band tint" aria-labelledby="qwen35-4b">
   <div class="wrap">
-    <h2 id="qwen35-4b">What we did with Qwen3.5-4B units</h2>
-    <p class="lead">Our set for <code>Qwen/Qwen3.5-4B</code> covers {{b4.layers}} layers of width {{b4.width}}. Each layer has a state dictionary with {{b4.groups}} groups of {{b4.group_size}} directions and an MLP dictionary with {{b4.transforms}} transforms, read with the same reader as the Qwen3.5-0.8B set. This section shows three experiments we did with these units.</p>
+    <h2 id="qwen35-4b">What we did with <span class="nw">Qwen3.5-4B</span> units</h2>
+    <p class="lead">Our set for <code>Qwen/Qwen3.5-4B</code> covers {{b4.layers}} layers of width {{b4.width}}. Each layer has a state dictionary with {{b4.groups}} groups of {{b4.group_size}} directions and an MLP dictionary with {{b4.transforms}} transforms, read with the same reader as the <span class="nw">Qwen3.5-0.8B</span> set. This section shows three experiments we did with these units.</p>
 
     <article class="exp">
       <div class="exp-text">
@@ -476,7 +476,7 @@ The frame part gives most, but not all, of the movement of the gate input; the r
     <article class="exp">
       <div class="exp-text">
         <h3 id="aba-abb">Changing which repetition rule the model follows</h3>
-        <p>The ABA / ABB task and the three-stage picture of how a model solves it come from <a href="https://arxiv.org/abs/2502.20332">Yang et al. (2025)</a>, and we followed this task in Qwen3.5-4B.</p>
+        <p>The ABA / ABB task and the three-stage picture of how a model solves it come from <a href="https://arxiv.org/abs/2502.20332">Yang et al. (2025)</a>, and we followed this task in <span class="nw">Qwen3.5-4B</span>.</p>
         <p>We gave the model comma-separated words with two examples of a repetition rule: ABA repeats the first item, as in “sun, tree, sun”, while ABB repeats the second, as in “sun, tree, tree”. At layers {{b4u.aba_layer_first}} to {{b4u.aba_layer_last}}, one group carried {{b4u.aba_one_lo}} to {{b4u.aba_one_hi}} of the effect of swapping the full residual difference between the rules, four groups carried {{b4u.aba_four_lo}} to {{b4u.aba_four_hi}}, and sixteen groups carried {{b4u.aba_sixteen_lo}} to {{b4u.aba_sixteen_hi}}.</p>
       <p>We shifted the residual stream within the frame of group {{b4u.aba_group}} at <code>resid_post.{{b4u.aba_layer}}</code> by the mean difference between the rules. This changed ABA to ABB in {{b4u.aba_to_abb}} of prompts, or {{b4u.aba_to_abb_twice}} at twice the shift. The share changing from ABB to ABA was {{b4u.abb_to_aba}}, or {{b4u.abb_to_aba_twice}} at twice the shift.</p>
       <p>A related study is <a href="https://arxiv.org/abs/2611.13270">Li and Webb</a>, “What drives the emergence of symbolic mechanisms in large language models?”</p>
@@ -599,23 +599,23 @@ python demo/line_count.py --release &lt;folder&gt; --device cuda:0 --out &lt;fol
       <summary>Numbers per layer</summary>
       <div class="fold-body">
         <p class="guide">FVU means fraction of variance unexplained: squared reconstruction error divided by squared deviation from the per-dimension mean of each held-out split. State FVU uses raw residual units, and MLP FVU uses raw MLP output units.</p>
-      <p class="guide">We re-measured state FVU at <code>resid_mid</code> and <code>resid_post</code> and MLP FVU on all tokens of four held-out splits except position 0, the first position of each sequence, giving {{fvu.tokens}} tokens per layer for Qwen3.5-0.8B and {{b4.fvu_tokens}} for Qwen3.5-4B. We recorded the other MLP FVU column, transforms on per token, and transforms alive at training on a held-out shard of each layer’s training capture with position 0 included, so the two MLP FVU columns use different tokens.</p>
+      <p class="guide">We re-measured state FVU at <code>resid_mid</code> and <code>resid_post</code> and MLP FVU on all tokens of four held-out splits except position 0, the first position of each sequence, giving {{fvu.tokens}} tokens per layer for <span class="nw">Qwen3.5-0.8B</span> and {{b4.fvu_tokens}} for <span class="nw">Qwen3.5-4B</span>. We recorded the other MLP FVU column, transforms on per token, and transforms alive at training on a held-out shard of each layer’s training capture with position 0 included, so the two MLP FVU columns use different tokens.</p>
       <p class="guide">Transforms on per token is the mean number of transforms whose gate is open at a token, and transforms alive counts those that fired on at least one token of that shard. In the figures, solid lines with filled marks show re-measured values, while dashed lines, open marks, and bars show values recorded at training.</p>
 <!--if 4b-->
-        <h3 id="numbers-4b">Qwen3.5-4B</h3>
+        <h3 id="numbers-4b"><span class="nw">Qwen3.5-4B</span></h3>
         <figure class="needs-js" id="fig-4b">
     <div class="figure-head">
       <div class="controls"><div class="control"><label for="b4-range">Layer</label><input type="range" id="b4-range" min="0" max="0" step="1" value="0"></div></div>
     </div>
     <div class="layer-readout" id="b4-readout" aria-live="polite"></div>
     <div class="panel-grid" id="b4-panels"></div>
-          <figcaption><b>Figure {{fig|4b}}.</b> The panels show state FVU, MLP FVU, transforms alive, and transforms that fire on at least 90% of tokens across the {{b4.layers}} layers of Qwen3.5-4B. The last panel also shows the share of summed write energy those transforms carry on web text. Solid lines with filled marks show re-measured values, while dashed lines, open marks, and bars show values recorded at training.</figcaption>
+          <figcaption><b>Figure {{fig|4b}}.</b> The panels show state FVU, MLP FVU, transforms alive, and transforms that fire on at least 90% of tokens across the {{b4.layers}} layers of <span class="nw">Qwen3.5-4B</span>. The last panel also shows the share of summed write energy those transforms carry on web text. Solid lines with filled marks show re-measured values, while dashed lines, open marks, and bars show values recorded at training.</figcaption>
         </figure>
-        <details class="more"><summary>Table: all {{b4.layers}} layers of the Qwen3.5-4B set</summary>
+        <details class="more"><summary>Table: all {{b4.layers}} layers of the <span class="nw">Qwen3.5-4B</span> set</summary>
 {{table|layers4b}}
         </details>
 <!--endif 4b-->
-        <h3 id="numbers-08b">Qwen3.5-0.8B</h3>
+        <h3 id="numbers-08b"><span class="nw">Qwen3.5-0.8B</span></h3>
         <figure class="needs-js" id="fig-layers">
     <div class="figure-head">
       <div class="controls">
@@ -632,16 +632,16 @@ python demo/line_count.py --release &lt;folder&gt; --device cuda:0 --out &lt;fol
     <div class="layer-readout" id="layer-readout" aria-live="polite"></div>
     <div class="panel-grid" id="layer-panels"></div>
     <div id="load-error-layers" class="load-error" hidden></div>
-          <figcaption><b>Figure {{fig|layers}}.</b> The panels show state FVU at both sites, MLP FVU, transforms on per token, and transforms alive across the {{model.layers}} layers of Qwen3.5-0.8B. Solid MLP FVU lines show re-measured values, and dashed lines show values recorded at training. The switch includes or drops position 0 in the re-measured series. Use the slider or pointer to read one layer.</figcaption>
+          <figcaption><b>Figure {{fig|layers}}.</b> The panels show state FVU at both sites, MLP FVU, transforms on per token, and transforms alive across the {{model.layers}} layers of <span class="nw">Qwen3.5-0.8B</span>. Solid MLP FVU lines show re-measured values, and dashed lines show values recorded at training. The switch includes or drops position 0 in the re-measured series. Use the slider or pointer to read one layer.</figcaption>
         </figure>
         <details class="more"><summary>Table: all {{model.layers}} layers</summary>
 {{table|layers}}
         </details>
-        <p class="guide">Spliced-in loss is the increase in next-token cross-entropy, in nats, when we replace the true activation with a dictionary’s reconstruction, one layer and one dictionary at a time. For Qwen3.5-0.8B, we recorded it at training across all {{model.layers}} layers on the first {{splice.documents}} FineWeb-Edu documents with at least {{splice.min_tokens}} tokens, using the first {{splice.tokens_each}} tokens of each document and averaging loss over positions {{splice.first_position}} to {{splice.last_position}}. The clean cross-entropy on this text was {{splice.clean_ce}}.</p>
+        <p class="guide">Spliced-in loss is the increase in next-token cross-entropy, in nats, when we replace the true activation with a dictionary’s reconstruction, one layer and one dictionary at a time. For <span class="nw">Qwen3.5-0.8B</span>, we recorded it at training across all {{model.layers}} layers on the first {{splice.documents}} FineWeb-Edu documents with at least {{splice.min_tokens}} tokens, using the first {{splice.tokens_each}} tokens of each document and averaging loss over positions {{splice.first_position}} to {{splice.last_position}}. The clean cross-entropy on this text was {{splice.clean_ce}}.</p>
         <figure class="needs-js" id="fig-splice">
     <div class="layer-readout" id="splice-readout" aria-live="polite"></div>
     <div class="panel-grid" id="splice-panels"></div>
-          <figcaption><b>Figure {{fig|splice}}.</b> The panels show spliced-in loss recorded at training for the Qwen3.5-0.8B state dictionary at <code>resid_post</code> and the MLP dictionary. The panels use different vertical scales.</figcaption>
+          <figcaption><b>Figure {{fig|splice}}.</b> The panels show spliced-in loss recorded at training for the <span class="nw">Qwen3.5-0.8B</span> state dictionary at <code>resid_post</code> and the MLP dictionary. The panels use different vertical scales.</figcaption>
         </figure>
         <details class="more"><summary>Table: spliced-in loss at all {{model.layers}} layers</summary>
 {{table|splice}}
@@ -652,7 +652,7 @@ python demo/line_count.py --release &lt;folder&gt; --device cuda:0 --out &lt;fol
     <details class="fold" id="checks">
       <summary>What was checked</summary>
       <div class="fold-body">
-        <p class="guide">We compared the published reader and demonstration with our research code and its records for the Qwen3.5-0.8B set. These checks show that the published files are read the way our research code read them.</p>
+        <p class="guide">We compared the published reader and demonstration with our research code and its records for the <span class="nw">Qwen3.5-0.8B</span> set. These checks show that the published files are read the way our research code read them.</p>
   <dl class="cards checks">
     <div><dt>State reader against our separate reader</dt><dd>The state reader was compared with a reader we wrote separately from our trainer, at {{check.state_layers}} layers, {{check.state_splits}} splits of {{check.state_split_tokens}} tokens and {{check.state_sites}} sites.
       <div class="figures"><span>tokens compared <b>{{check.state_tokens}}</b></span><span>tokens with a different group set <b>{{check.state_differ}}</b></span><span>raw reconstructions elsewhere agree within <b>{{check.state_recon}}</b> relative</span></div></dd></div>
@@ -693,8 +693,8 @@ python demo/line_count.py --release &lt;folder&gt; --device cuda:0 --out &lt;fol
 <footer class="colophon">
   <nav aria-label="Code and weights, again">
     <a href="https://github.com/mconcat/statescope">Code</a>
-    <a href="https://huggingface.co/mconcat/statescope-qwen3.5-4b">Weights for Qwen3.5-4B</a>
-    <a href="https://huggingface.co/mconcat/statescope-qwen3.5-0.8b">Weights for Qwen3.5-0.8B</a>
+    <a href="https://huggingface.co/mconcat/statescope-qwen3.5-4b">Weights for <span class="nw">Qwen3.5-4B</span></a>
+    <a href="https://huggingface.co/mconcat/statescope-qwen3.5-0.8b">Weights for <span class="nw">Qwen3.5-0.8B</span></a>
     <a href="#top">Back to the top</a>
   </nav>
 </footer>
