@@ -1,0 +1,545 @@
+<!doctype html>
+<!--
+  Source of index.html. Do not edit index.html: edit this template and run tools/build_page.py.
+  {{key}} is replaced by the display string of that key in data/facts.json; {{table:name}} by a table built from the data files.
+  No number that is a measurement or a count is typed in this file.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>statescope: per-layer dictionaries for Qwen3.5-0.8B</title>
+<meta name="description" content="statescope is a reader in one Python file and a set of dictionary weights for Qwen/Qwen3.5-0.8B: a state dictionary and an MLP dictionary at each layer, with a traced line-count demonstration.">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="preload" href="assets/fonts/site-sans-var.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="assets/css/site.css">
+<script>document.documentElement.classList.add("js");</script>
+<style>
+.js .collapsible:not(.open) { display: none; }
+.js .node-panel:not(.active) { display: none; }
+html:not(.js) [data-toggle], html:not(.js) .needs-js { display: none; }
+</style>
+</head>
+<body>
+<a class="skip" href="#main">Skip to the content</a>
+
+<header class="appbar">
+  <div class="appbar-inner">
+    <a class="brand" href="#top" aria-label="statescope, top of the page">
+      <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><rect x="1.5" y="1.5" width="15" height="15" rx="3" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M5 5.5v7M8 5.5v7M11 5.5v7M14 5.5v7" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" transform="translate(-0.5 0)"/></svg>
+      <span>statescope</span>
+    </a>
+    <nav class="section-nav" aria-label="Sections">
+      <a href="#what">What it is</a>
+      <a href="#numbers">Numbers per layer</a>
+      <a href="#demo">Line-count demonstration</a>
+      <a href="#limits">Limits</a>
+      <a href="#license">License</a>
+    </nav>
+    <div class="out-links">
+      <a href="https://github.com/mconcat/statescope">Code</a>
+      <a href="https://huggingface.co/mconcat/statescope-qwen3.5-0.8b">Weights</a>
+    </div>
+  </div>
+</header>
+
+<main id="main">
+<div class="wrap">
+
+  <div class="hero" id="top">
+    <div>
+      <div class="eyebrow">Per-layer dictionaries for Qwen3.5-0.8B</div>
+      <h1>statescope</h1>
+      <p class="lede">statescope is a reader in one Python file and a set of dictionary weights for <code>{{set.model}}</code>, with one state dictionary for two residual stream sites and one MLP dictionary of {{mlp.transforms}} gated low-rank transforms at each of the {{model.layers}} layers.</p>
+      <div class="actions">
+        <a class="button solid" href="https://github.com/mconcat/statescope">Code <small>github.com/mconcat/statescope</small></a>
+        <a class="button" href="https://huggingface.co/mconcat/statescope-qwen3.5-0.8b">Weights <small>huggingface.co/mconcat/statescope-qwen3.5-0.8b</small></a>
+      </div>
+    </div>
+    <dl class="rows card" aria-label="The set at a glance">
+      <div><dt>Base model</dt><dd>{{set.model}}</dd></div>
+      <div><dt>Layers, width</dt><dd>{{model.layers}}, {{model.width}}</dd></div>
+      <div><dt>Base-model revision</dt><dd>{{model.revision}}</dd></div>
+      <div><dt>Set frozen</dt><dd>{{set.frozen}}</dd></div>
+      <div><dt>Files</dt><dd>{{set.files}}</dd></div>
+      <div><dt>State dictionaries</dt><dd>about {{set.state_gib}} GiB</dd></div>
+      <div><dt>MLP dictionaries</dt><dd>about {{set.mlp_gib}} GiB</dd></div>
+    </dl>
+  </div>
+
+  <!-- ====================================================================== what it is -->
+  <section id="what" aria-labelledby="what-h">
+    <div class="eyebrow">Description</div>
+    <h2 id="what-h">What statescope is</h2>
+    <div class="prose">
+      <p>statescope contains a reader for per-layer dictionaries of <code>{{set.model}}</code>. The base model has {{model.layers}} layers and width {{model.width}}. Each layer has a state dictionary and an MLP dictionary that were trained separately. A state dictionary represents the residual stream at two sites of its layer. An MLP dictionary represents the layer's MLP operations, taking the post-norm MLP input and reconstructing the raw MLP output. This set contains no dictionaries for the mixers.</p>
+      <p>The repository contains the reader, a demonstration and tests. The trainers for this set are not in the repository.</p>
+    </div>
+
+    <div class="cols">
+      <div class="card">
+        <div class="card-type">One per layer, two sites</div>
+        <h3>State dictionary</h3>
+        <p>The state dictionary covers <code>resid_mid.L</code> and <code>resid_post.L</code>. The former is the input of the norm before the MLP. The latter is <code>resid_mid</code> plus the MLP output. The dictionary's tied form has {{state.groups}} groups of {{state.group_size}} directions. At each token, the {{state.active}} groups with the largest written norm are active.</p>
+        <p>The input is divided by its own size, and it is then standardised with a mean vector and one scale per site. Each layer's dictionary was trained on {{state.train_tokens}} tokens over {{state.train_steps}} steps.</p>
+      </div>
+      <div class="card">
+        <div class="card-type">One per layer</div>
+        <h3>MLP dictionary</h3>
+        <p>The MLP dictionary uses the sparse mixture of linear transforms, or MOLT, from the public <code>crosslayer-transcoder</code> code. It has {{mlp.transforms}} transforms in five rank tiers. There are {{mlp.tier1_n}} transforms of rank {{mlp.tier1_rank}}, {{mlp.tier2_n}} of rank {{mlp.tier2_rank}}, {{mlp.tier3_n}} of rank {{mlp.tier3_rank}}, {{mlp.tier4_n}} of rank {{mlp.tier4_rank}} and {{mlp.tier5_n}} of rank {{mlp.tier5_rank}}.</p>
+        <p>It uses a JumpReLU gate. Each transform has free read and write matrices. There is no skip connection. Training uses a tanh sparsity penalty. Training used {{mlp.train_steps}} steps of {{mlp.step_tokens}} tokens, or {{mlp.train_million_tokens}} million tokens, per layer.</p>
+      </div>
+    </div>
+
+    <div class="cols wide-left">
+      <div>
+        <h3 style="margin-top: var(--space-7)">Definitions</h3>
+        <dl class="defs">
+          <div><dt>Mixer</dt><dd>A mixer is a layer's GatedDeltaNet or attention sublayer.</dd></div>
+          <div><dt>Site</dt><dd>A residual stream site is a location between the mixer and the MLP or after the MLP where a state dictionary reads the residual stream.</dd></div>
+          <div><dt>Group</dt><dd>A group is a set of {{state.group_size}} directions in a state dictionary.</dd></div>
+          <div><dt>Frame</dt><dd>A frame is the orthonormal basis of a group's {{demo.frame_dim}}-dimensional write subspace.</dd></div>
+          <div><dt>Code</dt><dd>A code gives a token's coordinates in that frame, multiplied by a per-group scale.</dd></div>
+          <div><dt>Transform</dt><dd>A transform is a linear operation in an MLP dictionary with its own read and write matrices. Its write is what it adds to the MLP output.</dd></div>
+          <div><dt>Gate</dt><dd>A gate controls a transform through a learned threshold on its pre-activation.</dd></div>
+        </dl>
+      </div>
+      <figure class="schematic card">
+        <svg viewBox="0 0 360 436" role="img" aria-labelledby="schem-t schem-d">
+          <title id="schem-t">One layer and where each dictionary reads</title>
+          <desc id="schem-d">The residual stream runs from top to bottom. The mixer, a GatedDeltaNet or attention sublayer, adds to it; this set has no dictionary for the mixer. The stream after the mixer is the site resid_mid, where the state dictionary reads. A norm and the MLP follow; the MLP dictionary takes the post-norm MLP input and reconstructs the raw MLP output. The stream after the MLP output is added is the site resid_post, where the same state dictionary reads.</desc>
+          <defs>
+            <marker id="arr" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="s-arrow" d="M0 0.8 L7.2 4 L0 7.2 z"/></marker>
+          </defs>
+          <text x="54" y="20" class="s-muted">residual stream, from the layer before</text>
+          <path class="s-stream" d="M36 8 V422" marker-end="url(#arr)"/>
+
+          <path class="s-branch" d="M36 44 H222 V66" marker-end="url(#arr)"/>
+          <rect class="s-box plain" x="132" y="68" width="180" height="56" rx="7"/>
+          <text x="146" y="90" font-weight="600">mixer</text>
+          <text x="146" y="107" class="s-muted">GatedDeltaNet or attention</text>
+          <path class="s-branch" d="M222 124 V146 H46" marker-end="url(#arr)"/>
+          <circle class="s-add" cx="36" cy="146" r="8"/>
+          <path class="s-branch" d="M32 146 H40 M36 142 V150"/>
+          <text x="232" y="141" class="s-muted">no dictionary in this set</text>
+
+          <circle class="s-tap-state" cx="36" cy="186" r="6"/>
+          <path class="s-read-state" d="M44 186 H58"/>
+          <rect class="s-tag-state" x="58" y="172" width="232" height="28" rx="5"/>
+          <text x="68" y="190"><tspan class="s-mono">resid_mid.L</tspan><tspan dx="8">state dictionary reads</tspan></text>
+
+          <path class="s-branch" d="M36 222 H222 V240" marker-end="url(#arr)"/>
+          <rect class="s-box" x="162" y="242" width="120" height="30" rx="7"/>
+          <text x="176" y="261">norm</text>
+          <path class="s-branch" d="M222 272 V300" marker-end="url(#arr)"/>
+          <rect class="s-box" x="162" y="302" width="120" height="34" rx="7"/>
+          <text x="176" y="323" font-weight="600">MLP</text>
+          <path class="s-branch" d="M222 336 V362 H46" marker-end="url(#arr)"/>
+          <circle class="s-add" cx="36" cy="362" r="8"/>
+          <path class="s-branch" d="M32 362 H40 M36 358 V366"/>
+
+          <path class="s-read-mlp" d="M222 286 H150"/>
+          <circle cx="222" cy="286" r="3.5" fill="var(--series-b)"/>
+          <path class="s-read-mlp" d="M222 349 H150"/>
+          <circle cx="222" cy="349" r="3.5" fill="var(--series-b)"/>
+          <path class="s-read-mlp" d="M150 286 V349"/>
+          <rect class="s-tag-mlp" x="46" y="296" width="104" height="44" rx="5"/>
+          <text x="54" y="314">MLP dictionary</text>
+          <text x="54" y="330" class="s-muted">input to output</text>
+          <text x="232" y="290" class="s-muted">post-norm MLP input</text>
+          <text x="232" y="353" class="s-muted">raw MLP output</text>
+
+          <circle class="s-tap-state" cx="36" cy="398" r="6"/>
+          <path class="s-read-state" d="M44 398 H58"/>
+          <rect class="s-tag-state" x="58" y="384" width="240" height="28" rx="5"/>
+          <text x="68" y="402"><tspan class="s-mono">resid_post.L</tspan><tspan dx="8">state dictionary reads</tspan></text>
+        </svg>
+        <figcaption>One layer. The state dictionary reads the residual stream at <code>resid_mid.L</code> and <code>resid_post.L</code>. The MLP dictionary takes the post-norm MLP input and reconstructs the raw MLP output. The mixer has no dictionary in this set. The norm before the mixer is not drawn.</figcaption>
+      </figure>
+    </div>
+
+    <h3>Reading the dictionaries</h3>
+    <div class="prose">
+      <p>The reader is the single file <code>src/statescope/reader.py</code>. It needs torch, safetensors and PyYAML. It can be copied next to the weights. <code>capture</code> returns <code>resid_mid</code>, <code>mlp_out</code> and <code>resid_post</code> for the requested layer with position 0 dropped. It needs transformers and flash-linear-attention.</p>
+    </div>
+<pre class="codeblock"><code>{{reader.example}}</code></pre>
+    <p class="prose small"><code>python demo/verify_release.py --release &lt;folder&gt;</code> checks the {{set.files}} downloaded files against the manifest. <code>python demo/line_count.py --release &lt;folder&gt;</code> re-runs the traced line-count chain described below.</p>
+  </section>
+
+  <!-- ====================================================================== numbers per layer -->
+  <section id="numbers" aria-labelledby="numbers-h">
+    <div class="eyebrow">Reconstruction</div>
+    <h2 id="numbers-h">Numbers per layer</h2>
+    <div class="prose">
+      <p>FVU means fraction of variance unexplained. It is squared reconstruction error divided by squared deviation from the per-dimension mean of each held-out split. The state FVU is in raw residual units at the two state sites. The MLP FVU is in raw MLP output units.</p>
+    </div>
+
+    <div class="cols">
+      <div class="card">
+        <div class="card-type">Solid lines, filled marks</div>
+        <h3>Measured by this repository</h3>
+        <p>This repository measured the state FVU at both sites and the MLP FVU with its reader on all tokens of the original project's four held-out splits. The splits contain {{fvu.tokens}} tokens per layer, of which {{fvu.position_0_tokens}} are at position 0. Position 0 means the first position of each sequence.</p>
+        <p>The held-out activations are not published, so users cannot recompute these exact numbers.</p>
+      </div>
+      <div class="card">
+        <div class="card-type">Dashed lines, open marks</div>
+        <h3>Recorded at training by the original project</h3>
+        <p>The original project recorded the MLP FVU at training, the MLP transforms on per token and the MLP transforms alive on a held-out shard of each layer's training capture, with position 0 included. The shards were deleted afterwards. These numbers cannot be recomputed from the published files, and this repository did not repeat those measurements.</p>
+        <p>The two MLP FVU series differ because they are measured on different tokens.</p>
+      </div>
+    </div>
+
+    <div class="needs-js">
+      <div class="controls">
+        <div class="control">
+          <label for="layer-range">Layer</label>
+          <span class="stepper"><input type="range" id="layer-range" min="0" max="0" step="1" value="0"> <output id="layer-out" class="mono" for="layer-range"></output></span>
+        </div>
+        <div class="control">
+          <span class="label" id="p0-label">Position 0, series measured by this repository</span>
+          <div class="seg" role="group" aria-labelledby="p0-label" id="p0-seg">
+            <button type="button" data-value="dropped" aria-pressed="true">dropped</button>
+            <button type="button" data-value="with_p0" aria-pressed="false">included</button>
+          </div>
+        </div>
+        <button type="button" class="quiet" data-toggle="layers-table" aria-expanded="false">Show the table</button>
+      </div>
+      <div class="readout card" id="layer-readout" aria-live="polite"></div>
+      <div class="panel-grid" id="layer-panels"></div>
+      <div id="load-error-layers" class="load-error" hidden></div>
+    </div>
+    <p class="prose small">Transforms on per token is the mean number of transforms whose gate is open at a token. Transforms alive counts transforms that fired on at least one token of that shard, out of the total. The others never fired there. The sparsity penalty coefficient was {{mlp.penalty_main}} for layers {{model.first_layer}} to {{mlp.penalty_main_last_layer}}. Layer {{model.last_layer}} used {{mlp.penalty_last}} in a separate run. Position 0 matters for the state dictionary at some layers: at layer {{fvu.example_layer}}, <code>resid_mid</code>, the state FVU is {{fvu.l6_mid_with_p0}} with position 0 and {{fvu.l6_mid_dropped}} without it.</p>
+    <div class="collapsible" id="layers-table">
+      {{table:layers}}
+    </div>
+
+    <h3>Spliced-in loss</h3>
+    <div class="prose">
+      <p>Spliced-in loss is the increase in next-token cross-entropy when a dictionary reconstruction replaces the true activation in the forward pass, one layer and one dictionary at a time. The original project measured it in nats on text with clean cross-entropy {{splice.clean_ce}}. This repository did not repeat the measurement.</p>
+      <p>The original project used FineWeb-Edu rows outside the training mixture, taking the first {{splice.documents}} documents of at least {{splice.min_tokens}} tokens and the first {{splice.tokens_each}} tokens of each. Position 0 was not replaced. Loss was averaged over positions {{splice.first_position}} to {{splice.last_position}}, or {{splice.positions}} positions. The dictionaries are the released ones. The MLP result for layer {{model.last_layer}} comes from a separate measurement by the original project on the same kind of web text.</p>
+    </div>
+    <div class="note caveat prose"><strong>The earlier set had smaller increases.</strong> In the original project's comparison on the same text, the earlier set had smaller increases at all {{model.layers}} state layers and MLP layers {{model.first_layer}} to {{mlp.penalty_main_last_layer}}. For the state dictionary at layer {{splice.example_layer}}, it recorded {{splice.l9_state_here}} here against {{splice.l9_state_earlier}} for the earlier set. At layer {{model.last_layer}}, the released MLP dictionary had the smaller increase, {{splice.l23_mlp_here}} against {{splice.l23_mlp_earlier}} for the earlier set.</div>
+    <div class="needs-js">
+      <div class="controls">
+        <button type="button" class="quiet" data-toggle="splice-table" aria-expanded="false">Show the table</button>
+      </div>
+      <div class="readout three card" id="splice-readout" aria-live="polite"></div>
+      <div class="panel-grid" id="splice-panels"></div>
+    </div>
+    <div class="collapsible" id="splice-table">
+      {{table:splice}}
+    </div>
+  </section>
+
+  <!-- ====================================================================== demonstration -->
+  <section id="demo" aria-labelledby="demo-h">
+    <div class="eyebrow">Demonstration</div>
+    <h2 id="demo-h">Line counting</h2>
+    <div class="prose">
+      <p>The task uses texts wrapped to a fixed width. At the last word of a line, the model must predict a line break, so it must know how many characters the line already holds. Each item pairs {{demo.tokens_per_text}}-token texts ending on the same words. The clean text's last line is full. In the corrupt text, a line break is not due because the last line break was moved or all lines were wrapped wider.</p>
+      <p>The original project found the chain below. The script <code>demo/line_count.py</code> uses its chosen transform, group and head and re-measures their effects. It does not search for them. The shares, firing rates and per-item margins on this page are the output of one run of that script, read from its <code>result.json</code> and <code>result.safetensors</code>. No model runs in the browser.</p>
+    </div>
+
+    <dl class="defs prose">
+      <div><dt>Margin</dt><dd>The margin is the last-token logsumexp of newline-token logits minus the logsumexp of logits for tokens starting with a space.<pre class="mono">m = logsumexp(logits of newline tokens) - logsumexp(logits of tokens that start with a space)</pre></dd></div>
+      <div><dt>Patch, swap</dt><dd>A patch replaces a tensor in the clean run with a value built from the corrupt run and moved onto the clean run's token positions. Each row called a swap on this page is one such patched run of the clean texts.</dd></div>
+      <div><dt>Share</dt><dd>A share is the part of the clean/corrupt margin difference carried by the patched tensor. A share of 0 means that the patch changes nothing. A share of 1 means that the patch alone turns the clean run into the corrupt one.<pre class="mono">share = mean(m_clean - m_patched) / mean(m_clean - m_corrupt)</pre></dd></div>
+      <div><dt>Cell</dt><dd>A cell is a task setting defined by the wrapping width and how the corrupt text is made. The three cells are <code>count:60</code>, <code>count:100</code> and <code>width:100</code>. In the count cells, the last line break moves. In the width cell, all lines are wrapped wider. Each cell contains {{demo.items_per_cell}} pairs.</dd></div>
+      <div><dt>Halves</dt><dd>The original project ranked transforms on the odd-numbered items and reads results on the even-numbered ones, {{demo.items_per_half}} items per cell. Some groups were first chosen after looking at all items; when the original project repeated the selection on odd-numbered items only, the chosen groups, frames and transforms were the same. Head {{demo.head}} was known from earlier work. Intervals are bootstrap intervals from {{demo.interval_low}} % to {{demo.interval_high}} %.</dd></div>
+    </dl>
+
+    <h3>The traced chain</h3>
+    <p class="prose small needs-js">Select a step to read what was measured for it and to load its swap into the views below.</p>
+    <div class="chain" id="chain" role="group" aria-label="The traced chain, from the L8 MLP to the L9 MLP">
+      <button type="button" class="chain-node" data-node="t8" aria-pressed="true" aria-controls="panel-t8">
+        <span class="node-type">L8 MLP dictionary</span>
+        <span class="node-title">transform {{demo.l8_transform}}</span>
+        <span class="node-state">fires on the first token of a line</span>
+      </button>
+      <span class="chain-wire" aria-hidden="true"><svg width="22" height="12" viewBox="0 0 22 12"><path d="M1 6H19M14.5 2L19.5 6L14.5 10" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+      <button type="button" class="chain-node" data-node="g8" aria-pressed="false" aria-controls="panel-g8">
+        <span class="node-type">state dictionary, <span class="mono">resid_post.8</span></span>
+        <span class="node-title">group {{demo.l8_group}}</span>
+        <span class="node-state">the first-token-of-a-line group</span>
+      </button>
+      <span class="chain-wire" aria-hidden="true"><svg width="22" height="12" viewBox="0 0 22 12"><path d="M1 6H19M14.5 2L19.5 6L14.5 10" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+      <button type="button" class="chain-node own" data-node="mixer" aria-pressed="false" aria-controls="panel-mixer">
+        <span class="node-type">the model's own L9 mixer, no dictionary</span>
+        <span class="node-title">GatedDeltaNet head {{demo.head}}</span>
+        <span class="node-state">carries the count inside the mixer</span>
+      </button>
+      <span class="chain-wire" aria-hidden="true"><svg width="22" height="12" viewBox="0 0 22 12"><path d="M1 6H19M14.5 2L19.5 6L14.5 10" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+      <button type="button" class="chain-node" data-node="g9" aria-pressed="false" aria-controls="panel-g9">
+        <span class="node-type">state dictionary, <span class="mono">resid_mid.9</span></span>
+        <span class="node-title">group {{demo.l9_group}}</span>
+        <span class="node-state">its frame carries the count to the L9 transforms</span>
+      </button>
+      <span class="chain-wire" aria-hidden="true"><svg width="22" height="12" viewBox="0 0 22 12"><path d="M1 6H19M14.5 2L19.5 6L14.5 10" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+      <div class="chain-pair">
+        <button type="button" class="chain-node" data-node="t9a" aria-pressed="false" aria-controls="panel-t9">
+          <span class="node-type">L9 MLP dictionary</span>
+          <span class="node-title">transform {{demo.l9_transform_short}}</span>
+          <span class="node-state">on while the line is short</span>
+        </button>
+        <button type="button" class="chain-node" data-node="t9b" aria-pressed="false" aria-controls="panel-t9">
+          <span class="node-type">L9 MLP dictionary</span>
+          <span class="node-title">transform {{demo.l9_transform_long}}</span>
+          <span class="node-state">on once the line is long</span>
+        </button>
+      </div>
+    </div>
+
+    <div class="card node-panel active" id="panel-t8">
+      <h4>L8 MLP dictionary, transform {{demo.l8_transform}}</h4>
+      <p>Transform {{demo.l8_transform}} of the L8 MLP dictionary fires on the first token of a line. It fires on {{demo.t189_line_first}} of line-first tokens, {{demo.t189_newline}} of line-break tokens and {{demo.t189_other}} of other tokens. Its write lies mostly inside the frame of state group {{demo.l8_group}} of <code>resid_post.8</code>. Of the energy in its swapped write, {{demo.energy_group}} lies inside group {{demo.l8_group}}'s frame. The largest value among five random frames is {{demo.energy_random_max}}. The chance value for a {{demo.frame_dim}}-dimensional frame in {{demo.chance_dims}} dimensions is {{demo.chance_value}}.</p>
+      <div class="related needs-js" data-related="t8"></div>
+    </div>
+    <div class="card node-panel" id="panel-g8">
+      <h4>State group {{demo.l8_group}} of <span class="mono">resid_post.8</span></h4>
+      <p>State group {{demo.l8_group}} is the first-token-of-a-line group. It is sparse. In the count cells, transform {{demo.l8_transform}} or group {{demo.l8_group}} carries about as much as the whole L8 MLP output through the L9 mixer.</p>
+      <div class="related needs-js" data-related="g8"></div>
+    </div>
+    <div class="card node-panel" id="panel-mixer">
+      <h4>The model's L9 mixer, GatedDeltaNet head {{demo.head}}</h4>
+      <p>The model's L9 mixer reads that write. GatedDeltaNet head {{demo.head}} carries the count inside the mixer. Head {{demo.head}}'s read alone gives a larger share than the whole mixer output. Head {{demo.head}} was known from earlier work. This set contains no dictionaries for the mixers, so this step is measured in the model's own L9 mixer.</p>
+      <div class="related needs-js" data-related="mixer"></div>
+    </div>
+    <div class="card node-panel" id="panel-g9">
+      <h4>State group {{demo.l9_group}} of <span class="mono">resid_mid.9</span></h4>
+      <p>What the L9 transforms read of the mixer's write lies mostly inside the {{demo.frame_dim}}-dimensional frame of state group {{demo.l9_group}} of <code>resid_mid.9</code>. That part alone moves them about as much as the whole write. The rest moves them little but still reaches the answer through other routes. Group {{demo.l9_group}} is a dense group, not a sparse feature: some groups encountered by the original project on this task are dense {{demo.frame_dim}}-dimensional coordinates active on most tokens, and they carry information in their coordinates.</p>
+      <div class="related needs-js" data-related="g9"></div>
+    </div>
+    <div class="card node-panel" id="panel-t9">
+      <h4>L9 MLP dictionary, transforms {{demo.l9_transform_short}} and {{demo.l9_transform_long}}</h4>
+      <p>Transforms {{demo.l9_transform_short}} and {{demo.l9_transform_long}} of the L9 MLP dictionary turn the count into the line-break decision. Transform {{demo.l9_transform_short}} is on while the line is short, and transform {{demo.l9_transform_long}} is on once it is long. Transform {{demo.l9_transform_short}} carries the L9 MLP's effect in <code>count:60</code>, and transform {{demo.l9_transform_long}} carries it in <code>width:100</code>.</p>
+      <div class="related needs-js" data-related="t9"></div>
+    </div>
+
+    <h3>Shares by swap</h3>
+    <p class="prose small">Each row is a swap. Each value is a share, with the bootstrap interval in parentheses. In the count cells, transform {{demo.l8_transform}} or group {{demo.l8_group}} carries about as much as the whole L8 MLP output through the L9 mixer. Head {{demo.head}}'s read alone gives a larger share than the whole mixer output.</p>
+    <div class="needs-js">
+      <div class="scopebar" id="scopebar">
+        <div class="control">
+          <span class="label" id="cell-label">Cell</span>
+          <div class="seg mono-seg" role="group" aria-labelledby="cell-label" id="cell-seg"></div>
+        </div>
+        <div class="control">
+          <span class="label" id="half-label">Items</span>
+          <div class="seg" role="group" aria-labelledby="half-label" id="half-seg">
+            <button type="button" data-value="even" aria-pressed="true">even-numbered</button>
+            <button type="button" data-value="odd" aria-pressed="false">odd-numbered</button>
+            <button type="button" data-value="all" aria-pressed="false">all</button>
+          </div>
+        </div>
+        <p class="small" id="half-note" style="flex: 1 1 260px; margin: 0"></p>
+      </div>
+      <div id="load-error-demo" class="load-error" hidden></div>
+      <div class="figure card">
+        <div class="figure-head">
+          <h4 id="forest-title">Share of the clean/corrupt margin difference carried by each swap</h4>
+          <button type="button" class="quiet" data-toggle="shares-table" aria-expanded="false">Show the table</button>
+        </div>
+        <div class="forest" id="forest" aria-labelledby="forest-title"></div>
+      </div>
+    </div>
+    <div class="collapsible" id="shares-table">
+      {{table:shares}}
+    </div>
+
+    <h3>One swap, item by item</h3>
+    <p class="prose small">For each of the {{demo.items_per_cell}} items of a cell, the plot shows the margin of the clean run, of the corrupt run, and of the clean run with one swap. Single-item margins of dictionary swaps are reproducible only to about {{demo.margin_repro}}. Shares are reproducible only to about {{demo.share_repro}}.</p>
+    <div class="needs-js">
+      <div class="controls">
+        <div class="control" style="flex: 1 1 320px">
+          <label for="arm-select">Swap</label>
+          <select id="arm-select"></select>
+        </div>
+      </div>
+      <div class="figure card">
+        <div class="share-read">
+          <div aria-live="polite">
+            <div class="card-type" id="share-context"></div>
+            <div class="big" id="share-big"></div>
+            <div class="big-sub" id="share-interval"></div>
+            <p class="small" id="share-what" style="margin-top: var(--space-6)"></p>
+            <p class="small mono" id="share-means" style="margin-top: var(--space-4)"></p>
+          </div>
+          <div class="halves">
+            <h4 id="halves-title">The same swap on each set of items</h4>
+            <div class="forest" id="halves" aria-labelledby="halves-title"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="figure card">
+        <div class="figure-head">
+          <h4 id="items-title">Margin per item</h4>
+          <div class="controls" style="margin-top: 0">
+            <div class="seg" role="group" aria-label="Order of the items" id="sort-seg">
+              <button type="button" data-value="index" aria-pressed="true">by item number</button>
+              <button type="button" data-value="clean" aria-pressed="false">by clean margin</button>
+            </div>
+            <button type="button" class="quiet" data-toggle="items-table" aria-expanded="false">Show the table</button>
+          </div>
+        </div>
+        <div class="legend" aria-hidden="true">
+          <span><svg width="12" height="12"><circle cx="6" cy="6" r="4" class="pt-clean"/></svg>clean run</span>
+          <span><svg width="12" height="12"><circle cx="6" cy="6" r="3.5" class="pt-corrupt"/></svg>corrupt run</span>
+          <span><svg width="12" height="12"><path d="M6 1L11 6L6 11L1 6z" class="pt-patched"/></svg>clean run with the swap</span>
+          <span>faded: items outside the selected set</span>
+        </div>
+        <div class="plot plot-scroll" id="items-plot"></div>
+        <p class="small" style="margin-top: var(--space-4)">A higher margin favours a line break. Select an item in the plot, or step through the items below, to read its texts.</p>
+        <div class="collapsible" id="items-table"></div>
+      </div>
+
+      <div class="figure card" id="viewer">
+        <div class="viewer-head">
+          <h4 id="viewer-title">Item</h4>
+          <div class="controls" style="margin-top: 0">
+            <span class="stepper">
+              <button type="button" class="quiet" id="item-prev" aria-label="Previous item">&larr;</button>
+              <label class="visually-hidden" for="item-number">Item number</label>
+              <input type="number" id="item-number" min="0" max="0" step="1" value="0">
+              <button type="button" class="quiet" id="item-next" aria-label="Next item">&rarr;</button>
+            </span>
+          </div>
+        </div>
+        <div class="controls" style="margin-top: var(--space-5); gap: var(--space-4) var(--space-8)">
+          <span class="small">On the clean text, mark the tokens where the gate is open:</span>
+          <label class="check"><input type="checkbox" id="show-a" checked> <span class="key ga">L8 transform {{demo.l8_transform}}</span></label>
+          <label class="check"><input type="checkbox" id="show-b" checked> <span class="key gb">L9 transform {{demo.l9_transform_short}}</span></label>
+          <label class="check"><input type="checkbox" id="show-c" checked> <span class="key gc">L9 transform {{demo.l9_transform_long}}</span></label>
+          <span class="small"><span class="key last">last token</span> where the margin is read</span>
+        </div>
+        <div class="textbox-title"><span><strong>Clean text</strong>, its last line is full</span><span class="m" id="clean-margins"></span></div>
+        <div class="textbox" id="clean-box" tabindex="0" role="region" aria-label="Clean text of the selected item"></div>
+        <div class="textbox-title"><span><strong>Corrupt text</strong>, a line break is not due</span><span class="m" id="corrupt-margins"></span></div>
+        <div class="textbox" id="corrupt-box" tabindex="0" role="region" aria-label="Corrupt text of the selected item"></div>
+        <p class="attribution">Texts: re-wrapped excerpts from <code>HuggingFaceFW/fineweb-edu</code>, licensed under ODC-By 1.0. Each text is shown at its own line breaks with no further wrapping; the dashed guide marks the wrapping width of the cell.</p>
+      </div>
+    </div>
+
+    <h3>When the three transforms fire</h3>
+    <p class="prose small">Firing rate on the clean texts of the count cells. A transform fires at a token when its gate is open. The plot shows the tokens that are neither the first token of a line nor a line break, by the number of characters in the line so far.</p>
+    <div class="needs-js cols wide-left" style="margin-top: var(--space-6)">
+      <div class="figure card" style="margin-top: 0">
+        <div class="figure-head"><h4 id="firing-title">Firing rate by characters in the line so far</h4></div>
+        <div class="legend" id="firing-legend" aria-hidden="true"></div>
+        <div class="plot" id="firing-plot"></div>
+      </div>
+      <div id="firing-table"></div>
+    </div>
+
+    <h3>From the L9 mixer to the L9 transforms</h3>
+    <div class="prose">
+      <p>This comparison tests how the L9 mixer reaches the six L9 transforms selected by the original project ({{demo.six}}) and transforms {{demo.l9_transform_short}} and {{demo.l9_transform_long}} alone. The whole mixer swap and head {{demo.head}}'s swap are each applied in full, only inside the {{demo.frame_dim}}-dimensional frame of state group {{demo.l9_group}} of <code>resid_mid.9</code>, or as the rest. For the routes through transforms, the changed <code>resid_mid.9</code> enters the L9 MLP dictionary, and only the change in the selected transforms' writes is patched at the MLP output. The third route is the same change with everything downstream.</p>
+    </div>
+    <div class="needs-js">
+      <div class="controls">
+        <div class="control">
+          <span class="label" id="base-label">Change at the L9 mixer output</span>
+          <div class="seg" role="group" aria-labelledby="base-label" id="base-seg"></div>
+        </div>
+        <button type="button" class="quiet" data-toggle="link-table" aria-expanded="false">Show the table</button>
+      </div>
+      <div class="figure card">
+        <div class="figure-head"><h4 id="link-title">Share by part of the change and by route</h4><span class="figure-sub" id="link-sub"></span></div>
+        <div class="link-panels" id="link-panels" aria-labelledby="link-title"></div>
+      </div>
+    </div>
+    <div class="collapsible" id="link-table">
+      {{table:link}}
+    </div>
+    <div class="prose">
+      <p>The part inside group {{demo.l9_group}}'s frame moves the transforms about as much as the whole swap. The rest moves them little. On even-numbered items, for the whole mixer swap, the rest carries {{link.rest_six.count60}} in <code>count:60</code>, {{link.rest_six.count100}} in <code>count:100</code> and {{link.rest_six.width100}} in <code>width:100</code> through the six transforms. Through the two transforms alone, the rest carries {{link.rest_two.count60}}, {{link.rest_two.count100}} and {{link.rest_two.width100}}. A random {{demo.frame_dim}}-dimensional frame carries at most {{link.random_six_max}} through the six transforms and {{link.random_two_max}} through the two.</p>
+      <p>With everything downstream, the rest carries {{link.rest_down.count60}} in <code>count:60</code>, {{link.rest_down.count100}} in <code>count:100</code> and {{link.rest_down.width100}} in <code>width:100</code>. The frame is therefore not the only route to the answer. The downstream shares of the two parts do not add up to the whole.</p>
+    </div>
+    <div class="note caveat prose"><strong>A registered pass rule, met only in part.</strong> The original project registered a pass rule for the mixer-to-MLP link before measuring it. The part inside the frame must keep at least {{rule.inside_min}} of the whole share. The rest must keep at most {{rule.rest_max_fraction}} of it and at most {{rule.rest_max}}. Random frames must carry at most {{rule.random_max}}. The rule applies in both count cells. The original project's verdict was that the rule holds for the route through the six transforms and holds only in part for the route through {{demo.l9_transform_short}} and {{demo.l9_transform_long}} alone, because it recorded a share of {{rule.recorded_rest}} for the rest in <code>count:100</code> through those two transforms.</div>
+
+    <!-- ================================================================ SLOT (empty on purpose)
+         A later section "Steering one unit by a dose" goes here: a slider over a strength alpha with precomputed margins read
+         from data/steer.json. Nothing is rendered and nothing is fetched until that file and its section exist.
+         See the matching slot in assets/js/main.js.
+         ================================================================ -->
+  </section>
+
+  <!-- ====================================================================== SLOT (empty on purpose)
+       A later section "Qwen3.5-4B set" goes here, between the demonstration and the limits, with its own data files.
+       Nothing is rendered and nothing is fetched until it exists. See the matching slot in assets/js/main.js.
+       ====================================================================== -->
+
+  <!-- ====================================================================== limits -->
+  <section id="limits" aria-labelledby="limits-h">
+    <div class="eyebrow">Read this with the results</div>
+    <h2 id="limits-h">Limits and what is not shown</h2>
+    <div class="limits-grid">
+      <div class="card">
+        <h3>Scope of the set</h3>
+        <ul>
+          <li>The set covers one model, 0.8B, and one dictionary seed.</li>
+          <li>There are no dictionaries for the mixers, which are the GatedDeltaNet and attention sublayers.</li>
+          <li>Other models, including Qwen3.5-4B, are outside this set.</li>
+          <li>Every comparison ran on one machine with one RTX 5090. A second machine, a different GPU model and a fresh <code>pip install -e .</code> into a new environment were not checked.</li>
+          <li>A pre-activation within float rounding of its hard threshold can be on in one computation and off in another.</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3>The demonstration</h3>
+        <ul>
+          <li>It covers one model, 0.8B, and one dictionary seed, with texts wrapped to a fixed width.</li>
+          <li>This is an easy task for which the model has dedicated MLP neurons. The demonstration is not evidence that dictionary units are better than neurons.</li>
+          <li>State group {{demo.l8_group}} is sparse, but not every group is sparse. Some groups encountered by the original project on this task are dense {{demo.frame_dim}}-dimensional coordinates active on most tokens. They carry information in their coordinates. Group {{demo.l9_group}} is one of these dense groups, not a sparse feature.</li>
+          <li>The frame of group {{demo.l9_group}} is not the only route from the L9 mixer to the answer, and the registered pass rule for that link holds only in part for the route through transforms {{demo.l9_transform_short}} and {{demo.l9_transform_long}} alone.</li>
+          <li>The script takes the original project's choice of transform, group and head as given. It does not search for them.</li>
+          <li>Single-item margins of dictionary swaps are reproducible only to about {{demo.margin_repro}}. Shares are reproducible only to about {{demo.share_repro}}. A patched tensor is rounded to bf16. A {{demo.relative_difference}} relative difference between implementations flips some rounded elements.</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3>What cannot be reproduced from the published files</h3>
+        <ul>
+          <li>Training cannot be reproduced because the trainers for this set are not in the repository. Porting them is planned.</li>
+          <li>The per-layer reconstruction numbers and the spliced-in loss cannot be reproduced because the held-out activations and texts behind them are not published.</li>
+          <li>The original project recorded MLP FVU, transforms on per token and transforms alive at training on a held-out shard of each layer's training capture. The shards were subsequently deleted, including the shard for layer {{model.last_layer}}'s separate run. These training-time numbers cannot be recomputed from the published files.</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3>Measurements not repeated, and the comparison with the earlier set</h3>
+        <ul>
+          <li>This repository did not repeat the original project's training-time MLP held-out measurements or the spliced-in loss measurements.</li>
+          <li>No full-length training run was repeated for either design.</li>
+          <li>In the original project's spliced-in loss comparison on the same text, the earlier set had smaller increases at all {{model.layers}} state layers and MLP layers {{model.first_layer}} to {{mlp.penalty_main_last_layer}}.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- ====================================================================== license -->
+  <section id="license" aria-labelledby="license-h">
+    <div class="eyebrow">Terms</div>
+    <h2 id="license-h">License and credits</h2>
+    <dl class="defs credits">
+      <div><dt>Code</dt><dd>The code is licensed under MIT. Repository: <a href="https://github.com/mconcat/statescope">github.com/mconcat/statescope</a>.</dd></div>
+      <div><dt>Dictionary weights</dt><dd>The dictionary weights in the Hugging Face repository are released under MIT. Repository: <a href="https://huggingface.co/mconcat/statescope-qwen3.5-0.8b">huggingface.co/mconcat/statescope-qwen3.5-0.8b</a>.</dd></div>
+      <div><dt>Base model</dt><dd>The base model <code>{{set.model}}</code> is licensed under the Apache License, Version 2.0. The base model is not part of this set and is not redistributed here.</dd></div>
+      <div><dt>MLP dictionary form</dt><dd>The MLP dictionary's form and trainer come from the public <code>crosslayer-transcoder</code> code, branch MOLT, commit 376fabe. That code is MIT licensed, Copyright 2025 Georg Lange. The training fork changes no mechanism.</dd></div>
+      <div><dt>Demonstration texts</dt><dd>The demonstration texts come from <code>HuggingFaceFW/fineweb-edu</code>, licensed under ODC-By 1.0. The texts shown on this page are re-wrapped excerpts from that dataset.</dd></div>
+      <div><dt>Typefaces of this page</dt><dd>Pretendard and Geist Mono, both under the SIL Open Font License, served from this site as Latin subsets. The licence texts are in <a href="assets/fonts/LICENSE-Pretendard.txt">LICENSE-Pretendard.txt</a> and <a href="assets/fonts/LICENSE-Geist.txt">LICENSE-Geist.txt</a>.</dd></div>
+    </dl>
+  </section>
+
+</div>
+</main>
+
+<footer>
+  <div class="wrap">
+    <span>statescope. The measurements and counts on this page are filled in from the repository's files by the scripts in <code>tools/</code>.</span>
+    <span>No analytics and no trackers. Fonts and data are served from this site.</span>
+  </div>
+</footer>
+
+<div class="tip" id="tip" hidden></div>
+<noscript><div class="wrap"><p class="note">The charts and the interactive views need JavaScript. The text and the tables on this page do not.</p></div></noscript>
+<script type="module" src="assets/js/main.js"></script>
+</body>
+</html>
