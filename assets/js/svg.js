@@ -43,7 +43,7 @@ export function niceTicks(lo, hi, count = 4) {
 
 // axis tick text only; every data value on the page is a string written by tools/build_data.py
 export function tickText(v, step) {
-  const digits = step >= 1 ? 0 : Math.min(4, Math.ceil(-Math.log10(step) - 1e-9) + (String(step).includes("25") ? 1 : 0));
+  const digits = step >= 1 ? (Number.isInteger(step) ? 0 : 1) : Math.min(4, Math.ceil(-Math.log10(step) - 1e-9) + (String(step).includes("25") ? 1 : 0));
   return v.toFixed(digits);
 }
 

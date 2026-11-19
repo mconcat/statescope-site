@@ -22,19 +22,31 @@ HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 REL = "release/qwen35-08b-v2"
 SOURCES = ["README.md", f"{REL}/MODEL_CARD.md", "demo/line_count.py", f"{REL}/layers_table.md", f"{REL}/line_count_table.md",
            f"{REL}/line_count_link_table.md"]
+SOURCES_4B = ["release/qwen35-4b/layers_table.md", "release/qwen35-4b/MODEL_CARD.md"]                            # read when the page has the Qwen3.5-4B section
 PAGE_DATA = ["facts.json", "layers.json", "splice.json", "demo.json"]          # the item texts are data, not claims of the page
-ALLOWED_LINKS = ("https://github.com/mconcat/statescope", "https://huggingface.co/mconcat/statescope-qwen3.5-0.8b")
+OPTIONAL_DATA = ["layers-4b.json", "steer.json"]
+ALLOWED_LINKS = ("https://github.com/mconcat/statescope", "https://huggingface.co/mconcat/statescope-qwen3.5-0.8b",
+                 "https://huggingface.co/mconcat/statescope-qwen3.5-4b")
 STRIP = ".,;:!?()[]{}\"'`<>‘’“”"
 
 
 class Text(HTMLParser):
-    """the visible text of a page, the text alternatives in its attributes, and its prose blocks"""
+    """the visible text of a page, the text alternatives in its attributes, and its prose blocks.
+    An element with the attribute data-items holds text of the demonstration items (tokens and character counts): it is data, not
+    a claim of the page, and tools/verify_browser.py compares it with the item files."""
+    VOID = {"meta", "link", "br", "img", "input", "hr", "source", "wbr", "area", "base", "col", "embed", "track"}
 
     def __init__(self) -> None:
         super().__init__(convert_charrefs=True)
         self.skip, self.parts, self.blocks, self.block, self.links = 0, [], [], None, []
+        self.depth, self.items_at = 0, None
 
     def handle_starttag(self, tag, attrs):
+        if tag not in self.VOID:
+            self.depth += 1
+            if self.items_at is None and any(key == "data-items" for key, _ in attrs):
+                self.items_at = self.depth
+                self.skip += 1
         if tag in ("script", "style"):
             self.skip += 1
         described = tag == "meta" and dict(attrs).get("name") == "description"
@@ -47,6 +59,11 @@ class Text(HTMLParser):
             self.block = []
 
     def handle_endtag(self, tag):
+        if tag not in self.VOID:
+            if self.items_at == self.depth:
+                self.items_at = None
+                self.skip -= 1
+            self.depth -= 1
         if tag in ("script", "style"):
             self.skip -= 1
         if tag in ("p", "li", "dd", "figcaption") and self.block is not None:
@@ -101,12 +118,23 @@ def data_values(names: list[str]) -> str:
     return "\n".join(values)
 
 
+def has(name: str) -> bool:
+    return os.path.exists(os.path.join(HERE, "data", name))
+
+
 def source_text(repo: str) -> str:
     out = []
-    for rel in SOURCES:
-        with open(os.path.join(repo, rel)) as f:
+    paths = [os.path.join(repo, rel) for rel in SOURCES]
+    if has("layers-4b.json"):
+        paths += [os.path.join(repo, rel) for rel in SOURCES_4B]
+    for path in paths:
+        with open(path) as f:
             out.append(f.read())
     return "\n".join(out)
+
+
+def page_data() -> list[str]:
+    return PAGE_DATA + [name for name in OPTIONAL_DATA if has(name)]
 
 
 def untraceable(text: str, corpus: str) -> list[str]:
@@ -124,7 +152,7 @@ def main() -> None:
     parser.feed(re.sub(r"<!--.*?-->", "", raw, flags=re.S))
     page_text = "\n".join(parser.parts)
     sources = source_text(args.repo)
-    corpus = sources + "\n" + data_values(PAGE_DATA)
+    corpus = sources + "\n" + data_values(page_data())
 
     words = words_with_digits(page_text)
     bad = untraceable(page_text, corpus)
@@ -134,12 +162,12 @@ def main() -> None:
     failed |= bool(bad)
 
     with open(os.path.join(HERE, "tools", "page.template.html")) as f:
-        template = re.sub(r"\{\{[A-Za-z0-9_.:]+\}\}", "\u00a7", re.sub(r"<!--.*?-->", "", f.read(), flags=re.S))
+        template = re.sub(r"\{\{[A-Za-z0-9_.:/|, -]+\}\}", "\u00a7", re.sub(r"<!--.*?-->", "", f.read(), flags=re.S))
     typed = Text()
     typed.feed(template)
     typed_words = sorted(set(words_with_digits("\n".join(typed.parts))))
-    print(f"   typed in the template, not filled from a data file ({len(typed_words)} distinct; names of layers, sites, cells, models and licences, "
-          "and the terms 'position 0', 'share of 0', 'share of 1'): " + ", ".join(typed_words))
+    print(f"   typed in the template, not filled from a data file ({len(typed_words)} distinct; names of layers, sites, cells, models, rules and "
+          "licences, bin edges and widths named in the README, and the terms 'position 0', 'share of 0', 'share of 1'): " + ", ".join(typed_words))
 
     flat = " ".join(sources.replace("`", "").split())
     sentences = []

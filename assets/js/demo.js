@@ -15,10 +15,10 @@ export function initDemo(demo, load) {
   const units = [String(c.l8_transform), ...c.l9_transforms.map(String)];
   const unitNames = [`L8 transform ${units[0]}`, `L9 transform ${units[1]}`, `L9 transform ${units[2]}`];
   const state = {
-    cell: demo.lead.cell,
+    cell: cells[0],
     half: "even",
     arm: `l8/t${c.l8_transform}`,
-    item: demo.lead.item,
+    item: 0,
     base: Object.keys(demo.link_labels.bases)[0],
     sort: "index",
     lines: "tail",
@@ -173,13 +173,13 @@ export function initDemo(demo, load) {
       for (const row of step.rows) {
         const track = h("span", { class: "track" });
         for (const tick of [0, 0.25, 0.5, 0.75]) track.append(h("i", { class: "tk", style: `left:${X(tick) * 100}%` }));
-        const ci = h("i", { class: "ci" });
         const value = h("span", { class: "value" });
-        track.append(ci, h("i", { class: "pt" }), value);
+        track.append(h("i", { class: "ci" }), h("i", { class: "pt" }));
         const button = h(
           "button",
           { type: "button", class: `chain-row ${row.unit ? "unit" : "ref"} ${row.unit ? colourOf(row.arm) : "c-ref"}`, "data-arm": row.arm, "aria-pressed": "false" },
           h("span", { class: "name", text: row.name }),
+          value,
           track,
         );
         button.addEventListener("click", () => {
@@ -233,7 +233,7 @@ export function initDemo(demo, load) {
 
   const plot = document.getElementById("items-plot");
   const H = 300;
-  const M = { l: 40, r: 8, t: 12, b: 34 };
+  const M = { l: 40, r: 8, t: 26, b: 34 };
   let plotWidth = 0;
   function drawItems() {
     if (!plotWidth) return;
@@ -263,7 +263,7 @@ export function initDemo(demo, load) {
       axis.append(svg("path", { d: `M${M.l} ${y(tick)}H${plotWidth - M.r}`, class: tick === 0 ? "zero" : "gridline" }));
       axis.append(svg("text", { x: M.l - 7, y: y(tick) + 3.5, "text-anchor": "end" }, tickText(tick, yt.step)));
     }
-    axis.append(svg("text", { x: 0, y: M.t - 2, class: "axis-label" }, "margin"));
+    axis.append(svg("text", { x: 0, y: 10, class: "axis-label" }, "margin"));
     if (state.sort === "index") {
       for (let i = 0; i < n; i += 8) axis.append(svg("text", { x: M.l + (i + 0.5) * step, y: H - M.b + 15, "text-anchor": "middle" }, String(i)));
     }
@@ -345,12 +345,11 @@ export function initDemo(demo, load) {
       for (const row of demo.link_table[state.half]) {
         if (row.part !== "random" && row.base !== state.base) continue;
         const text = row.cells[state.cell][route];
+        if (text === undefined) continue; // random frames were measured through the transforms only
         const kind = row.part === "full" ? "all" : row.part === "random" ? "random" : row.part.startsWith("minus") ? "rest" : "inside";
-        const label = row.part === "random" ? `${labels.bases[row.base]}, ${labels.parts[row.part]}` : upper(labels.parts[row.part]);
-        const bar = h("div", { class: `hbar ${kind}${text === undefined ? " none" : ""}` }, h("span", { class: "hbar-label", text: label }), h("b", { text: text ?? "not measured" }));
-        const track = h("div", { class: "hbar-track" });
-        if (text !== undefined) track.append(h("i", { style: `--v:${Math.max(0, Math.min(1, Number(text)))}` }));
-        bar.append(track);
+        const label = row.part === "random" ? `Random frame, ${labels.bases[row.base]}` : upper(labels.parts[row.part]);
+        const bar = h("div", { class: `hbar ${kind}` }, h("span", { class: "hbar-label", text: label }), h("b", { text }));
+        bar.append(h("div", { class: "hbar-track" }, h("i", { style: `--v:${Math.max(0, Math.min(1, Number(text)))}` })));
         panel.append(bar);
       }
       linkPanels.append(panel);

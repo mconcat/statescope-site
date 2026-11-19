@@ -96,7 +96,7 @@ body {
   background: var(--ground);
   color: var(--ink);
   font: 400 1rem/1.65 var(--sans);
-  font-feature-settings: "ss06", "calt";
+  word-spacing: 0.02em;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
 }
@@ -210,6 +210,20 @@ dfn {
 strong,
 b {
   font-weight: 650;
+}
+/* the face has a quarter-em word space at every weight; bold text needs a little more */
+h1,
+h2,
+h3,
+h4,
+b,
+strong,
+dfn,
+dt,
+.figure-title,
+.step-unit,
+.chain-row.unit .name {
+  word-spacing: 0.045em;
 }
 code,
 kbd,
@@ -410,7 +424,7 @@ figcaption code {
   position: relative;
   width: max-content;
   min-width: calc((var(--w) + 7) * var(--cw));
-  font: 400 13px/2.45 var(--mono);
+  font: 400 13px/2.7 var(--mono);
   font-variant-ligatures: none;
   color: var(--ink);
 }
@@ -516,6 +530,12 @@ figcaption code {
 .tmap {
   display: none;
   margin-bottom: 1.2rem;
+}
+.narrow-note {
+  display: none;
+  margin: 0.3rem 0 0.9rem;
+  font-size: 0.76rem;
+  color: var(--muted);
 }
 .tmap-line {
   display: flex;
@@ -771,19 +791,12 @@ input[type="number"]::-webkit-inner-spin-button {
   grid-column: 1 / -1;
 }
 .chain-axis {
-  position: sticky;
-  top: 0;
-  z-index: 1;
-  padding: 0.3rem 0 0.2rem;
-  background: var(--ground);
-}
-.chain-axis .scale,
-.chain-row .track {
-  position: relative;
-  margin-right: 10.5rem;
+  padding: 0.3rem 0 0;
 }
 .chain-axis .scale {
+  position: relative;
   height: 1.1rem;
+  margin-right: 0.4rem;
   border-bottom: 1px solid var(--grid);
   font-family: var(--mono);
   font-size: 10.5px;
@@ -795,11 +808,12 @@ input[type="number"]::-webkit-inner-spin-button {
   left: calc(var(--x) * 100%);
   transform: translateX(-50%);
 }
-.chain-axis .scale span:first-child {
-  transform: none;
+.chain-axis .scale span:last-child {
+  transform: translateX(-100%);
 }
 .chain-axis .axis-name {
   align-self: end;
+  padding-left: 1.5rem;
   color: var(--muted);
 }
 .chain-step {
@@ -872,10 +886,12 @@ input[type="number"]::-webkit-inner-spin-button {
 .chain-row {
   appearance: none;
   display: grid;
-  grid-template-columns: minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr) auto;
+  column-gap: 1rem;
+  align-items: baseline;
   width: 100%;
   margin: 0;
-  padding: 0.28rem 0.4rem 0.34rem 0;
+  padding: 0.3rem 0.4rem 0.4rem 0;
   border: 0;
   border-radius: 3px;
   background: transparent;
@@ -900,9 +916,20 @@ input[type="number"]::-webkit-inner-spin-button {
   color: var(--ink);
   font-weight: 600;
 }
+.chain-row .value {
+  font-family: var(--mono);
+  font-size: 0.92em;
+  white-space: nowrap;
+  color: var(--ink);
+}
+.chain-row .value span {
+  color: var(--faint);
+}
 .chain-row .track {
+  grid-column: 1 / -1;
+  position: relative;
   height: 15px;
-  margin-top: 2px;
+  margin-top: 3px;
   border-right: 1px solid var(--line);
   background: linear-gradient(var(--line-soft), var(--line-soft)) 0 50% / 100% 1px no-repeat;
 }
@@ -934,19 +961,6 @@ input[type="number"]::-webkit-inner-spin-button {
 .chain-row.ref .pt {
   background: var(--ground);
   border: 1.5px solid var(--c);
-}
-.chain-row .value {
-  position: absolute;
-  left: calc(100% + 0.8rem);
-  top: -1px;
-  width: 9.6rem;
-  font-family: var(--mono);
-  font-size: 0.92em;
-  white-space: nowrap;
-  color: var(--ink);
-}
-.chain-row .value span {
-  color: var(--faint);
 }
 .c-a {
   --c: var(--u189);
@@ -1546,7 +1560,8 @@ details.more > summary:hover {
 
 /* ------------------------------------------------------------------ narrower screens */
 @media (max-width: 940px) {
-  .lead-body .tmap {
+  .lead-body .tmap,
+  .lead-body .narrow-note {
     display: block;
   }
   .lead-body {
@@ -1596,10 +1611,6 @@ details.more > summary:hover {
   .chain-axis .axis-name {
     display: none;
   }
-  .chain-axis .scale,
-  .chain-row .track {
-    margin-right: 8.6rem;
-  }
   .chain-axis .scale {
     margin-left: 1.5rem;
   }
@@ -1616,10 +1627,8 @@ details.more > summary:hover {
   .chain-step:last-child .step-what::before {
     bottom: calc(100% - 1.6rem);
   }
-  .chain-row .value {
-    width: 8rem;
-    left: calc(100% + 0.5rem);
-    font-size: 0.86em;
+  .chain-row .value span {
+    display: none;
   }
   .link-panels,
   .panel-grid {

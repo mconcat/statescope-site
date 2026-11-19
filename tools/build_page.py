@@ -9,6 +9,7 @@ Placeholders of the template (an unknown one stops the build):
   {{rate|<unit>|<bin>}}        firing rate of data/demo.json, for example {{rate|L9 transform 410|30-39}}
   {{table|<name>}}             a table built from the data files
   {{lead}}                     the token-level text of the first figure, built from data/items-<cell>.json (item of demo.json "lead")
+  {{strips}}                   the same lines as strips scaled to the figure's width, shown on narrow screens
   {{rates}}                    the firing-rate chart of the first figure, built from data/demo.json
   {{toc}}                      the list of sections (every <h2 id=...> of the page)
   {{fig|<name>}}               the number of <figure id="fig-<name>">, counted in page order
@@ -151,8 +152,18 @@ def lead_figure(demo: dict) -> str:
         end = item["chars"][line[-1]] if item["clean"][line[-1]] != "\n" else item["chars"][line[-2]]
         out.append(f'<div class="tline">{"".join(spans)}<span class="count" aria-hidden="true">{end}</span></div>')
     out.append("</div>")
-    # the same lines, one strip per line scaled to the figure's width, for screens too narrow for the text
-    out.append(f'<div class="tmap" data-items aria-hidden="true" style="--w:{width}">')
+    return "\n".join(out)
+
+
+def lead_strips(demo: dict) -> str:
+    """the same lines, one strip per line scaled to the figure's width, for screens too narrow for the text"""
+    lead, c = demo["lead"], demo["constants"]
+    info = next(x for x in demo["cells"] if x["key"] == lead["cell"])
+    item = data(info["file"])["items"][lead["item"]]
+    units = [str(c["l8_transform"])] + [str(t) for t in c["l9_transforms"]]
+    lines = token_lines(item)[-lead["lines"]:]
+    last, width = len(item["clean"]) - 1, info["width"]
+    out = [f'<div class="tmap" data-items aria-hidden="true" style="--w:{width}">']
     for line in lines:
         strip = []
         for i in line:
@@ -182,7 +193,7 @@ def rates_chart(demo: dict) -> str:
             bars.append(f'<i class="bar {cls}" style="--r:{rate}">{label}</i>')
         out.append(f'<div class="bin" data-bin="{b}">{"".join(bars)}</div>')
     out.append("</div>")
-    out.append('<div class="rates-x" aria-hidden="true">' + "".join(f"<span>{b.replace('-', '–')}</span>" for b in bins) + "</div>")
+    out.append('<div class="rates-x" aria-hidden="true">' + "".join(f"<span>{b}</span>" for b in bins) + "</div>")
     out.append("</div>")
     return "\n".join(out)
 
@@ -222,6 +233,8 @@ def main() -> None:
             return next(b["rate"] for b in demo["firing_rate"][parts[1]]["by_chars_in_line"] if b["bin"] == parts[2])
         if key == "lead":
             return lead_figure(demo)
+        if key == "strips":
+            return lead_strips(demo)
         if key == "rates":
             return rates_chart(demo)
         if key == "toc":

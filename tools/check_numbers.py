@@ -3,6 +3,7 @@ page's data files and the built page hold.
 
     python -B tools/check_numbers.py --repo <statescope checkout> --result <folder with result.json and result.safetensors>
                                      --hf-home <Hugging Face cache with the Qwen3.5-0.8B tokenizer>
+                                     [--weights-4b <folder of the Qwen3.5-4B weights with ALWAYS_ON.json>]
 
 Shares are recomputed from the per-item margins with the formula and the bootstrap of demo/line_count.py's docstring and share().
 Exit status 1 if any check fails.
@@ -56,6 +57,7 @@ def main() -> None:
     ap.add_argument("--repo", required=True)
     ap.add_argument("--result", required=True)
     ap.add_argument("--hf-home", required=True)
+    ap.add_argument("--weights-4b", help="needed when the site has data/layers-4b.json")
     args = ap.parse_args()
     torch.set_num_threads(4)
     repo = lambda rel: os.path.join(args.repo, rel)
@@ -158,9 +160,99 @@ def main() -> None:
     check("18. groups, directions per group and active groups from the manifest",
           (f"{manifest['3']['state']['groups']:,}", str(manifest["3"]["state"]["group_size"]), str(manifest["3"]["state"]["k"])),
           (facts["state.groups"]["display"], facts["state.group_size"]["display"], facts["state.active"]["display"]))
-    for n, (key, sentence) in enumerate((("fvu.tokens", "The splits contain {} tokens per layer"), ("splice.clean_ce", "on text with clean cross-entropy {}."),
-                                         ("rule.inside_min", "must keep at least {} of the whole share")), start=19):
-        check(f"{n}. the README holds the sentence with the page's value of {key}", True, sentence.format(facts[key]["display"]) in readme)
+    for n, (key, sentence, text, name) in enumerate((("fvu.tokens", "The splits for the 0.8B set contain {} tokens per layer", readme, "README"),
+                                                     ("splice.clean_ce", "on text with clean cross-entropy {}.", card, "model card"),
+                                                     ("rule.inside_min", "The rule requires at least {} of the whole share inside the frame", readme, "README")), start=19):
+        check(f"{n}. the {name} holds the sentence with the page's value of {key}", True, sentence.format(facts[key]["display"]) in text)
+
+    # 22-24: how the paired texts are made, and the text of the first figure, from the token ids
+    def lines_of(ids) -> list[str]:
+        return tok.decode(ids.tolist()).split("\n")
+
+    fills, widest, short = [], [], []
+    for cell, width in (("count:60", 60), ("count:100", 100), ("width:100", 100)):
+        for i in range(items[f"{cell}/ids"].shape[0]):
+            clean, corrupt = lines_of(items[f"{cell}/ids"][i]), lines_of(items[f"{cell}/cor"][i])
+            short.append(width - len(clean[-1]))
+            if cell.startswith("count"):
+                fills.append(len(corrupt[-1]) / width)
+            else:
+                widest.append(max(len(line) for line in corrupt[1:]) / width)
+    check("22. corrupt texts: smallest and largest fill of the last line in the count cells (per cent), widest line in the width cell (times the width), "
+          "and how short the clean last line is at most",
+          (f"{min(fills) * 100:.0f}", f"{max(fills) * 100:.0f}", f"{max(widest):.2f}", str(max(short))),
+          tuple(facts[k]["display"] for k in ("demo.corrupt_fill_low", "demo.corrupt_fill_high", "demo.width_factor", "demo.clean_short_max")))
+    lead = demo["lead"]
+    cell_index = [c["key"] for c in demo["cells"]].index(lead["cell"])
+    row = cell_index * demo["items"] + lead["item"]
+    shown = site(demo["cells"][cell_index]["file"])["items"][lead["item"]]
+    check("23. characters in the line at every token of the first figure's text, from the script's labels",
+          [int(v) for v in T["label/chars"][row].tolist()], shown["chars"])
+    from html.parser import HTMLParser
+
+    class Lead(HTMLParser):
+        def __init__(self):
+            super().__init__(convert_charrefs=True)
+            self.inside, self.depth, self.text, self.on = False, 0, [], {"a": 0, "b": 0, "c": 0}
+            self.tok = False
+
+        def handle_starttag(self, tag, attrs):
+            a = dict(attrs)
+            if tag == "div" and "ttext" in a.get("class", "").split() and "data-items" in a:
+                self.inside, self.depth = True, 0
+            if self.inside and tag == "div":
+                self.depth += 1
+            cls = a.get("class", "").split()
+            self.tok = self.inside and tag == "span" and "tok" in cls
+            if self.tok:
+                for letter in self.on:
+                    self.on[letter] += letter in cls
+
+        def handle_endtag(self, tag):
+            if self.inside and tag == "div":
+                self.depth -= 1
+                if self.depth == 1 and self.text and self.text[-1] != "\n":
+                    self.text.append("\n")
+                self.inside = self.depth > 0
+            self.tok = False
+
+        def handle_data(self, data):
+            if self.tok:
+                self.text.append(data.replace("\u23ce", ""))
+
+    parsed = Lead()
+    parsed.feed(page)
+    want_lines = tok.decode(items[f"{lead['cell']}/ids"][lead["item"]].tolist()).split("\n")[-lead["lines"]:]
+    n_tokens = 0
+    count = 0
+    for j in range(len(shown["clean"]) - 1, -1, -1):          # tokens of the last lines
+        count += shown["clean"][j] == "\n"
+        if count == lead["lines"]:
+            break
+        n_tokens += 1
+    tail = slice(len(shown["clean"]) - n_tokens, None)
+    gates = (int((T["gate/l8"][row, tail, 0] > 0).sum()), int((T["gate/l9"][row, tail, 0] > 0).sum()), int((T["gate/l9"][row, tail, 1] > 0).sum()))
+    check("24. the first figure in the built page: its text (decoded from the token ids) and the number of tokens marked for each of the three transforms",
+          ("\n".join(want_lines), gates), ("".join(parsed.text).rstrip("\n"), (parsed.on["a"], parsed.on["b"], parsed.on["c"])))
+
+    # 25-26: the Qwen3.5-4B section, when the site has it
+    if os.path.exists(os.path.join(HERE, "data", "layers-4b.json")):
+        four = site("layers-4b.json")["rows"]
+        with open(repo("release/qwen35-4b/reader_fvu.json")) as f:
+            fvu4 = json.load(f)["layers"]
+        with open(repo("release/qwen35-4b/MANIFEST.json")) as f:
+            manifest4 = json.load(f)["layers"]
+        check("25. 4B: state FVU at resid_post.16 and MLP FVU at layer 31, position 0 dropped; transforms alive at layer 31",
+              (f"{fvu4['16']['resid_post.16']['position_0_dropped']:.4f}", f"{fvu4['31']['mlp']['position_0_dropped']:.4f}",
+               f"{manifest4['31']['mlp']['alive']} of {manifest4['31']['mlp']['transforms']}"),
+              (four[16]["dropped"]["state_post"], four[31]["dropped"]["mlp"], four[31]["alive_text"]))
+        assert args.weights_4b, "--weights-4b is needed to check the always-on counts"
+        with open(os.path.join(args.weights_4b, "ALWAYS_ON.json")) as f:
+            always = json.load(f)["layers"]
+        best = max(always, key=lambda k: always[k]["energy_share_on_90pct"])
+        check("26. 4B: always-on transforms at layer 13 (web text / training mix), and the layer with the largest share of write energy",
+              (f"{len(always['13']['on_90pct'])} / {always['13']['training_mix_heldout_counts']['on_90pct']}", best, f"{always[best]['energy_share_on_90pct']:.2f}"),
+              (four[13]["always_text"], facts["b4.energy_max_layer"]["display"], facts["b4.energy_max"]["display"]))
 
     print(f"\n{sum(results)} of {len(results)} checks passed")
     sys.exit(0 if all(results) else 1)

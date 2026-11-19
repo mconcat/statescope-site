@@ -30,13 +30,13 @@
   <p class="standfirst">Per-layer dictionaries for the language model Qwen3.5-0.8B: a state dictionary of the residual stream and an MLP dictionary of gated low-rank transforms at each of its 24 layers, a reader in one Python file, and one computation followed through named units.</p>
   <dl class="byline">
     <div><dt>Base model</dt><dd><code>Qwen/Qwen3.5-0.8B</code><span class="sub">24 layers, width 1024</span></dd></div>
-    <div><dt>Published</dt><dd>2026-11-20<span class="sub">set frozen on 2026-11-18</span></dd></div>
+    <div><dt>Set frozen</dt><dd>2026-11-18<span class="sub">one dictionary seed</span></dd></div>
     <div><dt>Code</dt><dd><a href="https://github.com/mconcat/statescope">mconcat/statescope</a><span class="sub">on GitHub, MIT</span></dd></div>
     <div><dt>Weights</dt><dd><a href="https://huggingface.co/mconcat/statescope-qwen3.5-0.8b">mconcat/statescope-qwen3.5-0.8b</a><span class="sub">on Hugging Face, MIT, about 27.4 GiB</span></dd></div>
   </dl>
 
   <div class="abstract">
-    <p>statescope is a reader in one Python file and a set of dictionary weights for <code>Qwen/Qwen3.5-0.8B</code>. Each of the model's 24 layers has two dictionaries that were trained separately. The state dictionary writes the residual stream as a few active groups of directions. The MLP dictionary writes the layer's MLP as a sum of small gated linear operations called transforms.</p>
+    <p>statescope is a reader in one Python file and a set of dictionary weights for <code>Qwen/Qwen3.5-0.8B</code>. Each of the model's 24 layers has two dictionaries that were trained separately. The state dictionary writes the residual stream as a few active groups of directions. The MLP dictionary writes the layer's MLP as a sum of small gated linear operations called transforms. A <a href="#qwen35-4b">second set</a> for <code>Qwen/Qwen3.5-4B</code> uses the same reader.</p>
     <p>This page follows one computation through these units: how the model decides to break a line in text wrapped to a fixed width. One transform at layer 8 fires on the first token of each line. A head of the layer-9 mixer carries the count of characters since then. Two transforms at layer 9 turn the count into the line-break decision: one is on while the line is short, and the other is on once it is long. In text wrapped at 60 characters, swapping only the first transform's write through the mixer carries 0.328 of the change in the model's preference for a line break, and swapping the whole layer-8 MLP output the same way carries 0.353.</p>
     <p>The evidence is narrow. The set covers one model and one dictionary seed, and it has no dictionaries for the mixers. The demonstration covers one easy task with dedicated MLP neurons and is not evidence that dictionary units are better than neurons. The trainers are not in the repository, and the per-layer numbers cannot be recomputed from the published files. The section <a href="#limits">Limits</a> lists all of this.</p>
   </div>
@@ -76,6 +76,8 @@
 <div class="tline"><span class="tok a b" data-i="221" data-c="11">environment</span><span class="tok" data-i="222" data-c="18"> around</span><span class="tok" data-i="223" data-c="19">.</span><span class="tok" data-i="224" data-c="27"> Another</span><span class="tok" data-i="225" data-c="39"> application</span><span class="tok b" data-i="226" data-c="42"> is</span><span class="tok b" data-i="227" data-c="51"> provided</span><span class="tok b" data-i="228" data-c="54"> by</span><span class="tok b" data-i="229" data-c="58"> the</span><span class="tok" data-i="230" data-c="67"> enhanced</span><span class="tok" data-i="231" data-c="71"> oil</span><span class="tok" data-i="232" data-c="80"> recovery</span><span class="tok c" data-i="233" data-c="91"> technology</span><span class="tok c" data-i="234" data-c="96"> that</span><span class="tok c nl" data-i="235" data-c="0">⏎</span><span class="count" aria-hidden="true">96</span></div>
 <div class="tline"><span class="tok a b" data-i="236" data-c="4">uses</span><span class="tok" data-i="237" data-c="7"> CO</span><span class="tok" data-i="238" data-c="8">2</span><span class="tok b" data-i="239" data-c="11"> to</span><span class="tok b" data-i="240" data-c="19"> extract</span><span class="tok b" data-i="241" data-c="24"> hard</span><span class="tok b" data-i="242" data-c="27">-to</span><span class="tok b" data-i="243" data-c="30">-re</span><span class="tok b" data-i="244" data-c="33">ach</span><span class="tok b" data-i="245" data-c="37"> oil</span><span class="tok b" data-i="246" data-c="38">.</span><span class="tok b" data-i="247" data-c="47"> Nowadays</span><span class="tok b" data-i="248" data-c="48">,</span><span class="tok b" data-i="249" data-c="60"> researchers</span><span class="tok" data-i="250" data-c="64"> and</span><span class="tok" data-i="251" data-c="78"> practitioners</span><span class="tok" data-i="252" data-c="82"> are</span><span class="tok c" data-i="253" data-c="89"> trying</span><span class="tok c" data-i="254" data-c="92"> to</span><span class="tok c last" data-i="255" data-c="97"> find</span><span class="count" aria-hidden="true">97</span></div>
 </div>
+    </div>
+    <p class="narrow-note">The text scrolls sideways. Each strip below is one of its lines, scaled to fit.</p>
 <div class="tmap" data-items aria-hidden="true" style="--w:100">
 <div class="tmap-line"><i class="tok a b" style="--n:2"></i><i class="tok" style="--n:3"></i><i class="tok" style="--n:4"></i><i class="tok b" style="--n:7"></i><i class="tok b" style="--n:5"></i><i class="tok b" style="--n:3"></i><i class="tok b" style="--n:6"></i><i class="tok b" style="--n:7"></i><i class="tok b" style="--n:4"></i><i class="tok b" style="--n:5"></i><i class="tok b" style="--n:6"></i><i class="tok b" style="--n:4"></i><i class="tok b" style="--n:6"></i><i class="tok b" style="--n:3"></i><i class="tok" style="--n:3"></i><i class="tok" style="--n:13"></i><i class="tok" style="--n:1"></i><i class="tok" style="--n:6"></i><i class="tok c" style="--n:1"></i><i class="tok c" style="--n:4"></i><i class="tok c" style="--n:4"></i><i class="tok c" style="--n:3"></i><i class="tok c nl" style="--n:1"></i></div>
 <div class="tmap-line"><i class="tok a" style="--n:6"></i><i class="tok" style="--n:6"></i><i class="tok" style="--n:2"></i><i class="tok b" style="--n:8"></i><i class="tok b" style="--n:4"></i><i class="tok b" style="--n:7"></i><i class="tok b" style="--n:3"></i><i class="tok b" style="--n:4"></i><i class="tok b" style="--n:2"></i><i class="tok b" style="--n:11"></i><i class="tok b" style="--n:6"></i><i class="tok b" style="--n:7"></i><i class="tok b" style="--n:7"></i><i class="tok" style="--n:3"></i><i class="tok" style="--n:9"></i><i class="tok" style="--n:1"></i><i class="tok c" style="--n:4"></i><i class="tok c" style="--n:5"></i><i class="tok c" style="--n:3"></i><i class="tok c nl" style="--n:1"></i></div>
@@ -85,7 +87,6 @@
 <div class="tmap-line"><i class="tok a b" style="--n:11"></i><i class="tok" style="--n:7"></i><i class="tok" style="--n:1"></i><i class="tok" style="--n:8"></i><i class="tok" style="--n:12"></i><i class="tok b" style="--n:3"></i><i class="tok b" style="--n:9"></i><i class="tok b" style="--n:3"></i><i class="tok b" style="--n:4"></i><i class="tok" style="--n:9"></i><i class="tok" style="--n:4"></i><i class="tok" style="--n:9"></i><i class="tok c" style="--n:11"></i><i class="tok c" style="--n:5"></i><i class="tok c nl" style="--n:1"></i></div>
 <div class="tmap-line"><i class="tok a b" style="--n:4"></i><i class="tok" style="--n:3"></i><i class="tok" style="--n:1"></i><i class="tok b" style="--n:3"></i><i class="tok b" style="--n:8"></i><i class="tok b" style="--n:5"></i><i class="tok b" style="--n:3"></i><i class="tok b" style="--n:3"></i><i class="tok b" style="--n:3"></i><i class="tok b" style="--n:4"></i><i class="tok b" style="--n:1"></i><i class="tok b" style="--n:9"></i><i class="tok b" style="--n:1"></i><i class="tok b" style="--n:12"></i><i class="tok" style="--n:4"></i><i class="tok" style="--n:14"></i><i class="tok" style="--n:4"></i><i class="tok c" style="--n:7"></i><i class="tok c" style="--n:3"></i><i class="tok c last" style="--n:5"></i></div>
 </div>
-    </div>
 <div class="rates" style="--w:100;--step:10">
 <div class="rates-y" aria-hidden="true"><span style="--v:1">1.0</span><span style="--v:0.5">0.5</span><span style="--v:0">0</span></div>
 <div class="rates-plot">
@@ -100,7 +101,7 @@
 <div class="bin" data-bin="80-89"><i class="bar b" style="--r:0.01"></i><i class="bar c" style="--r:0.19"><b>0.19</b></i></div>
 <div class="bin" data-bin="90-99"><i class="bar b" style="--r:0.01"></i><i class="bar c" style="--r:0.60"><b>0.60</b></i></div>
 </div>
-<div class="rates-x" aria-hidden="true"><span>0–9</span><span>10–19</span><span>20–29</span><span>30–39</span><span>40–49</span><span>50–59</span><span>60–69</span><span>70–79</span><span>80–89</span><span>90–99</span></div>
+<div class="rates-x" aria-hidden="true"><span>0-9</span><span>10-19</span><span>20-29</span><span>30-39</span><span>40-49</span><span>50-59</span><span>60-69</span><span>70-79</span><span>80-89</span><span>90-99</span></div>
 </div>
     <p class="axis-title">Characters already in the line. Bars: fraction of tokens at which the transform is on.</p>
   </div>
@@ -169,12 +170,12 @@
       <div class="unit-notes">
         <div class="state">
           <h4><i></i>State dictionary: groups</h4>
-          <p><b>A group</b> is a set of 4 directions in a state dictionary. <b>A frame</b> is the orthonormal basis of a group's 4-dimensional write subspace. <b>A code</b> gives a token's coordinates in that frame, multiplied by a per-group scale.</p>
+          <p>A <b>group</b> is a set of 4 directions in a state dictionary. A <b>frame</b> is the orthonormal basis of a group's 4-dimensional write subspace. A <b>code</b> gives a token's coordinates in that frame, multiplied by a per-group scale.</p>
           <p>The dictionary's tied form has 16,384 groups. At each token, the 24 groups with the largest written norm are active.</p>
         </div>
         <div class="mlp">
           <h4><i></i>MLP dictionary: transforms</h4>
-          <p><b>A transform</b> is a linear operation in an MLP dictionary with its own read and write matrices. Its write is what it adds to the MLP output. <b>A gate</b> controls a transform through a learned threshold on its pre-activation.</p>
+          <p>A <b>transform</b> is a linear operation in an MLP dictionary with its own read and write matrices. Its write is what it adds to the MLP output. A <b>gate</b> controls a transform through a learned threshold on its pre-activation.</p>
           <p>It has 3,968 transforms in five rank tiers. There are 128 transforms of rank 128, 256 of rank 64, 512 of rank 32, 1,024 of rank 16 and 2,048 of rank 8.</p>
         </div>
       </div>
@@ -359,7 +360,7 @@
       </div>
     </div>
     <div class="link-panels" id="link-panels"></div>
-    <figcaption><b>Figure 6.</b> The share carried by three parts of one change at the L9 mixer output, read by three routes. The part inside group 4885's frame moves the transforms about as much as the whole change, and the rest moves them little. With everything downstream, the rest still carries a share, so the frame is not the only route to the answer. The last bar of the first two panels is the largest absolute share among 5 random 4-dimensional frames, measured for the whole mixer swap only. Bars are drawn from 0 to 1. Measured by this repository's demonstration script.</figcaption>
+    <figcaption><b>Figure 6.</b> The share carried by three parts of one change at the L9 mixer output, read by three routes. The part inside group 4885's frame moves the transforms about as much as the whole change, and the rest moves them little. With everything downstream, the rest still carries a share, so the frame is not the only route to the answer. The last bar of the first two panels is a control: the largest absolute share among 5 random 4-dimensional frames, measured for the whole mixer swap and through the transforms only. Bars are drawn from 0 to 1. Measured by this repository's demonstration script.</figcaption>
     <details class="more"><summary>Table: the link comparison in the three cells</summary>
 <div class="table-wrap"><table>
 <caption>Shares on even-numbered items, written A / B (C). A: through the six selected L9 transforms. B: through transforms 410 and 1749 alone. C: with everything downstream. The last row has no C.</caption>
@@ -383,7 +384,7 @@
   <p>The part inside group 4885's frame moves the transforms about as much as the whole swap. The rest moves them little. On even-numbered items, for the whole mixer swap, the rest carries 0.016 in <code>count:60</code>, 0.032 in <code>count:100</code> and 0.042 in <code>width:100</code> through the six transforms. Through the two transforms alone, the rest carries 0.013, 0.052 and 0.031. A random 4-dimensional frame carries at most 0.005 through the six transforms and 0.007 through the two.</p>
   <aside class="limit-note"><div><p><b>Group 4885 is dense.</b> State group 11586 is sparse, but not every group is sparse. Some groups encountered by the original project on this task are dense 4-dimensional coordinates active on most tokens. They carry information in their coordinates. Group 4885 is one of these dense groups, not a sparse feature.</p></div></aside>
   <p>With everything downstream, the rest carries 0.156 in <code>count:60</code>, 0.168 in <code>count:100</code> and 0.177 in <code>width:100</code>. The frame is therefore not the only route to the answer. The downstream shares of the two parts do not add up to the whole.</p>
-  <p>The original project registered a pass rule for the mixer-to-MLP link before measuring it. The part inside the frame must keep at least 0.75 of the whole share. The rest must keep at most 0.25 of it and at most 0.05. Random frames must carry at most 0.01. The rule applies in both count cells. The original project's verdict was that the rule holds for the route through the six transforms and holds only in part for the route through 410 and 1749 alone, because it recorded a share of 0.051 for the rest in <code>count:100</code> through those two transforms.</p>
+  <p>The original project registered a pass rule for the mixer-to-MLP link. The rule requires at least 0.75 of the whole share inside the frame, at most 0.25 of it and at most 0.05 in the rest, and at most 0.01 in random frames, in both count cells. The original project's verdict was that the rule holds for the route through the six transforms and holds only in part for the route through 410 and 1749 alone, because it recorded a share of 0.051 for the rest in <code>count:100</code> through those two transforms.</p>
 
 
 </section>
@@ -568,13 +569,13 @@
   <p>The limits of this set are different from those of the 0.8B set, and several are larger.</p>
   <dl class="ledger limits">
     <div><dt>Reconstruction is worse than for 0.8B</dt><dd>State FVU in the middle layers is 0.31 to 0.42, against 0.25 to 0.27 for 0.8B. The 24 active groups cover 3.75% of the width of this model and 9.4% of the width of 0.8B. That this smaller fraction is the cause is an inference, not a measurement.</dd></div>
-    <div><dt>Spliced-in loss at one layer only</dt><dd>The original project measured spliced-in loss at layer 16 only. On held-out text the model itself answered, it recorded +0.303 for the state dictionary at <code>resid_post.16</code> and +0.0068 for the MLP dictionary. The other layers were not measured.</dd></div>
-    <div><dt>24 active groups are a default, not an optimum</dt><dd>At layer 16, the original project recorded a spliced-in loss of +0.303, +0.171 and +0.110 with 24, 40 and 60 active groups per token. The 40- and 60-group dictionaries are not in this set.</dd></div>
+    <div><dt>Spliced-in loss at one layer only</dt><dd>The original project measured spliced-in loss at layer 16 only. On held-out text the model itself answered, it recorded +0.303 for the state dictionary at <code>resid_post.16</code> and +0.0068 for the MLP dictionary. The other 31 layers were not measured.</dd></div>
+    <div><dt>24 active groups are a default, not an optimum</dt><dd>At layer 16, the original project recorded a spliced-in loss of +0.303, +0.171 and +0.110 with 24, 40 and 60 active groups per token. The dictionaries trained with 40 and 60 active groups are not in this set.</dd></div>
     <div><dt>Many transforms never fire</dt><dd>Many MLP transforms never fired on the original project's held-out shard, up to 60% at the last layer, where 3,974 of 9,920 were alive.</dd></div>
     <div><dt>A few transforms fire on almost every token</dt><dd>At most layers a few transforms fire on almost every token and carry a large share of the write energy; <code>ALWAYS_ON.json</code> lists them. On the web text sample they carry up to 0.69 of the summed write energy, at layer 11. The count depends on the text: the counts on the web text sample and on the training-mix shard differ at 17 layers. A transform of this set must not be read as one operation without checking this list.</dd></div>
-    <div><dt>The penalty was chosen at one layer</dt><dd>The sparsity penalty 3e-05 was chosen at layer 16, where its spliced-in loss was lower than with 7.5e-05. No other layer compared penalties.</dd></div>
-    <div><dt>No unit of this set was read or steered here</dt><dd>No unit of this set was read, edited or steered by the experiments behind the 0.8B results on this page. Nothing here supports a claim that the groups or transforms of this set are interpretable. The checks of this set say that the files are built and read as defined; they are not a statement about quality.</dd></div>
-    <div><dt>One seed, no trainers, unpublished held-out data</dt><dd>The set has one training seed. No demonstration script exists for this set, and the trainers are not in the repository. The held-out activations behind this repository's FVU columns are not published, and the numbers recorded at training cannot be recomputed from the published files. The reader's <code>capture</code> on the 4B model was not compared with the original project's capture.</dd></div>
+    <div><dt>The penalty was chosen at one layer</dt><dd>The original project chose the sparsity penalty, 3e-05, at one layer only, layer 16. No other layer compared penalties.</dd></div>
+    <div><dt>No unit of this set was read or steered here</dt><dd>No unit of this set was read, edited or steered by the experiments behind the 0.8B results on this page. The original project used this set to trace one circuit and in steering experiments whose scripts are not published with this set; the set's model card describes them, and they cannot be re-run from the published files and code. Nothing here supports a claim that this set's groups or transforms are interpretable in general. This repository's tests of this set show that the files are built and read as defined. They are not a statement about quality.</dd></div>
+    <div><dt>One seed, no trainers, unpublished held-out data</dt><dd>This set covers one seed and one model. No demonstration script exists for this set, and its trainers are not in the repository. The held-out activations behind this repository's FVU columns are not published, and the numbers recorded at training cannot be recomputed from the published files. This repository did not compare <code>capture</code> on 4B with the original project's capture.</dd></div>
   </dl>
 </section>
 
@@ -595,10 +596,10 @@
     <div><dt>Every share of the demonstration</dt><dd>Every demonstration share agreed with the original harness's reference run and the original project's recorded numbers: 39 swaps in 3 cells on 3 sets of items. The item file matched the original items exactly.
       <div class="figures"><span>comparisons <b>351</b></span><span>largest difference <b>0.0030</b></span><span>tolerance registered beforehand <b>0.005</b></span></div></dd></div>
     <div><dt>The published files</dt><dd>All 144 release files matched the manifest. MLP tensors for layers 0 to 22 were bit-identical to the training exports used by the reader tests. Layer 23 passed its own comparison with the public forward pass. No file header or config held a machine path.</dd></div>
-    <div><dt>A fresh download, in the tested library versions</dt><dd>On 2026-11-20, the code was cloned from GitHub into an empty folder and the weights were downloaded into an empty folder. With torch 2.11.0+cu128 and transformers 5.20.2, <code>demo/line_count.py</code> wrote a result byte-identical to the tested run.</dd></div>
-    <div><dt>The same download, in newer library versions</dt><dd>With torch 2.15.0+cu132 and transformers 5.23.0, the same demonstration was not byte-identical. The documented numbers are exact for the tested versions; newer versions moved shares by up to about 0.01.
-      <div class="figures"><span>single-item margins differ by at most <b>0.146</b></span><span>shares differ by at most <b>0.011</b></span></div></dd></div>
-    <div><dt>Tests</dt><dd>All 167 tests passed: the 36 that need no private data and 131 that do. A reader of the repository can run the 36 with <code>pytest -m "not legacy"</code>.</dd></div>
+    <div><dt>A fresh download, in the tested library versions</dt><dd>A fresh clone, a new environment and a fresh download reproduce the demonstration byte for byte with torch 2.11.0+cu128 and transformers 5.20.2.</dd></div>
+    <div><dt>The same download, in newer library versions</dt><dd>With newer library versions, torch 2.15.0+cu132 and transformers 5.23.0, the demonstration's shares moved by up to about 0.01. The numbers on this page are those of the tested versions.
+      <div class="figures"><span>shares differ by at most <b>0.011</b></span></div></dd></div>
+    <div><dt>Tests a reader can run</dt><dd><code>pytest -m "not legacy"</code> runs the 36 tests that need no private data. The other tests need the original project's code and results. The pass/fail rules were written down before the comparisons were run and are in <code>tests/EQUIVALENCE_RULES.md</code>.</dd></div>
   </dl>
   <p>Every comparison used one machine and one GPU model, RTX 5090. A second machine and a different GPU model were not checked.</p>
 </section>
@@ -632,18 +633,14 @@ hf download mconcat/statescope-qwen3.5-0.8b --local-dir &lt;folder&gt;</code></p
   <div class="codeblock wide"><span class="lang">python</span><pre><code>import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
 from statescope.reader import StateVocab, PublicMolt, capture
-
 tokenizer = AutoTokenizer.from_pretrained(&quot;Qwen/Qwen3.5-0.8B&quot;)
 model = AutoModelForCausalLM.from_pretrained(&quot;Qwen/Qwen3.5-0.8B&quot;, dtype=torch.bfloat16, device_map=&quot;cuda&quot;).eval()
 input_ids = torch.tensor([tokenizer(&quot;The committee met on Thursday to review the budget.&quot;)[&quot;input_ids&quot;]], device=&quot;cuda&quot;)
-
-V = StateVocab(&quot;&lt;release&gt;/state/L9&quot;, &quot;cuda&quot;)
-M = PublicMolt(&quot;&lt;release&gt;/mlp/L9&quot;, &quot;cuda&quot;)
+V = StateVocab(&quot;&lt;folder&gt;/state/L9&quot;, &quot;cuda&quot;)
+M = PublicMolt(&quot;&lt;folder&gt;/mlp/L9&quot;, &quot;cuda&quot;)
 acts = capture(model, 9, input_ids)                      # resid_mid, mlp_out, resid_post; position 0 dropped
-groups, codes = V.encode(acts[&quot;resid_post&quot;], &quot;resid_post.9&quot;)
 x_hat = V.reconstruct(acts[&quot;resid_post&quot;], &quot;resid_post.9&quot;)
-gate, y_hat = M.forward(acts[&quot;resid_mid&quot;])               # gate (tokens, 3968), y_hat ~ acts[&quot;mlp_out&quot;]
-write = M.transform_write(acts[&quot;resid_mid&quot;], 410)        # what transform 410 adds to the MLP output</code></pre></div>
+gate, y_hat = M.forward(acts[&quot;resid_mid&quot;])               # gate (tokens, 3968), y_hat ~ acts[&quot;mlp_out&quot;]</code></pre></div>
   <p>The first command checks all 144 files against the manifest. The second re-runs the traced line-count chain; it ran in under two minutes on one RTX 5090, including model loading.</p>
   <div class="codeblock"><span class="lang">sh</span><pre><code>python demo/verify_release.py --release &lt;folder&gt;
 python demo/line_count.py --release &lt;folder&gt; --device cuda:0 --out &lt;folder for the result&gt;</code></pre></div>
