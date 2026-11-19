@@ -3,10 +3,12 @@
     python -B tools/verify_browser.py --repo <statescope checkout> [--shots <folder for screenshots>] [--port 8765]
 
 Needs playwright with Chromium. Serves the site folder itself with python's http.server on 127.0.0.1.
-Checks: no console error, no failed request, no request to another host, no horizontal page scroll at desktop and phone width,
-light and dark; every cell x swap x set of items shows the share of data/demo.json; items, chain steps, tables, the layer slider
-(by keyboard) and the link comparison show the values of the data files; no "NaN" or "undefined" anywhere; every number that the
-page shows after these interactions is traceable (the rule of tools/lint_page.py, with the data files added).
+Checks: no console error, no failed request, no request to another host, no horizontal page scroll at desktop, tablet and phone
+width, light and dark; the first figure (built without a browser) holds the tokens, gates and character counts of the item file and
+its text sits on the scale of one character; every cell x swap x set of items shows the share of data/demo.json; the chain, the
+items, the pair viewer, the link comparison, the tables, the layer panels (by keyboard and by pointer) and the 4B panels show the
+values of the data files; no "NaN" or "undefined" anywhere; every number that the page shows after these interactions is traceable
+(the rule of tools/lint_page.py, with the data files added); without JavaScript the text, the first figure and the tables are there.
 """
 from __future__ import annotations
 
@@ -25,7 +27,10 @@ from playwright.async_api import async_playwright  # noqa: E402
 
 HERE = lint_page.HERE
 problems: list[str] = []
-counts = {"shares": 0, "items": 0, "layers": 0, "link": 0, "toggles": 0, "nodes": 0}
+counts = {"shares": 0, "chain rows": 0, "items": 0, "layers": 0, "link": 0, "tables": 0, "lead tokens": 0}
+VIEWS = (("desktop-light", 1280, 900, "light"), ("desktop-dark", 1280, 900, "dark"), ("tablet-light", 820, 1100, "light"),
+         ("tablet-dark", 820, 1100, "dark"), ("phone-light", 375, 800, "light"), ("phone-dark", 375, 800, "dark"))
+TAIL_LINES = 6          # lines of a text that the pair viewer shows before "whole text" is chosen (assets/js/demo.js)
 
 
 def data(name: str) -> dict:
@@ -38,14 +43,29 @@ def expect(ok: bool, message: str) -> None:
         problems.append(message)
 
 
+def lines_of(pieces: list[str]) -> list[list[int]]:
+    out: list[list[int]] = [[]]
+    for i, piece in enumerate(pieces):
+        out[-1].append(i)
+        if piece == "\n":
+            out.append([])
+    return [line for line in out if line]
+
+
+# the text a reader sees, without the item texts, the axis ticks and the code blocks (those are data or code, not claims)
 VISIBLE_TEXT = """() => {
-  const skip = (n) => n.closest('[data-axis], .textbox, script, style, noscript');
+  const skip = (n) => n.closest('[data-axis], [data-items], .ttext, .tip .t, script, style, noscript');
   const out = [];
   const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
   for (let n = walker.nextNode(); n; n = walker.nextNode()) if (!skip(n.parentElement)) out.push(n.textContent);
   for (const e of document.querySelectorAll('[aria-label]')) out.push(e.getAttribute('aria-label'));
   return out.join('\\n');
 }"""
+
+TOKENS = """(sel) => [...document.querySelectorAll(sel + ' .tline')].map(line => ({
+  count: line.querySelector('.count')?.textContent ?? null,
+  toks: [...line.querySelectorAll('.tok')].map(t => ({ text: t.textContent, cls: t.className, i: +t.dataset.i, c: +t.dataset.c,
+                                                       left: t.offsetLeft, width: t.getBoundingClientRect().width })) }))"""
 
 
 async def open_page(browser, url: str, width: int, height: int, scheme: str, log: list):
@@ -57,9 +77,10 @@ async def open_page(browser, url: str, width: int, height: int, scheme: str, log
     page.on("request", lambda r: log.append(f"request to another host: {r.url}") if not r.url.startswith(url) else None)
     page.on("response", lambda r: log.append(f"status {r.status}: {r.url}") if r.status >= 400 else None)
     await page.goto(url + "index.html", wait_until="networkidle")
-    await page.wait_for_selector("#forest .forest-row")
-    await page.wait_for_selector("#clean-box pre")
+    await page.wait_for_selector("#chain .chain-row .value")
+    await page.wait_for_selector("#clean-box .tok")
     await page.wait_for_selector("#layer-panels svg")
+    await page.wait_for_selector("#items-plot svg")
     return ctx, page
 
 
@@ -71,26 +92,85 @@ async def basic(page, name: str, width: int) -> None:
         expect(needle not in html_text, f"{name}: {needle!r} in the page")
     fonts = await page.evaluate("Promise.all([document.fonts.load('15px \"Site Sans\"'), document.fonts.load('12px \"Geist Mono\"')]).then(r => r.map(x => x.length))")
     expect(all(n > 0 for n in fonts), f"{name}: a typeface did not load {fonts}")
+    ids = await page.evaluate("[...document.querySelectorAll('[id]')].map(e => e.id)")
+    expect(len(ids) == len(set(ids)), f"{name}: an id is used twice: {sorted(i for i in set(ids) if ids.count(i) > 1)}")
+    numbers = await page.eval_on_selector_all("figure[id] > figcaption > b:first-child", "n => n.map(x => x.textContent)")
+    expect(numbers == [f"Figure {i}." for i in range(1, len(numbers) + 1)] and len(numbers) >= 8, f"{name}: figure numbers {numbers}")
 
 
-async def full_pass(page, demo: dict, layers: dict, splice: dict, corpus: str) -> None:
+async def lead_figure(page, demo: dict, name: str, width: int) -> None:
+    """the first figure against the item file: tokens, gates, character counts, and the scale of one character"""
+    lead, c = demo["lead"], demo["constants"]
+    info = next(x for x in demo["cells"] if x["key"] == lead["cell"])
+    item = data(info["file"])["items"][lead["item"]]
+    units = [str(c["l8_transform"])] + [str(t) for t in c["l9_transforms"]]
+    want = lines_of(item["clean"])[-lead["lines"]:]
+    got = await page.evaluate(TOKENS, "#fig-lead")
+    expect(len(got) == len(want), f"{name}: first figure has {len(got)} lines")
+    cw = await page.evaluate("parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--cw'))")
+    for line, idx in zip(got, want):
+        expect([t["i"] for t in line["toks"]] == idx, f"{name}: first figure, token indices of a line")
+        end = idx[-2] if item["clean"][idx[-1]] == "\n" else idx[-1]
+        expect(line["count"] == str(item["chars"][end]), f"{name}: first figure, count at the end of a line {line['count']!r}")
+        for t in line["toks"]:
+            i = t["i"]
+            piece = item["clean"][i]
+            expect(t["text"] == ("⏎" if piece == "\n" else piece), f"{name}: first figure, token {i} text {t['text']!r}")
+            cls = set(t["cls"].split())
+            for letter, unit in zip("abc", units):
+                expect((letter in cls) == (item["gate"][unit][i] == "1"), f"{name}: first figure, token {i} gate of {unit}")
+            expect(t["c"] == item["chars"][i], f"{name}: first figure, token {i} characters {t['c']}")
+            expect(("last" in cls) == (i == len(item["clean"]) - 1), f"{name}: first figure, last-token mark at {i}")
+            if piece != "\n":                                                 # one character is one unit of the horizontal axis
+                expect(abs(t["left"] - (item["chars"][i] - len(piece)) * cw) < 1.0 and abs(t["width"] - len(piece) * cw) < 1.0,
+                       f"{name}: first figure, token {i} is not on the character scale (left {t['left']}, width {t['width']}, character {cw})")
+            counts["lead tokens"] += 1
+    strips = await page.eval_on_selector_all("#fig-lead .tmap-line", "n => n.map(l => l.children.length)")
+    expect(strips == [len(idx) for idx in want], f"{name}: strips of the first figure {strips}")
+    bars = await page.eval_on_selector_all("#fig-lead .rates .bin", """n => n.map(b => ({ bin: b.dataset.bin, r: [...b.querySelectorAll('.bar')].map(x =>
+        [x.style.getPropertyValue('--r'), x.getBoundingClientRect().height, x.textContent]), h: b.getBoundingClientRect().height, w: b.getBoundingClientRect().width }))""")
+    names = [f"L9 transform {t}" for t in c["l9_transforms"]]
+    for j, b in enumerate(bars):
+        for k, n_ in enumerate(names):
+            rate = demo["firing_rate"][n_]["by_chars_in_line"][j]
+            expect(b["bin"] == rate["bin"] and b["r"][k][0] == rate["rate"], f"{name}: rate bar {b['bin']} of {n_}: {b['r'][k]}")
+            expect(abs(b["r"][k][1] - max(1.0, float(rate["rate"]) * b["h"])) < 1.2, f"{name}: height of rate bar {b['bin']} of {n_}")
+            expect(b["r"][k][2] in ("", rate["rate"]), f"{name}: label of rate bar {b['bin']} of {n_}: {b['r'][k][2]!r}")
+        if width >= 1000:
+            expect(abs(b["w"] - c["char_bin"] * cw) < 1.0, f"{name}: rate bin {b['bin']} is not {c['char_bin']} characters wide")
+    visible = await page.evaluate("getComputedStyle(document.querySelector('#fig-lead .tmap')).display !== 'none'")
+    fits = await page.evaluate("(() => { const b = document.querySelector('#fig-lead .tscroll'); return b.scrollWidth <= b.clientWidth + 1; })()")
+    expect(fits or visible, f"{name}: the first figure's text does not fit and the strips are hidden")
+
+
+async def full_pass(page, demo: dict, layers: dict, splice: dict, corpus: str, name: str) -> None:
     cells = [c["key"] for c in demo["cells"]]
     arms = demo["arms"]
+    c = demo["constants"]
+    units = [str(c["l8_transform"])] + [str(t) for t in c["l9_transforms"]]
     seen_text = [await page.evaluate(VISIBLE_TEXT)]
+    chain_arms = await page.eval_on_selector_all("#chain .chain-row", "n => n.map(x => x.dataset.arm)")
+    expect(len(chain_arms) == 14 and set(chain_arms) <= {a["key"] for a in arms}, f"chain rows {chain_arms}")
 
-    # every cell x swap x set of items
-    await page.click('[data-toggle="items-table"]')
+    # every cell x swap x set of items: the share, its interval, the means behind it, the chain, the items
+    await page.evaluate("document.getElementById('items-details').open = true")
     for cell in cells:
-        await page.click(f'#cell-seg button[data-value="{cell}"]')
+        await page.click(f'#fig-items [data-scope="cell"] button[data-value="{cell}"]')
         for half in ("even", "odd", "all"):
-            await page.click(f'#half-seg button[data-value="{half}"]')
+            await page.click(f'#fig-items [data-scope="half"] button[data-value="{half}"]')
+            pressed = await page.eval_on_selector_all('[data-scope] button[aria-pressed="true"]', "n => n.map(x => x.dataset.value)")
+            expect(set(pressed) == {cell, half}, f"the controls of the figures disagree: {pressed}")
+            mean = demo["means"][cell][half]
             for arm in arms:
                 await page.select_option("#arm-select", arm["key"])
                 e = demo["shares"][cell][arm["key"]][half]
                 big = await page.inner_text("#share-big")
                 interval = await page.inner_text("#share-interval")
+                means = await page.inner_text("#share-means")
                 expect(big == e["s"], f"share {cell} {arm['key']} {half}: page {big!r}, data {e['s']!r}")
                 expect(interval == f"bootstrap interval {e['slo']} to {e['shi']}", f"interval {cell} {arm['key']} {half}: {interval!r}")
+                expect(means == f"mean(m_clean - m_patched) {mean['num'][arm['key']]} / mean(m_clean - m_corrupt) {mean['den']}, {mean['n']} items",
+                       f"means {cell} {arm['key']} {half}: {means!r}")
                 counts["shares"] += 1
                 if half == "even":
                     rows = await page.eval_on_selector_all("#items-table tbody tr", "rows => rows.map(r => [...r.cells].map(c => c.textContent))")
@@ -100,109 +180,138 @@ async def full_pass(page, demo: dict, layers: dict, splice: dict, corpus: str) -
                         expect(rows[i][2:] == [m["clean"][i], m["corrupt"][i], m["arms"][arm["key"]][i]], f"items table {cell} {arm['key']} item {i}: {rows[i]}")
                     marks = await page.eval_on_selector_all("#items-plot .pt-patched", "n => n.length")
                     expect(marks == demo["items"], f"items plot {cell} {arm['key']}: {marks} marks")
-            if half == "even":
-                forest = await page.eval_on_selector_all("#forest button.forest-row .value", "n => n.map(x => x.textContent)")
-                main = [a for a in arms if a["group"] == "main"]
-                want = [f"{e['s']} ({e['slo']} to {e['shi']})" for e in (demo["shares"][cell][a["key"]]["even"] for a in main)]
-                expect(forest == want, f"forest {cell}: {forest}")
+            dim = await page.eval_on_selector_all("#items-plot .item-col.dim", "n => n.length")
+            expect(dim == (0 if half == "all" else demo["items"] // 2), f"items plot {cell} {half}: {dim} faded items")
+            shown = await page.eval_on_selector_all("#chain .chain-row", """n => n.map(x => [x.dataset.arm, x.querySelector('.value').textContent,
+                x.querySelector('.track').style.getPropertyValue('--v'), x.querySelector('.pt').getBoundingClientRect().left + 5.5 - x.querySelector('.track').getBoundingClientRect().left,
+                x.querySelector('.track').getBoundingClientRect().width])""")
+            for arm_key, text, v, dot, track in shown:
+                e = demo["shares"][cell][arm_key][half]
+                expect(text == f"{e['s']} ({e['slo']} to {e['shi']})", f"chain {cell} {half} {arm_key}: {text!r}")
+                x = (e["v"] + 0.06) / 1.06                                   # the share axis of assets/js/demo.js
+                expect(abs(float(v) - x) < 1e-6 and abs(dot - x * track) < 1.5, f"chain {cell} {half} {arm_key}: the dot is not at its share")
+                counts["chain rows"] += 1
         seen_text.append(await page.evaluate(VISIBLE_TEXT))
 
-    # the link comparison, both bases, every cell and set of items
+    # the link comparison, both changes, every cell and set of items
     for cell in cells:
-        await page.click(f'#cell-seg button[data-value="{cell}"]')
+        await page.click(f'#fig-link [data-scope="cell"] button[data-value="{cell}"]')
         for half in ("even", "odd", "all"):
-            await page.click(f'#half-seg button[data-value="{half}"]')
+            await page.click(f'#fig-link [data-scope="half"] button[data-value="{half}"]')
             for base in demo["link_labels"]["bases"]:
                 await page.click(f'#base-seg button[data-value="{base}"]')
-                shown = await page.eval_on_selector_all("#link-panels .hbar-label b", "n => n.map(x => x.textContent)")
+                shown = await page.eval_on_selector_all("#link-panels .hbar", "n => n.map(x => [x.querySelector('b').textContent, x.querySelector('i').style.getPropertyValue('--v')])")
                 want = []
                 for route in demo["link_labels"]["routes"]:
                     for row in demo["link_table"][half]:
-                        if row["part"] != "random" and row["base"] != base:
+                        if (row["part"] != "random" and row["base"] != base) or route not in row["cells"][cell]:
                             continue
-                        want.append(row["cells"][cell].get(route, "not measured"))
-                expect(shown == want, f"link {cell} {half} {base}: {shown} != {want}")
+                        want.append(row["cells"][cell][route])
+                expect([s[0] for s in shown] == want, f"link {cell} {half} {base}: {shown} != {want}")
+                expect(all(abs(float(v) - max(0.0, min(1.0, float(t)))) < 1e-9 for t, v in shown), f"link {cell} {half} {base}: a bar is not as long as its value")
+                expect(len(want) == 11, f"link {cell} {half} {base}: {len(want)} bars")
                 counts["link"] += 1
     seen_text.append(await page.evaluate(VISIBLE_TEXT))
 
-    # items: by the number field, by the buttons, by a click in the plot; texts against the data files
-    await page.click('#half-seg button[data-value="even"]')
+    # the pair viewer: by the number field, by the buttons, by a click in the plot; texts, gates and counts against the item files
+    await page.click('#fig-items [data-scope="half"] button[data-value="even"]')
     for cell_info in demo["cells"]:
         cell = cell_info["key"]
         items = data(cell_info["file"])["items"]
-        await page.click(f'#cell-seg button[data-value="{cell}"]')
+        await page.click(f'#fig-pair [data-scope="cell"] button[data-value="{cell}"]')
         await page.select_option("#arm-select", "head_o")
         for i in (0, 5, 31, 63):
             await page.fill("#item-number", str(i))
             await page.press("#item-number", "Enter")
             await page.wait_for_function(f"document.getElementById('clean-box').dataset.shown === '{cell}/{i}'")
             title = await page.inner_text("#viewer-title")
-            expect(title.startswith(f"Item {i} of {cell}"), f"viewer title {title!r}")
-            clean = await page.eval_on_selector("#clean-box pre", "n => n.textContent")
-            corrupt = await page.eval_on_selector("#corrupt-box pre", "n => n.textContent")
-            expect(clean.replace("↵", "") == "".join(items[i]["clean"]), f"clean text {cell} {i}")
-            expect(corrupt.replace("↵", "") == "".join(items[i]["corrupt"]), f"corrupt text {cell} {i}")
-            last = await page.eval_on_selector("#clean-box .tok.last", "n => n.textContent")
-            expect(last == items[i]["clean"][-1], f"last token {cell} {i}: {last!r}")
-            inside = await page.evaluate("""() => ['clean-box', 'corrupt-box'].every((id) => {
-              const box = document.getElementById(id).getBoundingClientRect();
-              const tok = document.querySelector('#' + id + ' .tok.last').getBoundingClientRect();
-              return tok.left >= box.left && tok.right <= box.right && tok.top >= box.top && tok.bottom <= box.bottom;
-            })""")
-            expect(inside, f"the last token of {cell} item {i} is outside the visible part of its box")
-            marked = await page.eval_on_selector_all("#clean-box .tok.gb", "n => n.length")
-            expect(marked == items[i]["gate"][str(demo["constants"]["l9_transforms"][0])].count("1"), f"gate marks {cell} {i}: {marked}")
+            expect(title == f"Item {i} of {cell}, {'odd' if i % 2 else 'even'}-numbered", f"viewer title {title!r}")
             m = demo["margins"][cell]
-            cm = await page.inner_text("#clean-margins")
-            xm = await page.inner_text("#corrupt-margins")
-            expect(cm == f"margin {m['clean'][i]} · with the swap {m['arms']['head_o'][i]}", f"clean margins {cell} {i}: {cm!r}")
+            cm, xm = await page.inner_text("#clean-margins"), await page.inner_text("#corrupt-margins")
+            expect(cm == f"margin {m['clean'][i]}; with the selected swap {m['arms']['head_o'][i]}", f"clean margins {cell} {i}: {cm!r}")
             expect(xm == f"margin {m['corrupt'][i]}", f"corrupt margins {cell} {i}: {xm!r}")
-            wide = await page.evaluate("[...document.querySelectorAll('.textbox pre')].every(p => getComputedStyle(p).whiteSpace === 'pre')")
-            expect(wide, "a text box wraps its text")
+            for mode in ("tail", "all"):
+                await page.click(f'#lines-seg button[data-value="{mode}"]')
+                for kind, box in (("clean", "#clean-box"), ("corrupt", "#corrupt-box")):
+                    pieces = items[i][kind]
+                    want = lines_of(pieces)
+                    want = want[-TAIL_LINES:] if mode == "tail" else want
+                    got = await page.evaluate(TOKENS, box)
+                    expect([[t["i"] for t in line["toks"]] for line in got] == want, f"{kind} text {cell} {i} {mode}: token indices")
+                    expect("".join(t["text"] for line in got for t in line["toks"]).replace("⏎", "\n") == "".join(pieces[j] for line in want for j in line),
+                           f"{kind} text {cell} {i} {mode}: text")
+                    last = [t for line in got for t in line["toks"] if "last" in t["cls"].split()]
+                    expect(len(last) == 1 and last[0]["i"] == len(pieces) - 1 and last[0]["text"] == pieces[-1], f"{kind} text {cell} {i} {mode}: last token")
+                    if kind == "clean":
+                        for letter, unit in zip("abc", units):
+                            marked = [t["i"] for line in got for t in line["toks"] if letter in t["cls"].split()]
+                            expect(marked == [j for line in want for j in line if items[i]["gate"][unit][j] == "1"], f"gate marks of {unit}, {cell} {i} {mode}")
+                        expect(all(t["c"] == items[i]["chars"][t["i"]] for line in got for t in line["toks"]), f"character counts {cell} {i} {mode}")
+                        unknown = [t["i"] for line in got for t in line["toks"] if "u" in t["cls"].split()]
+                        expect(unknown == [j for line in want for j in line if items[i]["known"][j] == "0"], f"tokens without a known count {cell} {i} {mode}")
+                    for line, idx in zip(got, want):                          # the count after a line is the number of its characters
+                        text = "".join(pieces[j] for j in idx).rstrip("\n")
+                        expect(line["count"] in (None, str(len(text))), f"{kind} text {cell} {i} {mode}: count {line['count']!r} for a line of {len(text)}")
+                    inside = await page.evaluate("""(sel) => { const box = document.querySelector(sel).getBoundingClientRect();
+                      const tok = document.querySelector(sel + ' .tok.last').getBoundingClientRect();
+                      return tok.left >= box.left - 1 && tok.right <= box.right + 1; }""", box)
+                    expect(inside, f"the last token of the {kind} text of {cell} item {i} ({mode}) is outside the visible part of its box")
+            await page.click('#lines-seg button[data-value="tail"]')
+            pre = await page.evaluate("[...document.querySelectorAll('#viewer .tline')].every(p => getComputedStyle(p).whiteSpace === 'pre')")
+            expect(pre, "a text box wraps its text")
             counts["items"] += 1
         await page.click("#item-prev")
         expect(await page.input_value("#item-number") == "62", "previous-item button")
+        await page.click("#item-next")
+        await page.click("#item-next")
+        expect(await page.input_value("#item-number") == "0", "next-item button wraps around")
         cols = page.locator("#items-plot .item-col")
         await cols.nth(10).click()
         expect(await page.input_value("#item-number") == "10", "click on an item in the plot")
         await page.click('#sort-seg button[data-value="clean"]')
+        order = await page.eval_on_selector_all("#items-plot .item-col", "n => n.map(x => +x.dataset.item)")
+        clean = [float(v) for v in demo["margins"][cell]["clean"]]
+        expect(sorted(order) == list(range(demo["items"])) and all(clean[a] >= clean[b] for a, b in zip(order, order[1:])), f"order by clean margin, {cell}")
         await page.click('#sort-seg button[data-value="index"]')
     await page.locator("#items-plot .item-col").nth(20).hover()
     tip = await page.inner_text("#tip")
     expect("Item 20" in tip and demo["margins"][cells[-1]]["clean"][20] in tip, f"tooltip {tip!r}")
-    await page.uncheck("#show-b")
-    expect(not await page.evaluate("document.getElementById('clean-box').classList.contains('show-b')"), "gate checkbox")
-    await page.check("#show-b")
+    await page.locator("#items-plot .item-col").nth(33).focus()
+    await page.keyboard.press("Enter")
+    expect(await page.input_value("#item-number") == "33", "an item of the plot by keyboard")
     seen_text.append(await page.evaluate(VISIBLE_TEXT))
 
-    # chain steps, by pointer and by keyboard
-    c = demo["constants"]
-    expected = {"t8": f"l8/t{c['l8_transform']}", "g8": f"l8/g{c['l8_group']}", "mixer": "head_o", "g9": f"link/mix/g{c['l9_group']}/F2",
-                "t9a": f"l9/t{c['l9_transforms'][0]}", "t9b": f"l9/t{c['l9_transforms'][1]}"}
-    for node, arm in expected.items():
-        await page.click(f'#chain button[data-node="{node}"]')
-        expect(await page.input_value("#arm-select") == arm, f"chain step {node} did not load {arm}")
-        visible = await page.eval_on_selector_all(".node-panel", "n => n.filter(x => getComputedStyle(x).display !== 'none').map(x => x.id)")
-        expect(len(visible) == 1, f"chain step {node}: panels {visible}")
-        counts["nodes"] += 1
-        seen_text.append(await page.evaluate(VISIBLE_TEXT))
-    await page.focus('#chain button[data-node="g8"]')
+    # the chain: every row by pointer, one by keyboard
+    for arm_key in chain_arms:
+        await page.click(f'#chain .chain-row[data-arm="{arm_key}"]')
+        expect(await page.input_value("#arm-select") == arm_key, f"chain row {arm_key} did not load its swap")
+        pressed = await page.eval_on_selector_all('#chain .chain-row[aria-pressed="true"]', "n => n.map(x => x.dataset.arm)")
+        expect(pressed == [arm_key], f"chain row {arm_key}: pressed {pressed}")
+        what = await page.inner_text("#share-what")
+        arm = next(a for a in arms if a["key"] == arm_key)
+        expect(what == f"{arm['label']}. {arm['what']}", f"chain row {arm_key}: description {what!r}")
+    await page.focus(f'#chain .chain-row[data-arm="{chain_arms[3]}"]')
     await page.keyboard.press("Enter")
-    expect(await page.input_value("#arm-select") == expected["g8"], "chain step by keyboard")
-    await page.locator('#panel-g8 .related button').nth(2).click()
-    expect(await page.input_value("#arm-select") == "l8/full_post8", "related-swap button")
-    await page.locator("#forest button.forest-row").nth(1).focus()
-    await page.keyboard.press("Space")
-    expect(await page.input_value("#arm-select") == "head_o", "forest row by keyboard")
+    expect(await page.input_value("#arm-select") == chain_arms[3], "chain row by keyboard")
+    seen_text.append(await page.evaluate(VISIBLE_TEXT))
 
-    # layers: the slider by keyboard, the position-0 switch, the tables
+    # layers: the slider by keyboard, the position-0 switch, the pointer; spliced-in loss by pointer
+    async def hover_layer(selector: str, layer: int, n: int) -> None:
+        box = await page.locator(selector).first.bounding_box()
+        await page.locator(selector).first.hover(position={"x": 40 + layer / (n - 1) * (box["width"] - 50), "y": box["height"] * 0.5})
+
+    await page.locator("#layer-range").scroll_into_view_if_needed()
     await page.focus("#layer-range")
-    for layer in range(1, len(layers["rows"])):
-        await page.keyboard.press("ArrowRight")
+    await page.keyboard.press("Home")
+    n = len(layers["rows"])
+    for layer in range(n):
+        if layer:
+            await page.keyboard.press("ArrowRight")
         r = layers["rows"][layer]
         got = await page.eval_on_selector_all("#layer-readout b", "n => n.map(x => x.textContent)")
         want = [str(layer), r["dropped"]["state_mid"], r["dropped"]["state_post"], r["dropped"]["mlp"], r["mlp_train"], r["on_per_token"], r["alive_text"], r["penalty"]]
         expect(got == want, f"layer readout {layer}: {got}")
+        await hover_layer("#splice-panels .plot svg", layer, n)
         s = splice["rows"][layer]
         got = await page.eval_on_selector_all("#splice-readout b", "n => n.map(x => x.textContent)")
         expect(got == [str(layer), s["state"], s["mlp"]], f"splice readout {layer}: {got}")
@@ -211,22 +320,46 @@ async def full_pass(page, demo: dict, layers: dict, splice: dict, corpus: str) -
     got = await page.eval_on_selector_all("#layer-readout b", "n => n.map(x => x.textContent)")
     r = layers["rows"][-1]
     expect(got[1:4] == [r["with_p0"]["state_mid"], r["with_p0"]["state_post"], r["with_p0"]["mlp"]], f"position 0 included: {got}")
-    box = await page.locator("#layer-panels .plot svg").first.bounding_box()
-    await page.locator("#layer-panels .plot svg").first.hover(position={"x": box["width"] * 0.5, "y": box["height"] * 0.5})
-    expect(await page.input_value("#layer-range") not in ("", str(len(layers["rows"]) - 1)), "pointer on a layer panel")
-    panels = await page.eval_on_selector_all("#layer-panels .plot svg, #splice-panels .plot svg", "n => n.length")
-    expect(panels == 6, f"{panels} layer panels")
-    for button in await page.query_selector_all("[data-toggle]"):
-        target = await button.get_attribute("data-toggle")
-        if await button.get_attribute("aria-expanded") == "false":
-            await button.click()
-        shown = await page.evaluate(f"getComputedStyle(document.getElementById('{target}')).display !== 'none' && document.querySelector('#{target} table') !== null")
-        expect(shown, f"table {target} does not open")
-        counts["toggles"] += 1
+    await hover_layer("#layer-panels .plot svg", 6, n)
+    expect(await page.input_value("#layer-range") == "6", "pointer on a layer panel")
+    marks = await page.eval_on_selector_all("#layer-panels .panel", "n => n.map(p => [p.querySelectorAll('.plot .mark').length, p.querySelectorAll('.bar-rect').length])")
+    expect(marks == [[2 * n, 0], [2 * n, 0], [n, 0], [0, n]], f"marks of the layer panels {marks}")
+    marks = await page.eval_on_selector_all("#splice-panels .panel", "n => n.map(p => p.querySelectorAll('.mark.recorded').length)")
+    expect(marks == [n, n], f"marks of the spliced-in loss panels {marks}")
+    await page.click('#p0-seg button[data-value="dropped"]')
+    if os.path.exists(os.path.join(HERE, "data", "layers-4b.json")):
+        four = data("layers-4b.json")["rows"]
+        await page.focus("#b4-range")
+        await page.keyboard.press("Home")
+        for layer, r in enumerate(four):
+            if layer:
+                await page.keyboard.press("ArrowRight")
+            got = await page.eval_on_selector_all("#b4-readout b", "n => n.map(x => x.textContent)")
+            want = [str(layer), r["dropped"]["state_mid"], r["dropped"]["state_post"], r["dropped"]["mlp"], r["mlp_train"], r["alive_text"], r["always_text"], r["always_energy"]]
+            expect(got == want, f"4B readout {layer}: {got}")
+            counts["layers"] += 1
+        marks = await page.eval_on_selector_all("#b4-panels .panel", "n => n.map(p => [p.querySelectorAll('.plot .mark').length, p.querySelectorAll('.bar-rect').length])")
+        expect(marks == [[2 * len(four), 0], [2 * len(four), 0], [0, len(four)], [len(four), 0]], f"marks of the 4B panels {marks}")
     seen_text.append(await page.evaluate(VISIBLE_TEXT))
 
+    # every table behind a "Table" line opens
+    for i in range(await page.locator("details.more").count()):
+        d = page.locator("details.more").nth(i)
+        if await d.get_attribute("open") is None:
+            await d.locator("summary").click()
+        expect(await d.locator("table").count() == 1 and await d.locator("table").is_visible(), f"table {i} does not open")
+        counts["tables"] += 1
+    seen_text.append(await page.evaluate(VISIBLE_TEXT))
+
+    # a hint on a token of the first figure
+    tok = page.locator("#fig-lead .ttext .tok.last")
+    await tok.scroll_into_view_if_needed()
+    await tok.hover()
+    tip = await page.inner_text("#tip")
+    expect("Last token" in tip and "characters" in tip, f"token hint {tip!r}")
+
     bad = lint_page.untraceable("\n".join(seen_text), corpus)
-    expect(not bad, f"numbers shown that are not traceable: {bad}")
+    expect(not bad, f"{name}: numbers shown that are not traceable: {bad}")
     html_text = await page.content()
     for needle in ("NaN", "undefined", "[object"):
         expect(needle not in html_text, f"after the interactions: {needle!r} in the page")
@@ -235,34 +368,52 @@ async def full_pass(page, demo: dict, layers: dict, splice: dict, corpus: str) -
 async def run(args) -> None:
     url = f"http://127.0.0.1:{args.port}/"
     demo, layers, splice = data("demo.json"), data("layers.json"), data("splice.json")
-    corpus = lint_page.source_text(args.repo) + "\n" + lint_page.data_values(lint_page.PAGE_DATA)
+    corpus = lint_page.source_text(args.repo) + "\n" + lint_page.data_values(lint_page.page_data())
     corpus += "\n" + " ".join(str(i) for i in range(demo["items"]))          # item numbers are positions in the item file, not measurements
     async with async_playwright() as p:
         browser = await p.chromium.launch()
-        for name, width, height, scheme in (("desktop-light", 1280, 900, "light"), ("desktop-dark", 1280, 900, "dark"),
-                                            ("phone-light", 375, 800, "light"), ("phone-dark", 375, 800, "dark"), ("tablet-light", 820, 1000, "light")):
+        for name, width, height, scheme in VIEWS:
             log: list[str] = []
             ctx, page = await open_page(browser, url, width, height, scheme, log)
             await basic(page, name, width)
-            if name in ("desktop-light", "phone-light"):
-                await full_pass(page, demo, layers, splice, corpus)
-                await basic(page, name + " after the interactions", width)
-            if args.shots:
+            await lead_figure(page, demo, name, width)
+            if args.shots:                                                    # before the interactions: the page as a reader first sees it
                 os.makedirs(args.shots, exist_ok=True)
                 await page.screenshot(path=os.path.join(args.shots, f"{name}.png"), full_page=True)
+                for fig in await page.eval_on_selector_all("figure[id]", "n => n.map(f => f.id)"):
+                    await page.locator(f"#{fig}").screenshot(path=os.path.join(args.shots, f"{name}-{fig}.png"))
+            if name in ("desktop-light", "phone-light"):
+                await full_pass(page, demo, layers, splice, corpus, name)
+                await basic(page, name + " after the interactions", width)
             for line in log:
                 problems.append(f"{name}: {line}")
             print(f"{name}: loaded, {len(log)} console or network problems")
             await ctx.close()
-        # without JavaScript the text and the tables must still be there
+        # without JavaScript: the text, the first figure and the tables are there, and no empty interactive block shows
         ctx = await browser.new_context(java_script_enabled=False, viewport={"width": 1280, "height": 900})
         page = await ctx.new_page()
         await page.goto(url + "index.html")
+        for i in range(await page.locator("details.more:visible").count()):
+            await page.locator("details.more:visible").nth(i).locator("summary").click()
         tables = await page.locator("table:visible").count()
-        expect(tables == 4, f"without JavaScript: {tables} tables visible")
-        expect(await page.locator(".node-panel:visible").count() == 5, "without JavaScript: the chain's texts are not all visible")
+        want = 5 + os.path.exists(os.path.join(HERE, "data", "layers-4b.json"))
+        expect(tables == want, f"without JavaScript: {tables} tables visible, {want} expected")
         expect(await page.locator(".needs-js:visible").count() == 0, "without JavaScript: an empty interactive block is visible")
+        expect(await page.locator("#fig-lead .tok:visible").count() > 100, "without JavaScript: the first figure is not there")
+        expect(await page.locator("#fig-layer svg:visible").count() == 1, "without JavaScript: the schematic is not there")
+        if args.shots:
+            await page.screenshot(path=os.path.join(args.shots, "no-javascript.png"), full_page=True)
         print(f"no JavaScript: {tables} tables visible")
+        await ctx.close()
+        # print: the page lays out without its controls
+        ctx = await browser.new_context(viewport={"width": 794, "height": 1123})
+        page = await ctx.new_page()
+        await page.goto(url + "index.html", wait_until="networkidle")
+        await page.emulate_media(media="print")
+        expect(await page.locator(".controls:visible").count() == 0, "print: controls are visible")
+        expect(await page.evaluate("document.documentElement.scrollWidth") <= 794, "print: the page is wider than the sheet")
+        if args.shots:
+            await page.pdf(path=os.path.join(args.shots, "print.pdf"), format="A4", print_background=False)
         await ctx.close()
         await browser.close()
 

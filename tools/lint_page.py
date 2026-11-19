@@ -24,9 +24,10 @@ SOURCES = ["README.md", f"{REL}/MODEL_CARD.md", "demo/line_count.py", f"{REL}/la
            f"{REL}/line_count_link_table.md"]
 SOURCES_4B = ["release/qwen35-4b/layers_table.md", "release/qwen35-4b/MODEL_CARD.md"]                            # read when the page has the Qwen3.5-4B section
 PAGE_DATA = ["facts.json", "layers.json", "splice.json", "demo.json"]          # the item texts are data, not claims of the page
-OPTIONAL_DATA = ["layers-4b.json", "steer.json"]
+OPTIONAL_DATA = ["layers-4b.json", "steer.json", "used-4b.json", "examples-4b.json", "count-curve.json"]
+REFERENCES = os.path.join("tools", "references.json")                          # bibliographic data of the works the page refers to
 ALLOWED_LINKS = ("https://github.com/mconcat/statescope", "https://huggingface.co/mconcat/statescope-qwen3.5-0.8b",
-                 "https://huggingface.co/mconcat/statescope-qwen3.5-4b")
+                 "https://huggingface.co/mconcat/statescope-qwen3.5-4b", "https://arxiv.org/abs/2601.04480", "https://arxiv.org/abs/2611.13270")
 STRIP = ".,;:!?()[]{}\"'`<>‘’“”"
 
 
@@ -115,6 +116,8 @@ def data_values(names: list[str]) -> str:
     for name in names:
         with open(os.path.join(HERE, "data", name)) as f:
             walk(json.load(f))
+    with open(os.path.join(HERE, REFERENCES)) as f:
+        walk(json.load(f))
     return "\n".join(values)
 
 

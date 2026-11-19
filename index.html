@@ -4,13 +4,15 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>statescope: per-layer dictionaries for Qwen3.5-0.8B</title>
-<meta name="description" content="statescope is a reader in one Python file and a set of dictionary weights for Qwen/Qwen3.5-0.8B: a state dictionary and an MLP dictionary at each layer, with one computation followed through named units.">
-<meta property="og:type" content="article">
-<meta property="og:title" content="statescope: per-layer dictionaries for Qwen3.5-0.8B">
-<meta property="og:description" content="A state dictionary and an MLP dictionary at each layer of Qwen/Qwen3.5-0.8B, a reader in one Python file, and one computation followed through named units: how the model decides to break a line.">
+<title>statescope: per-layer dictionaries for Qwen3.5</title>
+<meta name="description" content="statescope provides a Python reader and per-layer dictionaries for Qwen3.5-4B and Qwen3.5-0.8B. We use these dictionaries to follow a line-break decision through named units and to steer the model with individual state groups.">
+<meta property="og:type" content="website">
+<meta property="og:title" content="statescope: per-layer dictionaries for Qwen3.5">
+<meta property="og:description" content="statescope provides a Python reader and per-layer dictionaries for Qwen3.5-4B and Qwen3.5-0.8B. We use these dictionaries to follow a line-break decision through named units and to steer the model with individual state groups.">
 <meta property="og:site_name" content="statescope">
 <meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="statescope: per-layer dictionaries for Qwen3.5">
+<meta name="twitter:description" content="statescope provides a Python reader and per-layer dictionaries for Qwen3.5-4B and Qwen3.5-0.8B. We use these dictionaries to follow a line-break decision through named units and to steer the model with individual state groups.">
 <meta name="color-scheme" content="light dark">
 <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
 <link rel="preload" href="assets/fonts/site-sans-var.woff2" as="font" type="font/woff2" crossorigin>
@@ -22,42 +24,21 @@
 <body>
 <a class="skip" href="#main">Skip to the content</a>
 
-<main id="main">
-<article>
-
-<header class="title g" id="top">
+<header class="hero" id="top">
   <h1>statescope</h1>
-  <p class="standfirst">Per-layer dictionaries for the language model Qwen3.5-0.8B: a state dictionary of the residual stream and an MLP dictionary of gated low-rank transforms at each of its 24 layers, a reader in one Python file, and one computation followed through named units.</p>
-  <dl class="byline">
-    <div><dt>Base model</dt><dd><code>Qwen/Qwen3.5-0.8B</code><span class="sub">24 layers, width 1024</span></dd></div>
-    <div><dt>Set frozen</dt><dd>2026-11-18<span class="sub">one dictionary seed</span></dd></div>
-    <div><dt>Code</dt><dd><a href="https://github.com/mconcat/statescope">mconcat/statescope</a><span class="sub">on GitHub, MIT</span></dd></div>
-    <div><dt>Weights</dt><dd><a href="https://huggingface.co/mconcat/statescope-qwen3.5-0.8b">mconcat/statescope-qwen3.5-0.8b</a><span class="sub">on Hugging Face, MIT, about 27.4 GiB</span></dd></div>
-  </dl>
-
-  <div class="abstract">
-    <p>statescope is a reader in one Python file and a set of dictionary weights for <code>Qwen/Qwen3.5-0.8B</code>. Each of the model's 24 layers has two dictionaries that were trained separately. The state dictionary writes the residual stream as a few active groups of directions. The MLP dictionary writes the layer's MLP as a sum of small gated linear operations called transforms. A <a href="#qwen35-4b">second set</a> for <code>Qwen/Qwen3.5-4B</code> uses the same reader.</p>
-    <p>This page follows one computation through these units: how the model decides to break a line in text wrapped to a fixed width. One transform at layer 8 fires on the first token of each line. A head of the layer-9 mixer carries the count of characters since then. Two transforms at layer 9 turn the count into the line-break decision: one is on while the line is short, and the other is on once it is long. In text wrapped at 60 characters, swapping only the first transform's write through the mixer carries 0.328 of the change in the model's preference for a line break, and swapping the whole layer-8 MLP output the same way carries 0.353.</p>
-    <p>The evidence is narrow. The set covers one model and one dictionary seed, and it has no dictionaries for the mixers. The demonstration covers one easy task with dedicated MLP neurons and is not evidence that dictionary units are better than neurons. The trainers are not in the repository, and the per-layer numbers cannot be recomputed from the published files. The section <a href="#limits">Limits</a> lists all of this.</p>
-  </div>
-
-  <nav class="contents" aria-label="Contents">
-    Contents
-    <ol>
-<li><a href="#dictionaries">Two dictionaries per layer</a></li>
-<li><a href="#example">A worked example: when to break a line</a></li>
-<li><a href="#layers">Numbers per layer</a></li>
-<li><a href="#qwen35-4b">A second set, for Qwen3.5-4B</a></li>
-<li><a href="#checks">What was checked</a></li>
-<li><a href="#limits">Limits</a></li>
-<li><a href="#use">Using it</a></li>
-<li><a href="#credits">Licences and credits</a></li>
-    </ol>
+  <p class="subtitle">statescope provides a Python reader and per-layer state and MLP dictionaries for Qwen3.5-4B and Qwen3.5-0.8B.</p>
+  <nav class="links" aria-label="Code and weights">
+    <a class="pill" href="https://github.com/mconcat/statescope"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M5.6 3.6 1.6 8l4 4.4M10.4 3.6l4 4.4-4 4.4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>Code</a>
+    <a class="pill" href="https://huggingface.co/mconcat/statescope-qwen3.5-4b"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M8 1.8 14 5 8 8.2 2 5zM2 8l6 3.2L14 8M2 11l6 3.2 6-3.2" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>Weights for Qwen3.5-4B</a>
+    <a class="pill" href="https://huggingface.co/mconcat/statescope-qwen3.5-0.8b"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M8 1.8 14 5 8 8.2 2 5zM2 8l6 3.2L14 8M2 11l6 3.2 6-3.2" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>Weights for Qwen3.5-0.8B</a>
   </nav>
 </header>
 
+<main id="main">
 
-<figure class="band g" id="fig-lead">
+
+<figure class="teaser band tint" id="fig-lead">
+  <div class="wrap">
   <ul class="keys" aria-hidden="true">
     <li><span class="swatch a"></span>L8 transform 189 is on</li>
     <li><span class="swatch b"></span>L9 transform 410 is on</li>
@@ -105,105 +86,142 @@
 </div>
     <p class="axis-title">Characters already in the line. Bars: fraction of tokens at which the transform is on.</p>
   </div>
-  <figcaption><b>Figure 1.</b> The last 7 lines of a text wrapped at 100 characters, with one mark per token. L8 transform 189 is on at the first token of each line. L9 transform 410 is on while the line is short, and L9 transform 1749 turns on near the end of the line. The dashed rule is the wrapping width, and the number after each line is the number of characters the line holds. The bars below use the same horizontal scale. They give the fraction of tokens at which each L9 transform is on, by the number of characters already in the line, over the clean texts of the two count cells. Lines longer than 60 characters occur only in the texts wrapped at 100. Measured by this repository's demonstration script on the published weights. The text is item 47 of the cell <code>count:100</code>, chosen by hand as a readable example; it is a re-wrapped excerpt from <code>HuggingFaceFW/fineweb-edu</code>, licensed under ODC-By 1.0.</figcaption>
+  </div>
+  <figcaption><b>Figure 1.</b> The last 7 lines of a text wrapped at 100 characters, with one mark per token. L8 transform 189 is on at the first token of each line. L9 transform 410 is on while the line is short, and L9 transform 1749 turns on near the end of the line. <span class="fine">The dashed rule is the wrapping width, and the number after each line is the number of characters the line holds. The bars below use the same horizontal scale. They give the fraction of tokens at which each L9 transform is on, by the number of characters already in the line, over the clean texts of the two count cells. Lines longer than 60 characters occur only in the texts wrapped at 100. The text is item 47 of the cell <code>count:100</code>, chosen by hand as a readable example; it is a re-wrapped excerpt from <code>HuggingFaceFW/fineweb-edu</code>, licensed under ODC-By 1.0.</span></figcaption>
 </figure>
 
 
-<section class="g" aria-labelledby="dictionaries">
-  <h2 id="dictionaries"><a href="#dictionaries">Two dictionaries per layer</a></h2>
-  <p>The base model has 24 layers and width 1024. Each layer has a <dfn>mixer</dfn>, which is its GatedDeltaNet or attention sublayer, and an MLP. Each layer has a state dictionary and an MLP dictionary that were trained separately. Figure 2 shows where each one reads.</p>
-  <p>The <dfn>state dictionary</dfn> represents the residual stream at two sites of its layer. A residual stream <dfn>site</dfn> is a location between the mixer and the MLP or after the MLP where a state dictionary reads the residual stream. The site <code>resid_mid.L</code> is the input of the norm before the MLP. The site <code>resid_post.L</code> is <code>resid_mid</code> plus the MLP output.</p>
-  <p>The <dfn>MLP dictionary</dfn> represents the layer's MLP operations, taking the post-norm MLP input and reconstructing the raw MLP output. It uses the sparse mixture of linear transforms, or MOLT, from the public <code>crosslayer-transcoder</code> code.</p>
+<section class="band abstract" aria-labelledby="abstract">
+  <div class="wrap narrow">
+    <h2 id="abstract"><a href="#abstract">Abstract</a></h2>
+    <p>statescope is a reader in one Python file with two sets of per-layer dictionary weights. The sets are for Qwen3.5-4B and Qwen3.5-0.8B, with two separately trained dictionaries at each layer. A state dictionary writes the residual stream as a few active groups of directions. An MLP dictionary writes the layer's MLP as a sum of small gated linear operations called transforms.</p>
+    <p>We follow a line-break decision in Qwen3.5-0.8B through named units. A layer-8 transform fires on the first token of each line, and a head of the layer-9 mixer carries the count of characters since then. Two layer-9 transforms turn that count into the line-break decision. In text wrapped at 60 characters, swapping only the first transform's write through the mixer carries 0.328 of the change in the model's preference for a line break, and swapping the whole layer-8 MLP output the same way carries 0.353.</p>
 
-  <figure class="wide" id="fig-layer">
-    <div class="schematic">
-      <svg viewBox="0 0 340 424" role="img" aria-labelledby="schem-t schem-d">
-        <title id="schem-t">One layer and where each dictionary reads</title>
-        <desc id="schem-d">The residual stream runs from top to bottom. The mixer, a GatedDeltaNet or attention sublayer, adds to it; this set has no dictionary for the mixer. The stream after the mixer is the site resid_mid, where the state dictionary reads. A norm and the MLP follow; the MLP dictionary takes the post-norm MLP input and reconstructs the raw MLP output. The stream after the MLP output is added is the site resid_post, where the same state dictionary reads.</desc>
-        <defs>
-          <marker id="arr" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="s-arrow" d="M0 0.8 L7.2 4 L0 7.2 z"/></marker>
-          <marker id="arr-ink" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path class="s-arrow-ink" d="M0 0.8 L7.2 4 L0 7.2 z"/></marker>
-        </defs>
-        <text x="30" y="14" class="s-muted">residual stream, from the layer before</text>
-        <path class="s-stream" d="M16 4 V414" marker-end="url(#arr-ink)"/>
+    <p>We steered Qwen3.5-4B with single state groups. In a Python rule-completion task, moving the residual stream inside one group's frame raised the rate of correct rules from 0.516 to 0.773.</p>
 
-        <path class="s-branch" d="M16 38 H202 V60" marker-end="url(#arr)"/>
-        <rect class="s-box plain" x="112" y="62" width="180" height="54" rx="4"/>
-        <text x="126" y="84" font-weight="600">mixer</text>
-        <text x="126" y="101" class="s-muted">GatedDeltaNet or attention</text>
-        <path class="s-branch" d="M202 116 V140 H26" marker-end="url(#arr)"/>
-        <circle class="s-add" cx="16" cy="140" r="8"/>
-        <path class="s-branch" d="M12 140 H20 M16 136 V144"/>
-        <text x="212" y="135" class="s-muted">no dictionary in this set</text>
-
-        <circle class="s-tap-state" cx="16" cy="180" r="6"/>
-        <path class="s-read-state" d="M24 180 H38"/>
-        <rect class="s-tag-state" x="38" y="166" width="232" height="28" rx="3"/>
-        <text x="48" y="184"><tspan class="s-mono">resid_mid.L</tspan><tspan dx="8">state dictionary reads</tspan></text>
-
-        <path class="s-branch" d="M16 216 H202 V234" marker-end="url(#arr)"/>
-        <rect class="s-box" x="142" y="236" width="120" height="30" rx="4"/>
-        <text x="156" y="255">norm</text>
-        <path class="s-branch" d="M202 266 V294" marker-end="url(#arr)"/>
-        <rect class="s-box" x="142" y="296" width="120" height="34" rx="4"/>
-        <text x="156" y="317" font-weight="600">MLP</text>
-        <path class="s-branch" d="M202 330 V356 H26" marker-end="url(#arr)"/>
-        <circle class="s-add" cx="16" cy="356" r="8"/>
-        <path class="s-branch" d="M12 356 H20 M16 352 V360"/>
-
-        <path class="s-read-mlp" d="M202 280 H130"/>
-        <circle class="s-dot-mlp" cx="202" cy="280" r="3.5"/>
-        <path class="s-read-mlp" d="M202 343 H130"/>
-        <circle class="s-dot-mlp" cx="202" cy="343" r="3.5"/>
-        <path class="s-read-mlp" d="M130 280 V343"/>
-        <rect class="s-tag-mlp" x="30" y="290" width="100" height="44" rx="3"/>
-        <text x="38" y="308">MLP dictionary</text>
-        <text x="38" y="324" class="s-muted">input to output</text>
-        <text x="212" y="284" class="s-muted">post-norm MLP input</text>
-        <text x="212" y="347" class="s-muted">raw MLP output</text>
-
-        <circle class="s-tap-state" cx="16" cy="392" r="6"/>
-        <path class="s-read-state" d="M24 392 H38"/>
-        <rect class="s-tag-state" x="38" y="378" width="240" height="28" rx="3"/>
-        <text x="48" y="396"><tspan class="s-mono">resid_post.L</tspan><tspan dx="8">state dictionary reads</tspan></text>
-      </svg>
-      <div class="unit-notes">
-        <div class="state">
-          <h4><i></i>State dictionary: groups</h4>
-          <p>A <b>group</b> is a set of 4 directions in a state dictionary. A <b>frame</b> is the orthonormal basis of a group's 4-dimensional write subspace. A <b>code</b> gives a token's coordinates in that frame, multiplied by a per-group scale.</p>
-          <p>The dictionary's tied form has 16,384 groups. At each token, the 24 groups with the largest written norm are active.</p>
-        </div>
-        <div class="mlp">
-          <h4><i></i>MLP dictionary: transforms</h4>
-          <p>A <b>transform</b> is a linear operation in an MLP dictionary with its own read and write matrices. Its write is what it adds to the MLP output. A <b>gate</b> controls a transform through a learned threshold on its pre-activation.</p>
-          <p>It has 3,968 transforms in five rank tiers. There are 128 transforms of rank 128, 256 of rank 64, 512 of rank 32, 1,024 of rank 16 and 2,048 of rank 8.</p>
-        </div>
-      </div>
-    </div>
-    <figcaption><b>Figure 2.</b> One layer of the model and the places where the two dictionaries read. The state dictionary reads the residual stream at <code>resid_mid.L</code> and <code>resid_post.L</code>. The MLP dictionary takes the post-norm MLP input and reconstructs the raw MLP output. The mixer has no dictionary in this set. The norm before the mixer is not drawn.</figcaption>
-  </figure>
-
-  <p>In the state dictionary, the input is divided by its own size, and it is then standardised with a mean vector and one scale per site. Each layer's dictionary was trained on 30,003,200 tokens over 7,325 steps.</p>
-  <p>The MLP dictionary uses a JumpReLU gate. Each transform has free read and write matrices. There is no skip connection. Training uses a tanh sparsity penalty. Training used 58,600 steps of 500 tokens, or 29.3 million tokens, per layer. The learning rate was 4.0e-05. The sparsity penalty coefficient was 7.5e-05 for layers 0 to 22. Layer 23 used 2.5e-05 in a separate run.</p>
-  <aside class="limit-note"><div><p><b>No mixer dictionaries.</b> This set contains no dictionaries for the mixers. Where the example below passes through a mixer, it is measured in the model's own mixer.</p></div></aside>
-  <p>The set contains 144 weight and config files. State dictionaries occupy about 12.0 GiB, and MLP dictionaries occupy about 15.4 GiB. The repository contains the reader, a demonstration and tests. The trainers for this set are not in the repository.</p>
+  </div>
 </section>
 
 
-<section class="g" aria-labelledby="example">
-  <h2 id="example"><a href="#example">A worked example: when to break a line</a></h2>
-  <p>The task uses texts wrapped to a fixed width. At the last word of a line, the model must predict a line break, so it must know how many characters the line already holds. Figure 1 shows three dictionary units that follow this count on one text.</p>
-  <p>The original project found the chain described in this section. The script <code>demo/line_count.py</code> uses its chosen transform, group and head and re-measures their effects. It does not search for them. The shares, firing rates and per-item margins on this page are the output of one run of that script, read from its <code>result.json</code> and <code>result.safetensors</code>. No model runs in the browser.</p>
+<section class="band tint" aria-labelledby="dictionaries">
+  <div class="wrap">
+    <h2 id="dictionaries"><a href="#dictionaries">Two dictionaries per layer</a></h2>
+    <p class="lead">Qwen3.5-4B has 32 layers and width 2,560, while Qwen3.5-0.8B has 24 layers and width 1,024. Both dictionary sets have the same form, and the examples in this section come from the Qwen3.5-0.8B set. Each layer has a <dfn>mixer</dfn>, which is its GatedDeltaNet or attention sublayer, and an MLP. Each layer has a state dictionary and an MLP dictionary that were trained separately. Figure 2 shows where each one reads.</p>
 
-  <h3 id="pairs"><a href="#pairs">Pairs of texts and the margin</a></h3>
-  <p>Each item pairs 256-token texts ending on the same words. In every cell, the <dfn>clean</dfn> text's last line is full, at most 6 characters short of the width, so a line break is due. In the <dfn>corrupt</dfn> text a line break is not due.</p>
-  <p>A <dfn>cell</dfn> is a task setting defined by the wrapping width and how the corrupt text is made. The three cells are <code>count:60</code>, <code>count:100</code> and <code>width:100</code>. Each cell contains 64 pairs.</p>
-  <ul>
-    <li>In the count cells, the corrupt text's last line starts at a later word than the clean text's, chosen so that the line holds between 35% and 65% of the width at the last word, and the preceding lines are wrapped backward from that word at the same width, moving their line breaks too.</li>
-    <li>In the width cell, the corrupt text's last line starts at the same word as the clean text's, and the preceding lines are wrapped backward at 1.75 times the width.</li>
-  </ul>
+    <div class="split diagram">
+      <figure id="fig-layer">
+        <svg viewBox="0 0 420 486" role="img" aria-labelledby="schem-t schem-d">
+          <title id="schem-t">State and MLP dictionary reads within one layer</title>
+          <desc id="schem-d">The residual stream runs from top to bottom, and the mixer first adds its output to the stream. Beside the mixer, a note identifies direct reads of its heads and channels; the norm before the mixer is not drawn. At resid_mid.L, a branch divides the stream by its token RMS before the state dictionary reads and standardises it. The main path enters the model's norm, which divides by token RMS and multiplies by the learned weight. The MLP dictionary reads this post-norm input and reconstructs the raw MLP output. After the MLP output is added to the stream, another branch at resid_post.L divides by token RMS before the state dictionary reads and standardises it.</desc>
+          <defs>
+            <marker id="arr" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="s-arrow" d="M0 0.8 L7.2 4 L0 7.2 z"/></marker>
+            <marker id="arr-ink" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path class="s-arrow-ink" d="M0 0.8 L7.2 4 L0 7.2 z"/></marker>
+          </defs>
+          <text x="34" y="14" class="s-muted">residual stream, from the layer before</text>
+          <path class="s-stream" d="M20 4 V476" marker-end="url(#arr-ink)"/>
 
-  <figure class="page needs-js" id="fig-pair">
+          <path class="s-branch" d="M20 38 H250 V58" marker-end="url(#arr)"/>
+          <rect class="s-box plain" x="140" y="60" width="240" height="70" rx="4"/>
+          <text x="154" y="82" font-weight="600">mixer</text>
+          <text x="154" y="99" class="s-muted">GatedDeltaNet or attention</text>
+          <text x="154" y="118" class="s-note">read directly: heads and channels</text>
+          <path class="s-branch" d="M250 130 V152 H30" marker-end="url(#arr)"/>
+          <circle class="s-add" cx="20" cy="152" r="8"/>
+          <path class="s-branch" d="M16 152 H24 M20 148 V156"/>
+
+          <circle class="s-tap-state" cx="20" cy="196" r="6"/>
+          <path class="s-read-state" d="M28 196 H44 M134 196 H150"/>
+          <rect class="s-step" x="44" y="183" width="90" height="26" rx="13"/>
+          <text x="89" y="200" text-anchor="middle" class="s-steptext">÷ token RMS</text>
+          <rect class="s-tag-state" x="150" y="182" width="230" height="28" rx="3"/>
+          <text x="160" y="200"><tspan class="s-mono">resid_mid.L</tspan><tspan dx="8">state dictionary reads</tspan></text>
+
+          <path class="s-branch" d="M20 236 H250 V254" marker-end="url(#arr)"/>
+          <rect class="s-box" x="160" y="256" width="220" height="44" rx="4"/>
+          <text x="174" y="274" font-weight="600">norm</text>
+          <text x="174" y="291" class="s-steptext">÷ token RMS, × learned weight</text>
+          <path class="s-branch" d="M250 300 V330" marker-end="url(#arr)"/>
+          <rect class="s-box" x="190" y="332" width="120" height="34" rx="4"/>
+          <text x="204" y="353" font-weight="600">MLP</text>
+          <path class="s-branch" d="M250 366 V394 H30" marker-end="url(#arr)"/>
+          <circle class="s-add" cx="20" cy="394" r="8"/>
+          <path class="s-branch" d="M16 394 H24 M20 390 V398"/>
+
+          <path class="s-read-mlp" d="M250 315 H150"/>
+          <circle class="s-dot-mlp" cx="250" cy="315" r="3.5"/>
+          <path class="s-read-mlp" d="M250 380 H150"/>
+          <circle class="s-dot-mlp" cx="250" cy="380" r="3.5"/>
+          <path class="s-read-mlp" d="M150 315 V380"/>
+          <rect class="s-tag-mlp" x="44" y="325" width="106" height="44" rx="3"/>
+          <text x="52" y="343">MLP dictionary</text>
+          <text x="52" y="359" class="s-muted">input to output</text>
+          <text x="260" y="319" class="s-muted">post-norm MLP input</text>
+          <text x="260" y="384" class="s-muted">raw MLP output</text>
+
+          <circle class="s-tap-state" cx="20" cy="438" r="6"/>
+          <path class="s-read-state" d="M28 438 H44 M134 438 H150"/>
+          <rect class="s-step" x="44" y="425" width="90" height="26" rx="13"/>
+          <text x="89" y="442" text-anchor="middle" class="s-steptext">÷ token RMS</text>
+          <rect class="s-tag-state" x="150" y="424" width="230" height="28" rx="3"/>
+          <text x="160" y="442"><tspan class="s-mono">resid_post.L</tspan><tspan dx="8">state dictionary reads</tspan></text>
+        </svg>
+        <figcaption><b>Figure 2.</b> The diagram follows the residual stream through one layer, where the mixer and then the MLP add their outputs. At <code>resid_mid.L</code> and <code>resid_post.L</code>, the state dictionary reads the residual stream before any norm module, divides it by its token RMS and applies standardisation with one mean vector and one scale per site. The MLP dictionary reads the model's post-norm MLP input and reconstructs the raw MLP output; before the state dictionary's standardisation, the two input readings differ exactly by the norm's learned weight. We read mixers directly through the model's own heads and channels. The norm before the mixer is not drawn.</figcaption>
+      </figure>
+
+      <div class="units">
+        <article class="unit state">
+          <h3 class="unit-title"><i></i>State dictionary: groups</h3>
+          <p>The <dfn>state dictionary</dfn> represents the residual stream at two sites of its layer. The site <code>resid_mid.L</code> is the input of the norm before the MLP. The site <code>resid_post.L</code> is <code>resid_mid</code> plus the MLP output.</p>
+          <p>A group contains 4 directions that span a small subspace of the residual stream. Its frame is an orthonormal basis for that subspace, and a token's code is its 4 coordinates in the frame. Of the dictionary's 16,384 groups, only the 24 with the largest written norm are active at each token, and their writes sum to represent the residual stream.</p>
+      <p>Group 11586 at <code>resid_post.8</code> is the first-token-of-a-line group: its frame contains 0.769 of the energy of L8 transform 189's swapped write. Group 4885 at <code>resid_mid.9</code> is active on most tokens and carries information in its 4 coordinates; the character count reaches the layer-9 transforms mostly through this frame.</p>
+      <p>We can read where a group is active and what it writes, or change its code and decode it back to a residual vector.</p>
+        </article>
+        <article class="unit mlp">
+          <h3 class="unit-title"><i></i>MLP dictionary: transforms</h3>
+          <p>The <dfn>MLP dictionary</dfn> represents the layer's MLP operations, taking the post-norm MLP input and reconstructing the raw MLP output. It uses the sparse mixture of linear transforms, or MOLT, from the public <code>crosslayer-transcoder</code> code.</p>
+          <p>A transform reads one direction of the MLP input, opens its gate when that reading passes a learned threshold, and writes a low-rank linear map of the input scaled by the gate value. Each Qwen3.5-0.8B layer has 3,968 transforms, with only a few gates open per token, and their writes sum to reconstruct the MLP output.</p>
+      <p>In Figure 1, L8 transform 189 marks the first token of each line: its gate opens on 1.000 of first tokens, 0.001 of line-break tokens and 0.010 of other tokens. L9 transform 410 fires on 0.84 to 0.89 of tokens at line lengths of 20 to 49 characters, falling to 0.03 at 70 to 79 characters. L9 transform 1749 fires on 0.00 of tokens below 70 characters and 0.60 at 90 to 99 characters, as the bars in Figure 1 show.</p>
+      <p>We can read where a transform's gate opens and what it adds to the MLP output, or change its gate and recompute the output.</p>
+        </article>
+      </div>
+    </div>
+
+    <p class="aside-note">By design, the mixers are read directly at the level of the model's own heads and channels. We also trained a stateful transcoder, a dictionary with a state carried across tokens, on 18 GatedDeltaNet layers of the 0.8B model: in the line-counting computation it reproduced about one third of the true head's response, while one of the model's own heads (layer 9, head 10) carried the count about as well as the whole mixer. Attention is read at the level of heads.</p>
+  </div>
+</section>
+
+
+<section class="band" aria-labelledby="example">
+  <div class="wrap">
+    <h2 id="example"><a href="#example">A worked example: when to break a line</a></h2>
+    <div class="lead-block">
+      <p class="lead">The demonstration uses the 0.8B set on texts wrapped to a fixed width. At the last word of a line, the model must predict a line break, so it must know how many characters the line already holds. Figure 1 shows three dictionary units that follow this count on one text.</p>
+      <p class="lead">Our worked example follows the line-counting task studied by <a href="https://arxiv.org/abs/2601.04480">Gurnee et al.</a>, which asks how a model decides where to break a line in text wrapped to a fixed width. We follow the same task in a different model, Qwen3.5-0.8B. In this model, head 10 of the layer-9 GatedDeltaNet carries the count, and the layer-9 MLP reads it through one state group's frame.</p>
+    </div>
+
+    <h3 id="pairs"><a href="#pairs">Pairs of texts and the margin</a></h3>
+    <div class="split even">
+      <div>
+        <p>Each item pairs 256-token texts ending on the same words. In every cell, the <dfn>clean</dfn> text's last line is full, at most 6 characters short of the width, so a line break is due. In the <dfn>corrupt</dfn> text a line break is not due.</p>
+        <p>A <dfn>cell</dfn> is a task setting defined by the wrapping width and how the corrupt text is made. The three cells are <code>count:60</code>, <code>count:100</code> and <code>width:100</code>. Each cell contains 64 pairs.</p>
+        <ul>
+          <li>In the count cells, the corrupt text's last line starts at a later word than the clean text's, chosen so that the line holds between 35% and 65% of the width at the last word, and the preceding lines are wrapped backward from that word at the same width, moving their line breaks too.</li>
+          <li>In the width cell, the corrupt text's last line starts at the same word as the clean text's, and the preceding lines are wrapped backward at 1.75 times the width.</li>
+        </ul>
+      </div>
+      <div class="defs">
+        <div class="def">
+          <p>The <dfn>margin</dfn> is the last-token logsumexp of newline-token logits minus the logsumexp of logits for tokens starting with a space. A higher margin favours a line break.</p>
+          <pre class="formula">m = logsumexp(logits of newline tokens) - logsumexp(logits of tokens that start with a space)</pre>
+        </div>
+        <div class="def">
+          <p>A <dfn>patch</dfn> replaces a tensor in the clean run with a value built from the corrupt run and moved onto the clean run's token positions. Each row called a swap on this page is one such patched run of the clean texts. A <dfn>share</dfn> is the part of the clean/corrupt margin difference carried by the patched tensor. A share of 0 means that the patch changes nothing. A share of 1 means that the patch alone turns the clean run into the corrupt one.</p>
+          <pre class="formula">share = mean(m_clean - m_patched) / mean(m_clean - m_corrupt)</pre>
+        </div>
+      </div>
+    </div>
+
+    <figure class="needs-js" id="fig-pair">
     <div class="figure-head">
       <div class="controls">
         <div class="control"><span class="label" id="cell-label-pair">Cell</span><div class="seg code" role="group" aria-labelledby="cell-label-pair" data-scope="cell"></div></div>
@@ -234,24 +252,21 @@
         <div class="tscroll" id="corrupt-box" tabindex="0" role="region" aria-label="Corrupt text of the selected item"></div>
       </div>
     </div>
-    <figcaption><b>Figure 3.</b> The two texts of one item. Both end on the same words; the outlined token is the last one, where the margin is read. On the clean text, the marks are those of Figure 1: the script recorded the three gates on the clean texts only. The number after each line is the number of characters it holds, and a token before the first line break of a text has no known count. Margins are from this repository's run of the demonstration script. Texts: re-wrapped excerpts from <code>HuggingFaceFW/fineweb-edu</code>, licensed under ODC-By 1.0.</figcaption>
-  </figure>
+      <figcaption><b>Figure 3.</b> The two texts of one item. Both end on the same words; the outlined token is the last one, where the margin is read. On the clean text, the marks are those of Figure 1: the script recorded the three gates on the clean texts only. The number after each line is the number of characters it holds, and a token before the first line break of a text has no known count. Texts: re-wrapped excerpts from <code>HuggingFaceFW/fineweb-edu</code>, licensed under ODC-By 1.0.</figcaption>
+    </figure>
 
-  <p>The <dfn>margin</dfn> is the last-token logsumexp of newline-token logits minus the logsumexp of logits for tokens starting with a space. A higher margin favours a line break.</p>
-  <pre class="formula">m = logsumexp(logits of newline tokens) - logsumexp(logits of tokens that start with a space)</pre>
-  <p>A <dfn>patch</dfn> replaces a tensor in the clean run with a value built from the corrupt run and moved onto the clean run's token positions. Each row called a swap on this page is one such patched run of the clean texts. A <dfn>share</dfn> is the part of the clean/corrupt margin difference carried by the patched tensor. A share of 0 means that the patch changes nothing. A share of 1 means that the patch alone turns the clean run into the corrupt one.</p>
-  <pre class="formula">share = mean(m_clean - m_patched) / mean(m_clean - m_corrupt)</pre>
+    <h3 id="steps"><a href="#steps">The chain, step by step</a></h3>
+    <ol class="steps">
+      <li>Transform 189 of the L8 MLP dictionary fires on the first token of a line. Its write lies mostly inside the frame of state group 11586 of <code>resid_post.8</code>, the first-token-of-a-line group.</li>
+      <li>The model's L9 mixer reads that write. Swapping only transform 189's write or only group 11586 moves the answer about as much as swapping the whole L8 MLP output in the count cells. GatedDeltaNet head 10 carries the count inside the mixer.</li>
+      <li>Transforms 410 and 1749 of the L9 MLP dictionary turn the count into the line-break decision. Transform 410 is on while the line is short, and transform 1749 is on once it is long. What the L9 transforms read of the mixer's write lies mostly inside the 4-dimensional frame of state group 4885 of <code>resid_mid.9</code>.</li>
+    </ol>
+    <div class="cols">
+      <p>Figure 4 ties each step to its swaps. In every step, the swap of one named unit stands next to the swap of the whole tensor it belongs to, measured by the same route. We read shares on the 32 even-numbered items of each cell and chose the units on the odd-numbered items.</p>
+      <p>In the count cells, transform 189 or group 11586 carries about as much as the whole L8 MLP output through the L9 mixer. Head 10's read alone gives a larger share than the whole mixer output. Transform 410 carries the L9 MLP's effect in <code>count:60</code>, and transform 1749 carries it in <code>width:100</code>. The same computation is also visible in individual MLP neurons.</p>
+    </div>
 
-  <h3 id="steps"><a href="#steps">The chain, step by step</a></h3>
-  <ol>
-    <li>Transform 189 of the L8 MLP dictionary fires on the first token of a line. Its write lies mostly inside the frame of state group 11586 of <code>resid_post.8</code>, the first-token-of-a-line group.</li>
-    <li>The model's L9 mixer reads that write. Swapping only transform 189's write or only group 11586 moves the answer about as much as swapping the whole L8 MLP output in the count cells. GatedDeltaNet head 10 carries the count inside the mixer.</li>
-    <li>Transforms 410 and 1749 of the L9 MLP dictionary turn the count into the line-break decision. Transform 410 is on while the line is short, and transform 1749 is on once it is long. What the L9 transforms read of the mixer's write lies mostly inside the 4-dimensional frame of state group 4885 of <code>resid_mid.9</code>.</li>
-  </ol>
-  <aside class="limit-note"><div><p><b>An easy task.</b> This is an easy task for which the model has dedicated MLP neurons. The demonstration is not evidence that dictionary units are better than neurons.</p></div></aside>
-  <p>Figure 4 ties each step to its swaps. In every step, the swap of one named unit stands next to the swap of the whole tensor it belongs to, measured by the same route.</p>
-
-  <figure class="wide needs-js" id="fig-chain">
+    <figure class="needs-js" id="fig-chain">
     <div class="figure-head">
       <div class="controls">
         <div class="control"><span class="label" id="cell-label-chain">Cell</span><div class="seg code" role="group" aria-labelledby="cell-label-chain" data-scope="cell"></div></div>
@@ -259,8 +274,10 @@
       </div>
     </div>
     <div class="chain" id="chain" role="group" aria-label="The traced chain from the L8 MLP to the L9 MLP, with the share of each swap"></div>
-    <figcaption><b>Figure 4.</b> The chain from the L8 MLP to the L9 MLP, read from top to bottom. Each row is one swap: a separate patched run of the clean texts. The dot is its share and the bar is the bootstrap interval from 2.5 % to 97.5 %. Filled dots are named units; open dots are whole tensors or whole dictionaries measured by the same route. The rows are not parts of one total and do not add up, and the route differs from step to step, as stated above each group of rows. Select a row to see its items in Figure 5. Measured by this repository's demonstration script; the units were chosen by the original project.</figcaption>
-    <details class="more"><summary>Table: the eleven main swaps in the three cells</summary>
+      <figcaption><b>Figure 4.</b> Each row shows a separate swap, which replaces one unit's clean-run value with its value on the corrupt text. The dot shows the share of the mean clean-to-corrupt margin change carried by that swap, and the bar shows its bootstrap interval from 2.5% to 97.5%. Filled dots mark named units, while open dots mark whole tensors or whole dictionaries measured through the same route. The rows do not add up, and GatedDeltaNet head 10 is read directly as the model head that carries the count inside the layer-9 mixer. Selecting a row shows its items in Figure 5.</figcaption>
+    </figure>
+    <div class="toggles">
+      <details class="more"><summary>Table: the eleven main swaps in the three cells</summary>
 <div class="table-wrap"><table>
 <caption>Shares on even-numbered items, with the bootstrap interval in parentheses.</caption>
 <thead><tr>
@@ -281,15 +298,10 @@
 <tr><th scope="row">L9 transform 410</th><td>0.345 (0.281 to 0.401)</td><td>0.013 (-0.039 to 0.064)</td><td>0.026 (0.013 to 0.042)</td></tr>
 <tr><th scope="row">L9 transform 1749</th><td>0.000 (0.000 to 0.000)</td><td>0.108 (0.070 to 0.146)</td><td>0.524 (0.457 to 0.593)</td></tr>
 </tbody></table></div>
-    </details>
-  </figure>
-
-  <p>In the count cells, transform 189 or group 11586 carries about as much as the whole L8 MLP output through the L9 mixer. Head 10's read alone gives a larger share than the whole mixer output. Transform 410 carries the L9 MLP's effect in <code>count:60</code>, and transform 1749 carries it in <code>width:100</code>.</p>
-  <p>Transform 189 fires on 1.000 of line-first tokens, 0.001 of line-break tokens and 0.010 of other tokens. Of the energy in its swapped write, 0.769 lies inside group 11586's frame. The largest value among five random frames is 0.016. The chance value for a 4-dimensional frame in 1,024 dimensions is 0.004.</p>
-  <p>Transform 410 fires on 0.84 to 0.89 of tokens when a line holds 20 to 49 characters. It fires on 0.25 at 60 to 69 characters and 0.03 at 70 to 79. Transform 1749 fires on 0.00 below 70 characters, 0.19 at 80 to 89 and 0.60 at 90 to 99.</p>
-  <details class="more"><summary>Table: firing rates of the three transforms</summary>
+      </details>
+      <details class="more"><summary>Table: firing rates of the three transforms</summary>
 <div class="table-wrap"><table>
-<caption>Fraction of tokens at which each transform&#x27;s gate is open, on the clean texts of the two count cells. Measured by this repository&#x27;s demonstration script.</caption>
+<caption>Fraction of tokens at which each transform&#x27;s gate is open, on the clean texts of the two count cells. Measured by our demonstration script.</caption>
 <thead><tr>
 <th scope="col">Tokens</th>
 <th scope="col">L8 transform 189</th>
@@ -310,48 +322,48 @@
 <tr><th scope="row">other token, 80-89 characters in the line</th><td>0.01</td><td>0.01</td><td>0.19</td></tr>
 <tr><th scope="row">other token, 90-99 characters in the line</th><td>0.01</td><td>0.01</td><td>0.60</td></tr>
 </tbody></table></div>
-  </details>
-  <p>The original project ranked transforms on the odd-numbered items and reads results on the even-numbered ones, 32 items per cell. Some groups were first chosen after looking at all items; when the original project repeated the selection on odd-numbered items only, the chosen groups, frames and transforms were the same. Head 10 was known from earlier work.</p>
+      </details>
+    </div>
 
-  <h3 id="by-item"><a href="#by-item">One swap, item by item</a></h3>
-  <p>A share is a ratio of two means over items. Figure 5 shows what is behind one share: for each of the 64 items of a cell, the margin of the clean run, of the corrupt run, and of the clean run with one swap.</p>
-  <aside class="limit-note"><div><p><b>Rounding.</b> Single-item margins of dictionary swaps are reproducible only to about 0.1. Shares are reproducible only to about 0.003. A patched tensor is rounded to bf16. A 1e-6 relative difference between implementations flips some rounded elements.</p></div></aside>
+    <h3 id="by-item"><a href="#by-item">One swap, item by item</a></h3>
+    <p class="lead">A share is a ratio of two means over items. Figure 5 shows what is behind one share: for each of the 64 items of a cell, the margin of the clean run, of the corrupt run, and of the clean run with one swap.</p>
 
-  <figure class="page needs-js" id="fig-items">
-    <div class="figure-head">
-      <div class="controls">
-        <div class="control"><label for="arm-select">Swap</label><select id="arm-select"></select></div>
-        <div class="control"><span class="label" id="cell-label-items">Cell</span><div class="seg code" role="group" aria-labelledby="cell-label-items" data-scope="cell"></div></div>
-        <div class="control"><span class="label" id="half-label-items">Items</span><div class="seg" role="group" aria-labelledby="half-label-items" data-scope="half"></div></div>
-        <div class="control"><div class="seg" role="group" aria-label="Order of the items" id="sort-seg">
-          <button type="button" data-value="index" aria-pressed="true">by item number</button>
-          <button type="button" data-value="clean" aria-pressed="false">by clean margin</button>
-        </div></div>
+    <figure class="needs-js" id="fig-items">
+      <div class="figure-head">
+        <div class="controls">
+          <div class="control"><label for="arm-select">Swap</label><select id="arm-select"></select></div>
+          <div class="control"><span class="label" id="cell-label-items">Cell</span><div class="seg code" role="group" aria-labelledby="cell-label-items" data-scope="cell"></div></div>
+          <div class="control"><span class="label" id="half-label-items">Items</span><div class="seg" role="group" aria-labelledby="half-label-items" data-scope="half"></div></div>
+          <div class="control"><div class="seg" role="group" aria-label="Order of the items" id="sort-seg">
+            <button type="button" data-value="clean" aria-pressed="true">by clean margin</button>
+            <button type="button" data-value="index" aria-pressed="false">by item number</button>
+          </div></div>
+        </div>
       </div>
-    </div>
-    <div class="readout" aria-live="polite">
-      <span><span class="visually-hidden">Share </span><span class="big" id="share-big"></span></span>
-      <span id="share-interval"></span>
-      <span class="mono" id="share-means"></span>
-    </div>
-    <p class="swap-what" id="share-what"></p>
-    <ul class="keys" aria-hidden="true">
-      <li><svg width="12" height="12"><circle cx="6" cy="6" r="4" class="pt-clean"/></svg>clean run</li>
-      <li><svg width="12" height="12"><circle cx="6" cy="6" r="3.5" class="pt-corrupt"/></svg>corrupt run</li>
-      <li><svg width="12" height="12"><path d="M6 1L11 6L6 11L1 6z" class="pt-patched"/></svg>clean run with the swap</li>
-      <li>faded: items outside the selected set</li>
-    </ul>
-    <div class="plot" id="items-plot"></div>
-    <figcaption><b>Figure 5.</b> The margin of every item of one cell: clean run, corrupt run, and clean run with the selected swap. A higher margin favours a line break. A swap with a share near 1 moves each diamond down to the open circle; a swap with a share near 0 leaves it on the filled one. Select an item to read its texts in Figure 3. Measured by this repository's demonstration script.</figcaption>
-    <details class="more" id="items-details"><summary>Table: the margins of the items for the selected swap</summary>
-      <div id="items-table"></div>
-    </details>
-  </figure>
+      <div class="readout" aria-live="polite">
+        <span><span class="visually-hidden">Share </span><span class="big" id="share-big"></span></span>
+        <span id="share-interval"></span>
+        <span class="mono" id="share-means"></span>
+      </div>
+      <p class="swap-what" id="share-what"></p>
+      <ul class="keys" aria-hidden="true">
+        <li><svg width="14" height="18"><path d="M7 2V13" class="arrow-item"/><path d="M3.5 10.5 7 15.5 10.5 10.5z" class="arrow-head"/></svg>One item's swap</li>
+        <li><svg width="16" height="12"><path d="M2 6H14" class="pt-target"/></svg>Corrupt margin</li>
+        <li><svg width="14" height="18"><path d="M7 2V12" class="arrow-mean"/><path d="M2.5 9.5 7 16 11.5 9.5z" class="arrow-mean-head"/></svg>Mean swap</li>
+        <li>faded: items outside the selected set</li>
+      </ul>
+      <div class="plot" id="items-plot" data-zero="above: the model prefers a line break" data-mean="Mean swap" data-target="Corrupt mean" data-start="Clean mean" data-y="Preference for a line break over a space" data-x="Items ordered by clean margin" data-aria="Thin arrows show each item's margin before and after the swap, faint marks show corrupt margins, and a bold arrow shows the mean change."></div>
+      <p class="look">Look at how swapping one unit moves the model from preferring a line break toward preferring a space, and how far the bold arrow moves on average.</p>
+      <figcaption><b>Figure 5.</b> Each thin arrow shows one item, from its clean-run margin to its margin after the swap. A faint mark shows its corrupt-run margin, and items are ordered by their clean margin. The bold arrow at the right runs from the mean clean margin to the mean margin after the swap, with the mean corrupt margin as its target. The share is the bold arrow's length divided by the distance from the clean mean to the corrupt mean. Selecting an item shows its two texts in Figure 3.</figcaption>
+      <details class="more" id="items-details"><summary>Table: the margins of the items for the selected swap</summary>
+        <div id="items-table"></div>
+      </details>
+    </figure>
 
-  <h3 id="mixer-to-mlp"><a href="#mixer-to-mlp">From the L9 mixer to the L9 transforms</a></h3>
-  <p>The last link asks how the mixer's write reaches the L9 transforms. The whole mixer swap and head 10's swap are each applied in full, only inside the 4-dimensional frame of state group 4885 of <code>resid_mid.9</code>, or as the rest. The share is then read by three routes. For the first two, the changed <code>resid_mid.9</code> enters the L9 MLP dictionary, and only the change in the selected transforms' writes is patched at the MLP output: once for the six L9 transforms selected by the original project (410, 1749, 6, 3720, 1394 and 2275), and once for transforms 410 and 1749 alone. The third route is the same change with everything downstream.</p>
+    <h3 id="mixer-to-mlp"><a href="#mixer-to-mlp">From the L9 mixer to the L9 transforms</a></h3>
+    <p class="lead">The last link asks how the mixer's write reaches the L9 transforms. The whole mixer swap and head 10's swap are each applied in full, only inside the 4-dimensional frame of state group 4885 of <code>resid_mid.9</code>, or as the rest. The share is then read by three routes. For the first two, the changed <code>resid_mid.9</code> enters the L9 MLP dictionary, and only the change in the selected transforms' writes is patched at the MLP output: once for the six L9 transforms we selected (410, 1749, 6, 3720, 1394 and 2275), and once for transforms 410 and 1749 alone. The third route is the same change with everything downstream.</p>
 
-  <figure class="wide needs-js" id="fig-link">
+    <figure class="needs-js" id="fig-link">
     <div class="figure-head">
       <div class="controls">
         <div class="control"><span class="label" id="base-label">Change at the L9 mixer output</span><div class="seg" role="group" aria-labelledby="base-label" id="base-seg"></div></div>
@@ -360,8 +372,10 @@
       </div>
     </div>
     <div class="link-panels" id="link-panels"></div>
-    <figcaption><b>Figure 6.</b> The share carried by three parts of one change at the L9 mixer output, read by three routes. The part inside group 4885's frame moves the transforms about as much as the whole change, and the rest moves them little. With everything downstream, the rest still carries a share, so the frame is not the only route to the answer. The last bar of the first two panels is a control: the largest absolute share among 5 random 4-dimensional frames, measured for the whole mixer swap and through the transforms only. Bars are drawn from 0 to 1. Measured by this repository's demonstration script.</figcaption>
-    <details class="more"><summary>Table: the link comparison in the three cells</summary>
+      <figcaption><b>Figure 6.</b> The share carried by three parts of one change at the L9 mixer output, read by three routes. The part inside group 4885's frame moves the transforms about as much as the whole change, and the rest moves them little. With everything downstream, the rest still carries a share, so the frame is not the only route to the answer. The last bar of the first two panels is a control: the largest absolute share among 5 random 4-dimensional frames, measured for the whole mixer swap and through the transforms only. Bars are drawn from 0 to 1.</figcaption>
+    </figure>
+    <div class="toggles">
+      <details class="more"><summary>Table: the link comparison in the three cells</summary>
 <div class="table-wrap"><table>
 <caption>Shares on even-numbered items, written A / B (C). A: through the six selected L9 transforms. B: through transforms 410 and 1749 alone. C: with everything downstream. The last row has no C.</caption>
 <thead><tr>
@@ -378,147 +392,322 @@
 <tr><th scope="row">head 10 swap, the rest</th><td>0.026 / 0.025 (0.153)</td><td>0.041 / 0.066 (0.185)</td><td>0.044 / 0.037 (0.204)</td></tr>
 <tr><th scope="row">whole mixer swap, only the part inside a random 4-dimensional frame (largest of 5, absolute)</th><td>0.003 / 0.004</td><td>0.003 / 0.005</td><td>0.005 / 0.007</td></tr>
 </tbody></table></div>
-    </details>
-  </figure>
-
-  <p>The part inside group 4885's frame moves the transforms about as much as the whole swap. The rest moves them little. On even-numbered items, for the whole mixer swap, the rest carries 0.016 in <code>count:60</code>, 0.032 in <code>count:100</code> and 0.042 in <code>width:100</code> through the six transforms. Through the two transforms alone, the rest carries 0.013, 0.052 and 0.031. A random 4-dimensional frame carries at most 0.005 through the six transforms and 0.007 through the two.</p>
-  <aside class="limit-note"><div><p><b>Group 4885 is dense.</b> State group 11586 is sparse, but not every group is sparse. Some groups encountered by the original project on this task are dense 4-dimensional coordinates active on most tokens. They carry information in their coordinates. Group 4885 is one of these dense groups, not a sparse feature.</p></div></aside>
-  <p>With everything downstream, the rest carries 0.156 in <code>count:60</code>, 0.168 in <code>count:100</code> and 0.177 in <code>width:100</code>. The frame is therefore not the only route to the answer. The downstream shares of the two parts do not add up to the whole.</p>
-  <p>The original project registered a pass rule for the mixer-to-MLP link. The rule requires at least 0.75 of the whole share inside the frame, at most 0.25 of it and at most 0.05 in the rest, and at most 0.01 in random frames, in both count cells. The original project's verdict was that the rule holds for the route through the six transforms and holds only in part for the route through 410 and 1749 alone, because it recorded a share of 0.051 for the rest in <code>count:100</code> through those two transforms.</p>
-
-
-</section>
+      </details>
+    </div>
+    <div class="cols">
+      <p>The part inside group 4885's frame moves the transforms about as much as the whole swap. The rest moves them little. On even-numbered items, for the whole mixer swap, the rest carries 0.016 in <code>count:60</code>, 0.032 in <code>count:100</code> and 0.042 in <code>width:100</code> through the six transforms. Through the two transforms alone, the rest carries 0.013, 0.052 and 0.031. A random 4-dimensional frame carries at most 0.005 through the six transforms and 0.007 through the two.</p>
+      <p>With everything downstream, the rest carries 0.156 in <code>count:60</code>, 0.168 in <code>count:100</code> and 0.177 in <code>width:100</code>. The frame is therefore not the only route to the answer. The downstream shares of the two parts do not add up to the whole.</p>
+      <p>We registered a pass rule for the mixer-to-MLP link. The rule requires at least 0.75 of the whole share inside the frame, at most 0.25 of it and at most 0.05 in the rest, and at most 0.01 in random frames, in both count cells. Our verdict was that the rule holds for the route through the six transforms and holds only in part for the route through 410 and 1749 alone, because we recorded a share of 0.051 for the rest in <code>count:100</code> through those two transforms.</p>
+    </div>
 
 
-<section class="g" aria-labelledby="layers">
-  <h2 id="layers"><a href="#layers">Numbers per layer</a></h2>
-  <p><dfn>FVU</dfn> means fraction of variance unexplained. It is squared reconstruction error divided by squared deviation from the per-dimension mean of each held-out split. The state FVU is in raw residual units at the two state sites. The MLP FVU is in raw MLP output units.</p>
-  <p>Two kinds of numbers appear in Figure 7, and the figure keeps them apart. This repository measured the state FVU at both sites and the MLP FVU with its reader on all tokens of the original project's four held-out splits. The splits contain 257,122 tokens per layer, of which 179 are at position 0. Position 0 means the first position of each sequence. The original project recorded the MLP FVU at training, the MLP transforms on per token and the MLP transforms alive on a held-out shard of each layer's training capture, with position 0 included. The two MLP FVU series differ because they are measured on different tokens.</p>
-  <aside class="limit-note"><div><p><b>Not recomputable.</b> The held-out activations are not published, so users cannot recompute these exact numbers. The shards behind the training-time numbers were deleted afterwards, and this repository did not repeat those measurements.</p></div></aside>
+    <h3 id="count-curve"><a href="#count-curve">The character count as a curve inside one state group's frame</a></h3>
+    <div class="split curve">
+      <div>
+        <p>The chain reached state group 4885 at <code>resid_mid.9</code>. It showed that the part of the layer-9 mixer's write inside this group's frame moves the layer-9 MLP transforms about as much as the whole write. Figure 7 shows that the count is a position along a curve in a plane inside the group's 4-dimensional frame.</p>
+        <p>Group 4885 is a dense group with 4-dimensional coordinates that are active on most tokens and carry information in those coordinates.</p>
+      </div>
+      <figure class="needs-js" id="fig-curve" data-first="Start of a new line" data-x="First component" data-y="Second component" data-aria="Mean codes trace a curve as the character count grows, with the start of a new line apart and texts with a wider wrapping width continuing along the same path." data-count="Character count" data-tokens="Contributing tokens">
+        <div class="figure-head">
+          <div class="controls"><div class="control"><label for="curve-count">Character count</label><input type="range" id="curve-count" min="0" max="0" step="1" value="0"></div></div>
+        </div>
+        <div class="layer-readout" id="curve-readout" aria-live="polite"></div>
+        <ul class="keys" aria-hidden="true">
+          <li><svg width="12" height="12"><circle cx="6" cy="6" r="4" class="curve-key"/></svg>Texts wrapped at 60 characters</li>
+          <li><svg width="12" height="12"><rect x="2" y="2" width="8" height="8" class="curve-key"/></svg>Texts wrapped at 100 characters</li>
+          <li><span class="ramp"></span>Characters in the line</li>
+        </ul>
+        <div class="plot" id="curve-plot"></div>
+        <figcaption><b>Figure 7.</b> Each point is the mean code of tokens with one character count and one wrapping width for which the group is active, shown only when at least 20 tokens contribute. We measured 48,960 tokens after dropping the first position from each text. The plane spans the two largest components of the mean curves and holds 0.984 of their variance. The point for count 0 sits apart, and the curve moves smoothly from about ten characters onward. Texts wrapped at 100 characters continue along the same path beyond 60 characters. Curves computed separately from even-numbered and odd-numbered items correlate 0.9945 for texts wrapped at 60 characters and 0.9963 for texts wrapped at 100 characters.</figcaption>
+      </figure>
+    </div>
 
-  <figure class="wide needs-js" id="fig-layers">
-    <div class="figure-head">
-      <div class="controls">
-        <div class="control">
-          <span class="label" id="p0-label">Position 0, in the series measured by this repository</span>
-          <div class="seg" role="group" aria-labelledby="p0-label" id="p0-seg">
-            <button type="button" data-value="dropped" aria-pressed="true">dropped</button>
-            <button type="button" data-value="with_p0" aria-pressed="false">included</button>
+
+
+    <h3 id="steer"><a href="#steer">Steering one unit by a dose</a></h3>
+    <p class="lead">A dose α scales the change from a unit's clean value toward its corrupt value, aligned to the clean text's token positions. In Figure 8, we varied the dose across 10 measured values from -1 to 2 for 5 units. For L8 transform 189 in <code>count:60</code>, the share is 0.348 at α = 1 and 0.349 at α = 2, so going past the full swap adds nothing there; at α = -1, the share is 0.073, so a negative dose is not the mirror image of a positive one.</p>
+    <figure class="needs-js" id="fig-steer" data-zone="Extrapolated values" data-aria-share="The curve shows how the share changes with dose, with a bootstrap interval band and the chosen dose marked." data-aria-mean="The curve shows how the mean margin changes with dose against horizontal clean and corrupt means, with the chosen dose marked." data-aria-items="The plot compares each item's clean, corrupt and dosed margins at the chosen dose." data-key-clean="Clean margin" data-key-corrupt="Corrupt margin" data-key-dosed="Dosed margin" data-readout-interval="Bootstrap interval">
+      <div class="figure-head">
+        <div class="controls">
+          <div class="control"><label for="steer-unit">Unit</label><select id="steer-unit"></select></div>
+          <div class="control"><span class="label" id="steer-cell-label">Cell</span><div class="seg code" role="group" aria-labelledby="steer-cell-label" id="steer-cell"></div></div>
+          <div class="control dose"><label for="steer-dose">Dose α</label><input type="range" id="steer-dose" min="0" max="0" step="1" value="0"><output class="mono" id="steer-dose-value" for="steer-dose"></output></div>
+        </div>
+      </div>
+      <div class="readout" aria-live="polite">
+        <span>Share <span class="big" id="steer-share"></span></span>
+        <span id="steer-interval"></span>
+        <span>Mean margin <span class="mono" id="steer-mean"></span></span>
+      </div>
+      <div class="steer-grid">
+        <div class="steer-curves">
+          <div class="panel">
+            <h4>Share across doses</h4>
+            <ul class="keys" aria-hidden="true">
+              <li><svg width="26" height="12"><path d="M1 6H25" class="series s-unit"/><circle cx="13" cy="6" r="3" class="mark s-unit"/></svg><span id="steer-key-unit"></span></li>
+              <li id="steer-key-ref-item"><svg width="26" height="12"><path d="M1 6H25" class="series s-r recorded"/></svg>Whole component, same route</li>
+              <li><span class="swatch band-key"></span>Bootstrap interval</li>
+            </ul>
+            <div class="plot" id="steer-share-plot"></div>
+          </div>
+          <div class="panel">
+            <h4>Mean margin across doses</h4>
+            <div class="plot" id="steer-mean-plot"></div>
           </div>
         </div>
-        <div class="control"><label for="layer-range">Layer</label><input type="range" id="layer-range" min="0" max="0" step="1" value="0"></div>
+        <div class="panel">
+          <h4 id="steer-items-title" data-text="Item margins at α = ALPHA"></h4>
+          <ul class="keys" aria-hidden="true">
+            <li><svg width="12" height="12"><circle cx="6" cy="6" r="4" class="pt-clean"/></svg>Clean margin</li>
+            <li><svg width="12" height="12"><circle cx="6" cy="6" r="3.5" class="pt-corrupt"/></svg>Corrupt margin</li>
+            <li><svg width="12" height="12"><path d="M6 1L11 6L6 11L1 6z" class="pt-patched"/></svg>Dosed margin</li>
+          </ul>
+          <div class="plot" id="steer-items-plot"></div>
+        </div>
       </div>
-    </div>
-    <div class="layer-readout" id="layer-readout" aria-live="polite"></div>
-    <div class="panel-grid" id="layer-panels"></div>
-    <div id="load-error-layers" class="load-error" hidden></div>
-    <figcaption><b>Figure 7.</b> Reconstruction and sparsity at each of the 24 layers. Solid lines with filled marks were measured by this repository on all held-out tokens. Dashed lines with open marks and the bars were recorded at training by the original project and cannot be recomputed from the published files. Transforms on per token is the mean number of transforms whose gate is open at a token. Transforms alive counts transforms that fired on at least one token of that shard, out of the total. Point at a panel, or use the slider, to read one layer.</figcaption>
-    <details class="more"><summary>Table: all 24 layers</summary>
-<div class="table-wrap"><table>
-<caption>Numbers per layer. The first three value columns were measured by this repository with position 0 dropped. The next three were recorded at training by the original project.</caption>
-<thead><tr>
-<th scope="col">Layer</th>
-<th scope="col">State FVU, resid_mid</th>
-<th scope="col">State FVU, resid_post</th>
-<th scope="col">MLP FVU</th>
-<th scope="col">MLP FVU recorded at training</th>
-<th scope="col">MLP transforms on per token</th>
-<th scope="col">MLP transforms alive</th>
-<th scope="col">MLP penalty</th>
-</tr></thead><tbody>
-<tr><td>0</td><td>0.0777</td><td>0.0858</td><td>0.0879</td><td>0.0732</td><td>19.0</td><td>3955 of 3968</td><td>7.5e-05</td></tr>
-<tr><td>1</td><td>0.1153</td><td>0.1317</td><td>0.1627</td><td>0.1447</td><td>11.2</td><td>3936 of 3968</td><td>7.5e-05</td></tr>
-<tr><td>2</td><td>0.1617</td><td>0.1478</td><td>0.1481</td><td>0.1358</td><td>9.9</td><td>3901 of 3968</td><td>7.5e-05</td></tr>
-<tr><td>3</td><td>0.1710</td><td>0.1666</td><td>0.1734</td><td>0.1599</td><td>10.3</td><td>3838 of 3968</td><td>7.5e-05</td></tr>
-<tr><td>4</td><td>0.1899</td><td>0.1703</td><td>0.1633</td><td>0.1526</td><td>10.2</td><td>3793 of 3968</td><td>7.5e-05</td></tr>
-<tr><td>5</td><td>0.1956</td><td>0.1836</td><td>0.1812</td><td>0.1736</td><td>9.9</td><td>3690 of 3968</td><td>7.5e-05</td></tr>
-<tr><td>6</td><td>0.2184</td><td>0.2132</td><td>0.1961</td><td>0.1892</td><td>9.1</td><td>3167 of 3968</td><td>7.5e-05</td></tr>
-<tr><td>7</td><td>0.2403</td><td>0.2216</td><td>0.1908</td><td>0.1851</td><td>9.2</td><td>2720 of 3968</td><td>7.5e-05</td></tr>
-<tr><td>8</td><td>0.2390</td><td>0.2270</td><td>0.2134</td><td>0.2066</td><td>9.1</td><td>2396 of 3968</td><td>7.5e-05</td></tr>
-<tr><td>9</td><td>0.2491</td><td>0.2380</td><td>0.2243</td><td>0.2153</td><td>8.9</td><td>2035 of 3968</td><td>7.5e-05</td></tr>
-<tr><td>10</td><td>0.2576</td><td>0.2416</td><td>0.1975</td><td>0.1828</td><td>8.6</td><td>1862 of 3968</td><td>7.5e-05</td></tr>
-<tr><td>11</td><td>0.2713</td><td>0.2521</td><td>0.1863</td><td>0.1763</td><td>8.3</td><td>1950 of 3968</td><td>7.5e-05</td></tr>
-<tr><td>12</td><td>0.2634</td><td>0.2472</td><td>0.1973</td><td>0.1857</td><td>8.3</td><td>2290 of 3968</td><td>7.5e-05</td></tr>
-<tr><td>13</td><td>0.2590</td><td>0.2472</td><td>0.1883</td><td>0.1768</td><td>8.5</td><td>2240 of 3968</td><td>7.5e-05</td></tr>
-<tr><td>14</td><td>0.2625</td><td>0.2395</td><td>0.1406</td><td>0.1216</td><td>7.5</td><td>1935 of 3968</td><td>7.5e-05</td></tr>
-<tr><td>15</td><td>0.2623</td><td>0.2319</td><td>0.1289</td><td>0.1200</td><td>8.2</td><td>2880 of 3968</td><td>7.5e-05</td></tr>
-<tr><td>16</td><td>0.2293</td><td>0.2196</td><td>0.1557</td><td>0.1469</td><td>8.3</td><td>3350 of 3968</td><td>7.5e-05</td></tr>
-<tr><td>17</td><td>0.2167</td><td>0.2131</td><td>0.1650</td><td>0.1555</td><td>8.4</td><td>3506 of 3968</td><td>7.5e-05</td></tr>
-<tr><td>18</td><td>0.2132</td><td>0.2053</td><td>0.1394</td><td>0.1304</td><td>7.9</td><td>3462 of 3968</td><td>7.5e-05</td></tr>
-<tr><td>19</td><td>0.2259</td><td>0.2227</td><td>0.1455</td><td>0.1370</td><td>8.2</td><td>3486 of 3968</td><td>7.5e-05</td></tr>
-<tr><td>20</td><td>0.2166</td><td>0.2216</td><td>0.1618</td><td>0.1491</td><td>8.3</td><td>3565 of 3968</td><td>7.5e-05</td></tr>
-<tr><td>21</td><td>0.2249</td><td>0.2327</td><td>0.1602</td><td>0.1461</td><td>8.2</td><td>3407 of 3968</td><td>7.5e-05</td></tr>
-<tr><td>22</td><td>0.2402</td><td>0.2518</td><td>0.1385</td><td>0.1234</td><td>7.8</td><td>2960 of 3968</td><td>7.5e-05</td></tr>
-<tr><td>23</td><td>0.2614</td><td>0.2404</td><td>0.0246</td><td>0.0206</td><td>16.1</td><td>3327 of 3968</td><td>2.5e-05</td></tr>
-</tbody></table></div>
-    </details>
-  </figure>
+      <figcaption><b>Figure 8.</b> A dose α replaces a unit's clean value with that value plus α times the difference from its corrupt value, aligned to the clean text's token positions. At α = 0 and α = 1, the margins exactly equal the demonstration's tested clean-run and full-swap values. Values outside [0, 1] extrapolate beyond the corrupt text. The first part shows the share over α, its bootstrap interval from 2.5% to 97.5% and the chosen dose; for layer-8 units and layer-9 transforms, a dashed line shows the whole component measured through the same route. The second part shows the mean margin over α against the clean and corrupt means, and the third shows each item's clean, corrupt and dosed margins at the chosen dose. Shares here use all 64 items of the chosen cell. We measured this for this page with the published reader and weights, and it is not part of our repository's tests.</figcaption>
+    </figure>
 
-  <p>Position 0 matters for the state dictionary at some layers: at layer 6, <code>resid_mid</code>, the state FVU is 0.2524 with position 0 and 0.2184 without it. The original project dropped position 0 during state dictionary training and included it during MLP dictionary training. The reader's <code>capture</code> drops it.</p>
-
-  <h3 id="splice"><a href="#splice">Spliced-in loss</a></h3>
-  <p><dfn>Spliced-in loss</dfn> is the increase in next-token cross-entropy when a dictionary reconstruction replaces the true activation in the forward pass, one layer and one dictionary at a time. The original project measured it in nats on text with clean cross-entropy 2.808. This repository did not repeat the measurement.</p>
-  <p>The original project used FineWeb-Edu rows outside the training mixture, taking the first 100 documents of at least 256 tokens and the first 256 tokens of each. Position 0 was not replaced. Loss was averaged over positions 1 to 254, or 25,400 positions. The dictionaries are the released ones. The MLP result for layer 23 comes from a separate measurement by the original project on the same kind of web text.</p>
-
-  <figure class="wide needs-js" id="fig-splice">
-    <div class="layer-readout" id="splice-readout" aria-live="polite"></div>
-    <div class="panel-grid" id="splice-panels"></div>
-    <figcaption><b>Figure 8.</b> Increase in cross-entropy, in nats, when one dictionary's reconstruction replaces the true activation at one layer. Recorded by the original project and not repeated by this repository. The two panels have different vertical scales.</figcaption>
-    <details class="more"><summary>Table: spliced-in loss at all 24 layers</summary>
-<div class="table-wrap"><table>
-<caption>Spliced-in loss: increase in cross-entropy in nats, recorded by the original project and not repeated by this repository.</caption>
-<thead><tr>
-<th scope="col">Layer</th>
-<th scope="col">State dictionary spliced in at resid_post</th>
-<th scope="col">MLP dictionary spliced in</th>
-</tr></thead><tbody>
-<tr><td>0</td><td>+0.074</td><td>+0.0269</td></tr>
-<tr><td>1</td><td>+0.107</td><td>+0.0386</td></tr>
-<tr><td>2</td><td>+0.117</td><td>+0.0394</td></tr>
-<tr><td>3</td><td>+0.120</td><td>+0.0268</td></tr>
-<tr><td>4</td><td>+0.134</td><td>+0.0223</td></tr>
-<tr><td>5</td><td>+0.159</td><td>+0.0199</td></tr>
-<tr><td>6</td><td>+0.208</td><td>+0.0173</td></tr>
-<tr><td>7</td><td>+0.216</td><td>+0.0156</td></tr>
-<tr><td>8</td><td>+0.240</td><td>+0.0130</td></tr>
-<tr><td>9</td><td>+0.243</td><td>+0.0072</td></tr>
-<tr><td>10</td><td>+0.288</td><td>+0.0086</td></tr>
-<tr><td>11</td><td>+0.274</td><td>+0.0076</td></tr>
-<tr><td>12</td><td>+0.280</td><td>+0.0115</td></tr>
-<tr><td>13</td><td>+0.308</td><td>+0.0101</td></tr>
-<tr><td>14</td><td>+0.337</td><td>+0.0192</td></tr>
-<tr><td>15</td><td>+0.301</td><td>+0.0192</td></tr>
-<tr><td>16</td><td>+0.309</td><td>+0.0197</td></tr>
-<tr><td>17</td><td>+0.317</td><td>+0.0191</td></tr>
-<tr><td>18</td><td>+0.326</td><td>+0.0223</td></tr>
-<tr><td>19</td><td>+0.356</td><td>+0.0221</td></tr>
-<tr><td>20</td><td>+0.376</td><td>+0.0251</td></tr>
-<tr><td>21</td><td>+0.413</td><td>+0.0275</td></tr>
-<tr><td>22</td><td>+0.465</td><td>+0.0261</td></tr>
-<tr><td>23</td><td>+0.866</td><td>+0.0502</td></tr>
-</tbody></table></div>
-    </details>
-  </figure>
-  <p>In the original project's comparison on the same text, the earlier set had smaller increases at all 24 state layers and MLP layers 0 to 22. For the state dictionary at layer 9, it recorded +0.243 here against +0.161 for the earlier set. At layer 23, the released MLP dictionary had the smaller increase, +0.0502 against +0.0840 for the earlier set.</p>
+  </div>
 </section>
 
 
 
-<section class="g" aria-labelledby="qwen35-4b">
-  <h2 id="qwen35-4b"><a href="#qwen35-4b">A second set, for Qwen3.5-4B</a></h2>
-  <p>A second set for <code>Qwen/Qwen3.5-4B</code>, with 32 layers and width 2,560, is published at <a href="https://huggingface.co/mconcat/statescope-qwen3.5-4b">mconcat/statescope-qwen3.5-4b</a> and occupies about 168 GiB. It uses the same forms, reader and folder layout, with <code>ALWAYS_ON.json</code> added and 9,920 MLP transforms per layer. Each state dictionary has 16,384 groups of 4 directions, with 24 active per token, as in the 0.8B set.</p>
-  <p>It is a copy made on 2026-11-20 of what the original project trained with one seed, rather than a frozen configuration like the 0.8B set. There is no demonstration for it; <code>demo/line_count.py</code> is for 0.8B only. The demonstration and the 0.8B numbers do not carry over to this set.</p>
+<section class="band tint" aria-labelledby="qwen35-4b">
+  <div class="wrap">
+    <h2 id="qwen35-4b"><a href="#qwen35-4b">What we did with Qwen3.5-4B units</a></h2>
+    <p class="lead">Our set for <code>Qwen/Qwen3.5-4B</code> covers 32 layers of width 2,560. Each layer has a state dictionary with 16,384 groups of 4 directions and an MLP dictionary with 9,920 transforms, read with the same reader as the Qwen3.5-0.8B set. This section shows three experiments we did with these units.</p>
 
-  <figure class="wide needs-js" id="fig-4b">
+    <article class="exp">
+      <div class="exp-text">
+        <h3 id="rule-completion"><a href="#rule-completion">Changing how the model completes Python rules</a></h3>
+        <p>We asked the model to infer a rule from input-output examples and complete a Python function across 24 rule families it had not been tuned on. At the token before the function body, we shifted the residual stream within the frame of group 9167 at <code>resid_mid.27</code>. The model then reasoned in comments before writing the rule, and the rate of correct rules rose from 0.516 to 0.773 over 1,536 generations.</p>
+      <p>In a separate comparison, forcing the first body token to <code>#</code> gave a correct-rule rate of 0.65, compared with 0.72 for the group shift, with the difference inside the interval.</p>
+      <p>Such groups can also be combined: on held-out tasks, applying one group per behaviour throughout generation changed comment density from 0.19 to 0.66, non-Latin comments from 0.00 to 0.71, and input validation from 0.38 to 0.56.</p>
+      </div>
+      <div class="exp-show">
+
+        <div>
+          <p class="sample-note">With the shift applied during generation, this sample starts with <code>if n == 2: return 5</code> and <code>elif n == 8: return 65</code>, works out the pattern in comments, and then writes <code>return n * n + 1</code>. Without the shift, the model continues listing cases up to a fourth branch.</p>
+          <div class="codeblock"><span class="lang">python</span><pre><code>def f(n):
+    if n == 2:
+        return 5
+    elif n == 8:
+        return 65
+    # 10 -&gt; 101, 12 -&gt; 145
+    # Pattern: f(n) = n^2 + 1 for n=10 (100+1=101), n=12 (144+1=145)
+    # But 2^2+1=5 matches, 8^2+1=65 matches.
+    # So the rule is simply n^2 + 1.
+    return n * n + 1</code></pre></div>
+        </div>
+
+        <figure id="fig-u1">
+          <div class="bars">
+            <h4>24 rule families</h4>
+            <div class="hbar ref"><span class="hbar-label">Before the shift</span><b>0.516</b><div class="hbar-track"><i style="--v:0.516"></i></div></div>
+            <div class="hbar inside"><span class="hbar-label">After the shift</span><b>0.773</b><div class="hbar-track"><i style="--v:0.773"></i></div></div>
+            <h4>Comparison with forced comment sign</h4>
+            <div class="hbar inside"><span class="hbar-label">State group shift</span><b>0.72</b><div class="hbar-track"><i style="--v:0.72"></i></div></div>
+            <div class="hbar ref"><span class="hbar-label">Forced <code>#</code></span><b>0.65</b><div class="hbar-track"><i style="--v:0.65"></i></div></div>
+            <div class="hbar-axis" aria-hidden="true"><span>0</span><span>Rate of correct rules</span><span>1</span></div>
+          </div>
+          <figcaption><b>Figure 9.</b> The first pair of bars shows the rate of correct rules without and with the group shift across 24 rule families. The second pair compares the group shift with forcing the first body token to <code>#</code>.</figcaption>
+        </figure>
+      </div>
+    </article>
+
+    <article class="exp">
+      <div class="exp-text">
+        <h3 id="aba-abb"><a href="#aba-abb">Changing which repetition rule the model follows</a></h3>
+        <p>We gave the model comma-separated words with two examples of a repetition rule: ABA repeats the first item, as in “sun, tree, sun”, while ABB repeats the second, as in “sun, tree, tree”. At layers 11 to 14, one group carried 0.18 to 0.42 of the effect of swapping the full residual difference between the rules, four groups carried 0.50 to 0.56, and sixteen groups carried 0.67 to 0.78.</p>
+      <p>We shifted the residual stream within the frame of group 12112 at <code>resid_post.13</code> by the mean difference between the rules. This changed ABA to ABB in 0.45 of prompts, or 0.98 at twice the shift. The share changing from ABB to ABA was 0.03, or 0.67 at twice the shift.</p>
+      <p>A related study is <a href="https://arxiv.org/abs/2611.13270">Li and Webb</a>, “What drives the emergence of symbolic mechanisms in large language models?”</p>
+
+        <p class="sample-note">These natural-text contexts show the groups active where an earlier word is repeated. The highlighted words are “cost” and “vote”.</p>
+        <ul class="contexts">
+          <li>The cost of losing … exceeds the<mark> cost</mark></li>
+          <li>the House will have to vote … If the House does not<mark> vote</mark></li>
+        </ul>
+
+      </div>
+      <div class="exp-show">
+        <figure id="fig-u2">
+          <div class="bars">
+            <h4>Share of the swap effect</h4>
+            <div class="hbar ref"><span class="hbar-label">One state group</span><b>0.18 to 0.42</b><div class="hbar-track"><i class="range" style="--lo:0.18;--hi:0.42"></i></div></div>
+            <div class="hbar ref"><span class="hbar-label">Four state groups</span><b>0.50 to 0.56</b><div class="hbar-track"><i class="range" style="--lo:0.50;--hi:0.56"></i></div></div>
+            <div class="hbar inside"><span class="hbar-label">Sixteen state groups</span><b>0.67 to 0.78</b><div class="hbar-track"><i class="range" style="--lo:0.67;--hi:0.78"></i></div></div>
+            <div class="hbar ref"><span class="hbar-label">Direction found with supervision</span><b>0.78 to 0.89</b><div class="hbar-track"><i class="range" style="--lo:0.78;--hi:0.89"></i></div></div>
+            <div class="hbar ref"><span class="hbar-label">Random 64-dimensional subspace</span><b>0.01 to 0.02</b><div class="hbar-track"><i class="range" style="--lo:0.01;--hi:0.02"></i></div></div>
+            <div class="hbar-axis" aria-hidden="true"><span>0</span><span>Share of the swap effect</span><span>1</span></div>
+            <h4>Share of prompts that flipped</h4>
+            <div class="hbar inside"><span class="hbar-label">ABA to ABB, mean difference shift</span><b>0.45</b><div class="hbar-track"><i style="--v:0.45"></i></div></div>
+            <div class="hbar ref"><span class="hbar-label">ABA to ABB, twice the shift</span><b>0.98</b><div class="hbar-track"><i style="--v:0.98"></i></div></div>
+            <div class="hbar inside"><span class="hbar-label">ABB to ABA, mean difference shift</span><b>0.03</b><div class="hbar-track"><i style="--v:0.03"></i></div></div>
+            <div class="hbar ref"><span class="hbar-label">ABB to ABA, twice the shift</span><b>0.67</b><div class="hbar-track"><i style="--v:0.67"></i></div></div>
+            <div class="hbar-axis" aria-hidden="true"><span>0</span><span>Share of prompts that flipped</span><span>1</span></div>
+          </div>
+          <figcaption><b>Figure 10.</b> The left bars show the lowest and highest shares of the full residual-swap effect across layers 11 to 14 for one, four, and sixteen groups, a direction found with supervision, and a random 64-dimensional subspace. The right bars show the share of prompts that changed rules in each direction at the shift and at twice the shift.</figcaption>
+        </figure>
+      </div>
+    </article>
+
+    <article class="exp">
+      <div class="exp-text">
+        <h3 id="comparing-transform"><a href="#comparing-transform">Reading a transform that compares symbols</a></h3>
+        <p>Transform 357 in the layer-7 MLP dictionary fires when the current symbol is smaller than the symbol in the same slot of earlier lines. Its sibling transforms cover the other comparisons: transform 186 fires for “equal”, and transform 472 fires for “greater”.</p>
+      <p>We traced a circuit by hand for a JavaScript ternary expression, which chooses between two values according to a condition, and the same transform ranked first. At layer 7, the MLP dictionary’s reconstruction carried 0.89 of the MLP’s contribution, with an interval of 0.78 to 1.00. Two MLP neurons carried 0.80 of the same contribution.</p>
+      </div>
+      <div class="exp-show">
+
+        <div>
+          <p class="sample-note">These natural-text contexts show the transform firing on the highlighted digit in a list of dates and a list of weights.</p>
+          <ul class="contexts">
+            <li>11/09/2014 … 11/04/2014 … 11/03/2014 … 1<mark>0</mark>/29/2014</li>
+            <li>(425 lbs) (438 lbs) (<mark>2</mark>83 lbs)</li>
+          </ul>
+        </div>
+
+        <figure id="fig-u3">
+          <div class="bars">
+            <div class="hbar inside"><span class="hbar-label">MLP dictionary reconstruction</span><b>0.89 (0.78 to 1.00)</b><div class="hbar-track"><i style="--v:0.89"></i><i class="ci" style="--lo:0.78;--hi:1.00"></i></div></div>
+            <div class="hbar ref"><span class="hbar-label">2 MLP neurons</span><b>0.80</b><div class="hbar-track"><i style="--v:0.80"></i></div></div>
+            <div class="hbar-axis" aria-hidden="true"><span>0</span><span>Share of the MLP’s contribution</span><span>1</span></div>
+          </div>
+          <figcaption><b>Figure 11.</b> The bars show the share of the MLP’s contribution carried by the dictionary reconstruction and by two MLP neurons in the JavaScript circuit we traced by hand. The reconstruction carries 0.89, with an interval of 0.78 to 1.00, and the neurons carry 0.80.</figcaption>
+        </figure>
+      </div>
+    </article>
+  </div>
+</section>
+
+
+
+<section class="band" aria-labelledby="use">
+  <div class="wrap mid">
+    <h2 id="use"><a href="#use">Using it</a></h2>
+    <p>Python 3.12 or newer is required. This command adds transformers, accelerate and flash-linear-attention, which <code>capture</code> and the demonstration need:</p>
+    <div class="codeblock"><span class="lang">sh</span><pre><code>pip install -e '.[model]'</code></pre></div>
+
+    <p>This command downloads one layer of the 4B set:</p>
+    <div class="codeblock"><span class="lang">sh</span><pre><code>hf download mconcat/statescope-qwen3.5-4b --include &quot;state/L16/*&quot; &quot;mlp/L16/*&quot; MANIFEST.json --local-dir &lt;folder&gt;</code></pre></div>
+    <p>The reader is the single file <code>src/statescope/reader.py</code>. It can be copied next to the weights. <code>capture</code> returns <code>resid_mid</code>, <code>mlp_out</code> and <code>resid_post</code> for the requested layer with position 0 dropped.</p>
+    <div class="codeblock"><span class="lang">python</span><pre><code>import torch
+from transformers import AutoModelForCausalLM, AutoTokenizer
+from statescope.reader import StateVocab, PublicMolt, capture
+tokenizer = AutoTokenizer.from_pretrained(&quot;Qwen/Qwen3.5-4B&quot;)
+model = AutoModelForCausalLM.from_pretrained(&quot;Qwen/Qwen3.5-4B&quot;, dtype=torch.bfloat16, device_map=&quot;cuda&quot;).eval()
+input_ids = torch.tensor([tokenizer(&quot;The committee met on Thursday to review the budget.&quot;)[&quot;input_ids&quot;]], device=&quot;cuda&quot;)
+V = StateVocab(&quot;&lt;folder&gt;/state/L16&quot;, &quot;cuda&quot;)
+M = PublicMolt(&quot;&lt;folder&gt;/mlp/L16&quot;, &quot;cuda&quot;)
+acts = capture(model, 16, input_ids)                     # resid_mid, mlp_out, resid_post; position 0 dropped
+x_hat = V.reconstruct(acts[&quot;resid_post&quot;], &quot;resid_post.16&quot;)
+gate, y_hat = M.forward(acts[&quot;resid_mid&quot;])               # gate (tokens, 9920), y_hat ~ acts[&quot;mlp_out&quot;]</code></pre></div>
+    <p>The 4B model in bf16 plus one layer's two dictionaries needed more than 14 GiB of GPU memory. The 0.8B set is read the same way with <code>Qwen/Qwen3.5-0.8B</code> and its own folder, with 3,968 transforms per layer and layers 0 to 23.</p>
+
+    <p>This command downloads the 0.8B weights:</p>
+    <div class="codeblock"><span class="lang">sh</span><pre><code>hf download mconcat/statescope-qwen3.5-0.8b --local-dir &lt;folder&gt;</code></pre></div>
+    <p>The first command checks all 144 files against the manifest. The second re-runs the traced line-count chain; it ran in under two minutes on one RTX 5090, including model loading.</p>
+    <div class="codeblock"><span class="lang">sh</span><pre><code>python demo/verify_release.py --release &lt;folder&gt;
+python demo/line_count.py --release &lt;folder&gt; --device cuda:0 --out &lt;folder for the result&gt;</code></pre></div>
+    <p class="small">Without flash-linear-attention, transformers silently uses a slow GatedDeltaNet reference implementation. The repository contains the reader, a demonstration and tests. Training code will follow.</p>
+  </div>
+</section>
+
+
+<section class="band tint" aria-labelledby="cite">
+  <div class="wrap mid">
+    <h2 id="cite"><a href="#cite">How to cite</a></h2>
+    <p class="citation">mconcat. statescope: per-layer dictionaries for Qwen3.5. 2026. <a href="https://github.com/mconcat/statescope">https://github.com/mconcat/statescope</a></p>
+    <div class="codeblock"><span class="lang">bibtex</span><pre><code>@misc{statescope,
+  author = {mconcat},
+  title = {statescope: per-layer dictionaries for Qwen3.5},
+  year = {2026},
+  url = {https://github.com/mconcat/statescope},
+  note = {Weights: https://huggingface.co/mconcat/statescope-qwen3.5-4b and https://huggingface.co/mconcat/statescope-qwen3.5-0.8b}
+}</code></pre></div>
+    <h3 id="references"><a href="#references">References</a></h3>
+    <p class="citation">Wes Gurnee, Emmanuel Ameisen, Isaac Kauvar, Julius Tarng, Adam Pearce, Chris Olah, Joshua Batson. When Models Manipulate Manifolds: The Geometry of a Counting Task. arXiv:2601.04480, 8 January 2026. <a href="https://arxiv.org/abs/2601.04480">https://arxiv.org/abs/2601.04480</a></p>
+    <p class="citation">Melody Zixuan Li, Taylor Webb. What drives the emergence of symbolic mechanisms in large language models? arXiv:2611.13270, 9 November 2026. <a href="https://arxiv.org/abs/2611.13270">https://arxiv.org/abs/2611.13270</a></p>
+  </div>
+</section>
+
+
+<section class="band folds" aria-label="Details">
+  <div class="wrap">
+    <details class="fold" id="training-details">
+      <summary>Training details</summary>
+      <div class="fold-body tables-2">
+
+        <div>
+<div class="table-wrap"><table>
+<caption>This table lists the dictionary sizes, training settings, file counts, and file sizes for our Qwen3.5-4B set, using values from the README, model card, and manifest.</caption>
+<thead><tr>
+<th scope="col">Setting</th>
+<th scope="col">Qwen/Qwen3.5-4B</th>
+</tr></thead><tbody>
+<tr><th scope="row">Base model</th><td>Qwen/Qwen3.5-4B</td></tr>
+<tr><th scope="row">Layers, width</th><td>32, 2,560</td></tr>
+<tr><th scope="row">State dictionary: groups</th><td>16,384 groups of 4 directions</td></tr>
+<tr><th scope="row">State dictionary: active groups per token</th><td>24</td></tr>
+<tr><th scope="row">State dictionary: training</th><td>30,003,200 tokens over 7,325 steps</td></tr>
+<tr><th scope="row">MLP dictionary: transforms</th><td>9,920</td></tr>
+<tr><th scope="row">MLP dictionary: rank tiers</th><td>320 of rank 128, 640 of rank 64, 1,280 of rank 32, 2,560 of rank 16, 5,120 of rank 8</td></tr>
+<tr><th scope="row">MLP dictionary: gate</th><td>JumpReLU</td></tr>
+<tr><th scope="row">MLP dictionary: read and write matrices</th><td>free, no skip connection</td></tr>
+<tr><th scope="row">MLP dictionary: sparsity penalty</th><td>tanh, coefficient 3e-05 at all 32 layers</td></tr>
+<tr><th scope="row">MLP dictionary: training</th><td>58,600 steps of 500 tokens, or 29.3 million tokens, per layer</td></tr>
+<tr><th scope="row">MLP dictionary: learning rate</th><td>4.0e-05</td></tr>
+<tr><th scope="row">Files</th><td>192 weight and config files</td></tr>
+<tr><th scope="row">Size</th><td>about 168 GiB: state about 40.0 GiB, MLP about 128.0 GiB</td></tr>
+</tbody></table></div>
+        </div>
+
+        <div>
+<div class="table-wrap"><table>
+<caption>This table lists the dictionary sizes, training settings, file counts, and file sizes for our Qwen3.5-0.8B set, using values from the README, model card, and manifest.</caption>
+<thead><tr>
+<th scope="col">Setting</th>
+<th scope="col">Qwen/Qwen3.5-0.8B</th>
+</tr></thead><tbody>
+<tr><th scope="row">Base model</th><td>Qwen/Qwen3.5-0.8B</td></tr>
+<tr><th scope="row">Layers, width</th><td>24, 1,024</td></tr>
+<tr><th scope="row">State dictionary: groups</th><td>16,384 groups of 4 directions</td></tr>
+<tr><th scope="row">State dictionary: active groups per token</th><td>24</td></tr>
+<tr><th scope="row">State dictionary: training</th><td>30,003,200 tokens over 7,325 steps</td></tr>
+<tr><th scope="row">MLP dictionary: transforms</th><td>3,968</td></tr>
+<tr><th scope="row">MLP dictionary: rank tiers</th><td>128 of rank 128, 256 of rank 64, 512 of rank 32, 1,024 of rank 16, 2,048 of rank 8</td></tr>
+<tr><th scope="row">MLP dictionary: gate</th><td>JumpReLU</td></tr>
+<tr><th scope="row">MLP dictionary: read and write matrices</th><td>free, no skip connection</td></tr>
+<tr><th scope="row">MLP dictionary: sparsity penalty</th><td>tanh, coefficient 7.5e-05 at layers 0 to 22, 2.5e-05 at layer 23</td></tr>
+<tr><th scope="row">MLP dictionary: training</th><td>58,600 steps of 500 tokens, or 29.3 million tokens, per layer</td></tr>
+<tr><th scope="row">MLP dictionary: learning rate</th><td>4.0e-05</td></tr>
+<tr><th scope="row">Files</th><td>144 weight and config files</td></tr>
+<tr><th scope="row">Size</th><td>about 27.4 GiB: state about 12.0 GiB, MLP about 15.4 GiB</td></tr>
+</tbody></table></div>
+        </div>
+      </div>
+    </details>
+
+    <details class="fold" id="numbers">
+      <summary>Numbers per layer</summary>
+      <div class="fold-body">
+        <p class="guide">FVU means fraction of variance unexplained: squared reconstruction error divided by squared deviation from the per-dimension mean of each held-out split. State FVU uses raw residual units, and MLP FVU uses raw MLP output units.</p>
+      <p class="guide">We re-measured state FVU at <code>resid_mid</code> and <code>resid_post</code> and MLP FVU on all tokens of four held-out splits except position 0, the first position of each sequence, giving 257,122 tokens per layer for Qwen3.5-0.8B and 257,102 for Qwen3.5-4B. We recorded the other MLP FVU column, transforms on per token, and transforms alive at training on a held-out shard of each layer’s training capture with position 0 included, so the two MLP FVU columns use different tokens.</p>
+      <p class="guide">Transforms on per token is the mean number of transforms whose gate is open at a token, and transforms alive counts those that fired on at least one token of that shard. In the figures, solid lines with filled marks show re-measured values, while dashed lines, open marks, and bars show values recorded at training.</p>
+
+        <h3 id="numbers-4b"><a href="#numbers-4b">Qwen3.5-4B</a></h3>
+        <figure class="needs-js" id="fig-4b">
     <div class="figure-head">
       <div class="controls"><div class="control"><label for="b4-range">Layer</label><input type="range" id="b4-range" min="0" max="0" step="1" value="0"></div></div>
     </div>
     <div class="layer-readout" id="b4-readout" aria-live="polite"></div>
     <div class="panel-grid" id="b4-panels"></div>
-    <figcaption><b>Figure 9.</b> The Qwen3.5-4B set at each of its 32 layers. Solid lines with filled marks were measured by this repository on all 257,102 held-out tokens per layer, with position 0 dropped. Dashed lines, open marks and bars were recorded by the original project. The last panel counts the transforms that fire on at least 90% of tokens of a web text sample, and the line gives the share of the summed write energy that they carry there.</figcaption>
-    <details class="more"><summary>Table: all 32 layers of the Qwen3.5-4B set</summary>
+          <figcaption><b>Figure 12.</b> The panels show state FVU, MLP FVU, transforms alive, and transforms that fire on at least 90% of tokens across the 32 layers of Qwen3.5-4B. The last panel also shows the share of summed write energy those transforms carry on web text. Solid lines with filled marks show re-measured values, while dashed lines, open marks, and bars show values recorded at training.</figcaption>
+        </figure>
+        <details class="more"><summary>Table: all 32 layers of the Qwen3.5-4B set</summary>
 <div class="table-wrap"><table>
-<caption>Qwen3.5-4B set, numbers per layer. The first three value columns were measured by this repository with position 0 dropped. The others were recorded by the original project.</caption>
+<caption>Qwen3.5-4B set, numbers per layer. The first three value columns were re-measured with the published reader with position 0 dropped. The others were recorded at training.</caption>
 <thead><tr>
 <th scope="col">Layer</th>
 <th scope="col">State FVU, resid_mid</th>
@@ -563,111 +752,161 @@
 <tr><td>30</td><td>0.3155</td><td>0.3232</td><td>0.1601</td><td>0.1654</td><td>18.1</td><td>6808 of 9920</td><td>3 / 0</td><td>0.26</td></tr>
 <tr><td>31</td><td>0.4038</td><td>0.4202</td><td>0.0425</td><td>0.0364</td><td>14.5</td><td>3974 of 9920</td><td>5 / 5</td><td>0.61</td></tr>
 </tbody></table></div>
+        </details>
+
+        <h3 id="numbers-08b"><a href="#numbers-08b">Qwen3.5-0.8B</a></h3>
+        <figure class="needs-js" id="fig-layers">
+    <div class="figure-head">
+      <div class="controls">
+        <div class="control">
+          <span class="label" id="p0-label">Position 0, in the series re-measured with the published reader</span>
+          <div class="seg" role="group" aria-labelledby="p0-label" id="p0-seg">
+            <button type="button" data-value="dropped" aria-pressed="true">dropped</button>
+            <button type="button" data-value="with_p0" aria-pressed="false">included</button>
+          </div>
+        </div>
+        <div class="control"><label for="layer-range">Layer</label><input type="range" id="layer-range" min="0" max="0" step="1" value="0"></div>
+      </div>
+    </div>
+    <div class="layer-readout" id="layer-readout" aria-live="polite"></div>
+    <div class="panel-grid" id="layer-panels"></div>
+    <div id="load-error-layers" class="load-error" hidden></div>
+          <figcaption><b>Figure 13.</b> The panels show state FVU at both sites, MLP FVU, transforms on per token, and transforms alive across the 24 layers of Qwen3.5-0.8B. Solid MLP FVU lines show re-measured values, and dashed lines show values recorded at training. The switch includes or drops position 0 in the re-measured series. Use the slider or pointer to read one layer.</figcaption>
+        </figure>
+        <details class="more"><summary>Table: all 24 layers</summary>
+<div class="table-wrap"><table>
+<caption>Numbers per layer. The first three value columns were re-measured with the published reader with position 0 dropped. The next three were recorded at training by us.</caption>
+<thead><tr>
+<th scope="col">Layer</th>
+<th scope="col">State FVU, resid_mid</th>
+<th scope="col">State FVU, resid_post</th>
+<th scope="col">MLP FVU</th>
+<th scope="col">MLP FVU recorded at training</th>
+<th scope="col">MLP transforms on per token</th>
+<th scope="col">MLP transforms alive</th>
+<th scope="col">MLP penalty</th>
+</tr></thead><tbody>
+<tr><td>0</td><td>0.0777</td><td>0.0858</td><td>0.0879</td><td>0.0732</td><td>19.0</td><td>3955 of 3968</td><td>7.5e-05</td></tr>
+<tr><td>1</td><td>0.1153</td><td>0.1317</td><td>0.1627</td><td>0.1447</td><td>11.2</td><td>3936 of 3968</td><td>7.5e-05</td></tr>
+<tr><td>2</td><td>0.1617</td><td>0.1478</td><td>0.1481</td><td>0.1358</td><td>9.9</td><td>3901 of 3968</td><td>7.5e-05</td></tr>
+<tr><td>3</td><td>0.1710</td><td>0.1666</td><td>0.1734</td><td>0.1599</td><td>10.3</td><td>3838 of 3968</td><td>7.5e-05</td></tr>
+<tr><td>4</td><td>0.1899</td><td>0.1703</td><td>0.1633</td><td>0.1526</td><td>10.2</td><td>3793 of 3968</td><td>7.5e-05</td></tr>
+<tr><td>5</td><td>0.1956</td><td>0.1836</td><td>0.1812</td><td>0.1736</td><td>9.9</td><td>3690 of 3968</td><td>7.5e-05</td></tr>
+<tr><td>6</td><td>0.2184</td><td>0.2132</td><td>0.1961</td><td>0.1892</td><td>9.1</td><td>3167 of 3968</td><td>7.5e-05</td></tr>
+<tr><td>7</td><td>0.2403</td><td>0.2216</td><td>0.1908</td><td>0.1851</td><td>9.2</td><td>2720 of 3968</td><td>7.5e-05</td></tr>
+<tr><td>8</td><td>0.2390</td><td>0.2270</td><td>0.2134</td><td>0.2066</td><td>9.1</td><td>2396 of 3968</td><td>7.5e-05</td></tr>
+<tr><td>9</td><td>0.2491</td><td>0.2380</td><td>0.2243</td><td>0.2153</td><td>8.9</td><td>2035 of 3968</td><td>7.5e-05</td></tr>
+<tr><td>10</td><td>0.2576</td><td>0.2416</td><td>0.1975</td><td>0.1828</td><td>8.6</td><td>1862 of 3968</td><td>7.5e-05</td></tr>
+<tr><td>11</td><td>0.2713</td><td>0.2521</td><td>0.1863</td><td>0.1763</td><td>8.3</td><td>1950 of 3968</td><td>7.5e-05</td></tr>
+<tr><td>12</td><td>0.2634</td><td>0.2472</td><td>0.1973</td><td>0.1857</td><td>8.3</td><td>2290 of 3968</td><td>7.5e-05</td></tr>
+<tr><td>13</td><td>0.2590</td><td>0.2472</td><td>0.1883</td><td>0.1768</td><td>8.5</td><td>2240 of 3968</td><td>7.5e-05</td></tr>
+<tr><td>14</td><td>0.2625</td><td>0.2395</td><td>0.1406</td><td>0.1216</td><td>7.5</td><td>1935 of 3968</td><td>7.5e-05</td></tr>
+<tr><td>15</td><td>0.2623</td><td>0.2319</td><td>0.1289</td><td>0.1200</td><td>8.2</td><td>2880 of 3968</td><td>7.5e-05</td></tr>
+<tr><td>16</td><td>0.2293</td><td>0.2196</td><td>0.1557</td><td>0.1469</td><td>8.3</td><td>3350 of 3968</td><td>7.5e-05</td></tr>
+<tr><td>17</td><td>0.2167</td><td>0.2131</td><td>0.1650</td><td>0.1555</td><td>8.4</td><td>3506 of 3968</td><td>7.5e-05</td></tr>
+<tr><td>18</td><td>0.2132</td><td>0.2053</td><td>0.1394</td><td>0.1304</td><td>7.9</td><td>3462 of 3968</td><td>7.5e-05</td></tr>
+<tr><td>19</td><td>0.2259</td><td>0.2227</td><td>0.1455</td><td>0.1370</td><td>8.2</td><td>3486 of 3968</td><td>7.5e-05</td></tr>
+<tr><td>20</td><td>0.2166</td><td>0.2216</td><td>0.1618</td><td>0.1491</td><td>8.3</td><td>3565 of 3968</td><td>7.5e-05</td></tr>
+<tr><td>21</td><td>0.2249</td><td>0.2327</td><td>0.1602</td><td>0.1461</td><td>8.2</td><td>3407 of 3968</td><td>7.5e-05</td></tr>
+<tr><td>22</td><td>0.2402</td><td>0.2518</td><td>0.1385</td><td>0.1234</td><td>7.8</td><td>2960 of 3968</td><td>7.5e-05</td></tr>
+<tr><td>23</td><td>0.2614</td><td>0.2404</td><td>0.0246</td><td>0.0206</td><td>16.1</td><td>3327 of 3968</td><td>2.5e-05</td></tr>
+</tbody></table></div>
+        </details>
+        <p class="guide">Spliced-in loss is the increase in next-token cross-entropy, in nats, when we replace the true activation with a dictionary’s reconstruction, one layer and one dictionary at a time. For Qwen3.5-0.8B, we recorded it at training across all 24 layers on the first 100 FineWeb-Edu documents with at least 256 tokens, using the first 256 tokens of each document and averaging loss over positions 1 to 254. The clean cross-entropy on this text was 2.808.</p>
+        <figure class="needs-js" id="fig-splice">
+    <div class="layer-readout" id="splice-readout" aria-live="polite"></div>
+    <div class="panel-grid" id="splice-panels"></div>
+          <figcaption><b>Figure 14.</b> The panels show spliced-in loss recorded at training for the Qwen3.5-0.8B state dictionary at <code>resid_post</code> and the MLP dictionary. The panels use different vertical scales.</figcaption>
+        </figure>
+        <details class="more"><summary>Table: spliced-in loss at all 24 layers</summary>
+<div class="table-wrap"><table>
+<caption>Spliced-in loss: increase in cross-entropy in nats, recorded at training and not re-measured with the published reader.</caption>
+<thead><tr>
+<th scope="col">Layer</th>
+<th scope="col">State dictionary spliced in at resid_post</th>
+<th scope="col">MLP dictionary spliced in</th>
+</tr></thead><tbody>
+<tr><td>0</td><td>+0.074</td><td>+0.0269</td></tr>
+<tr><td>1</td><td>+0.107</td><td>+0.0386</td></tr>
+<tr><td>2</td><td>+0.117</td><td>+0.0394</td></tr>
+<tr><td>3</td><td>+0.120</td><td>+0.0268</td></tr>
+<tr><td>4</td><td>+0.134</td><td>+0.0223</td></tr>
+<tr><td>5</td><td>+0.159</td><td>+0.0199</td></tr>
+<tr><td>6</td><td>+0.208</td><td>+0.0173</td></tr>
+<tr><td>7</td><td>+0.216</td><td>+0.0156</td></tr>
+<tr><td>8</td><td>+0.240</td><td>+0.0130</td></tr>
+<tr><td>9</td><td>+0.243</td><td>+0.0072</td></tr>
+<tr><td>10</td><td>+0.288</td><td>+0.0086</td></tr>
+<tr><td>11</td><td>+0.274</td><td>+0.0076</td></tr>
+<tr><td>12</td><td>+0.280</td><td>+0.0115</td></tr>
+<tr><td>13</td><td>+0.308</td><td>+0.0101</td></tr>
+<tr><td>14</td><td>+0.337</td><td>+0.0192</td></tr>
+<tr><td>15</td><td>+0.301</td><td>+0.0192</td></tr>
+<tr><td>16</td><td>+0.309</td><td>+0.0197</td></tr>
+<tr><td>17</td><td>+0.317</td><td>+0.0191</td></tr>
+<tr><td>18</td><td>+0.326</td><td>+0.0223</td></tr>
+<tr><td>19</td><td>+0.356</td><td>+0.0221</td></tr>
+<tr><td>20</td><td>+0.376</td><td>+0.0251</td></tr>
+<tr><td>21</td><td>+0.413</td><td>+0.0275</td></tr>
+<tr><td>22</td><td>+0.465</td><td>+0.0261</td></tr>
+<tr><td>23</td><td>+0.866</td><td>+0.0502</td></tr>
+</tbody></table></div>
+        </details>
+      </div>
     </details>
-  </figure>
 
-  <p>The limits of this set are different from those of the 0.8B set, and several are larger.</p>
-  <dl class="ledger limits">
-    <div><dt>Reconstruction is worse than for 0.8B</dt><dd>State FVU in the middle layers is 0.31 to 0.42, against 0.25 to 0.27 for 0.8B. The 24 active groups cover 3.75% of the width of this model and 9.4% of the width of 0.8B. That this smaller fraction is the cause is an inference, not a measurement.</dd></div>
-    <div><dt>Spliced-in loss at one layer only</dt><dd>The original project measured spliced-in loss at layer 16 only. On held-out text the model itself answered, it recorded +0.303 for the state dictionary at <code>resid_post.16</code> and +0.0068 for the MLP dictionary. The other 31 layers were not measured.</dd></div>
-    <div><dt>24 active groups are a default, not an optimum</dt><dd>At layer 16, the original project recorded a spliced-in loss of +0.303, +0.171 and +0.110 with 24, 40 and 60 active groups per token. The dictionaries trained with 40 and 60 active groups are not in this set.</dd></div>
-    <div><dt>Many transforms never fire</dt><dd>Many MLP transforms never fired on the original project's held-out shard, up to 60% at the last layer, where 3,974 of 9,920 were alive.</dd></div>
-    <div><dt>A few transforms fire on almost every token</dt><dd>At most layers a few transforms fire on almost every token and carry a large share of the write energy; <code>ALWAYS_ON.json</code> lists them. On the web text sample they carry up to 0.69 of the summed write energy, at layer 11. The count depends on the text: the counts on the web text sample and on the training-mix shard differ at 17 layers. A transform of this set must not be read as one operation without checking this list.</dd></div>
-    <div><dt>The penalty was chosen at one layer</dt><dd>The original project chose the sparsity penalty, 3e-05, at one layer only, layer 16. No other layer compared penalties.</dd></div>
-    <div><dt>No unit of this set was read or steered here</dt><dd>No unit of this set was read, edited or steered by the experiments behind the 0.8B results on this page. The original project used this set to trace one circuit and in steering experiments whose scripts are not published with this set; the set's model card describes them, and they cannot be re-run from the published files and code. Nothing here supports a claim that this set's groups or transforms are interpretable in general. This repository's tests of this set show that the files are built and read as defined. They are not a statement about quality.</dd></div>
-    <div><dt>One seed, no trainers, unpublished held-out data</dt><dd>This set covers one seed and one model. No demonstration script exists for this set, and its trainers are not in the repository. The held-out activations behind this repository's FVU columns are not published, and the numbers recorded at training cannot be recomputed from the published files. This repository did not compare <code>capture</code> on 4B with the original project's capture.</dd></div>
-  </dl>
-</section>
-
-
-
-<section class="g" aria-labelledby="checks">
-  <h2 id="checks"><a href="#checks">What was checked</a></h2>
-  <p>The checks below compare this repository's reader and demonstration with the original project's code and records for the 0.8B set. All comparisons ran on one RTX 5090 machine with Qwen3.5-0.8B. Rules R8 and R9 were written and committed before the runs they judge. They show that the published files are read as the original project read them. They are not a statement about the quality of the dictionaries.</p>
-  <dl class="ledger">
-    <div><dt>State reader against the original project's separate reader</dt><dd>The state reader was compared with a reader the original project wrote separately from its trainer, at 24 layers, 4 splits of 4,096 tokens and 2 sites.
+    <details class="fold" id="checks">
+      <summary>What was checked</summary>
+      <div class="fold-body">
+        <p class="guide">We compared the published reader and demonstration with our research code and its records for the Qwen3.5-0.8B set. These checks show that the published files are read the way our research code read them.</p>
+  <dl class="cards checks">
+    <div><dt>State reader against our separate reader</dt><dd>The state reader was compared with a reader we wrote separately from our trainer, at 24 layers, 4 splits of 4,096 tokens and 2 sites.
       <div class="figures"><span>tokens compared <b>786,432</b></span><span>tokens with a different group set <b>4</b></span><span>raw reconstructions elsewhere agree within <b>7.1e-7</b> relative</span></div></dd></div>
     <div><dt>The trainer's own held-out numbers</dt><dd>All 48 of the trainer's held-out FVU numbers in its own units were reproduced. These use the first 4,096 tokens of each split with position 0 included.
       <div class="figures"><span>largest difference <b>6.9e-7</b></span></div></dd></div>
     <div><dt>MLP reader against the public forward pass</dt><dd>The MLP reader was compared with the unmodified public forward pass at 24 layers.
       <div class="figures"><span>differing gate decisions <b>1</b>, at layer 3</span><span>outputs on other tokens agree within <b>1.9e-6</b> relative</span><span>sum of firing transforms' writes matches within <b>1.5e-6</b> relative</span></div></dd></div>
-    <div><dt>Reconstruction error on all held-out tokens</dt><dd>This repository measured reconstruction error on all held-out tokens, 257,122 per layer. The state dictionary's raw FVU agreed with the original project's table at all 24 layers and both sites.
+    <div><dt>Reconstruction error on all held-out tokens</dt><dd>We measured reconstruction error on all held-out tokens, 257,122 per layer. The state dictionary's raw FVU agreed with our table at all 24 layers and both sites.
       <div class="figures"><span>largest difference <b>6.5e-8</b></span><span>limit <b>1e-4</b></span></div></dd></div>
-    <div><dt>Every share of the demonstration</dt><dd>Every demonstration share agreed with the original harness's reference run and the original project's recorded numbers: 39 swaps in 3 cells on 3 sets of items. The item file matched the original items exactly.
+    <div><dt>Every share of the demonstration</dt><dd>Every demonstration share agreed with the original harness's reference run and our recorded numbers: 39 swaps in 3 cells on 3 sets of items. The item file matched the original items exactly.
       <div class="figures"><span>comparisons <b>351</b></span><span>largest difference <b>0.0030</b></span><span>tolerance registered beforehand <b>0.005</b></span></div></dd></div>
     <div><dt>The published files</dt><dd>All 144 release files matched the manifest. MLP tensors for layers 0 to 22 were bit-identical to the training exports used by the reader tests. Layer 23 passed its own comparison with the public forward pass. No file header or config held a machine path.</dd></div>
     <div><dt>A fresh download, in the tested library versions</dt><dd>A fresh clone, a new environment and a fresh download reproduce the demonstration byte for byte with torch 2.11.0+cu128 and transformers 5.20.2.</dd></div>
     <div><dt>The same download, in newer library versions</dt><dd>With newer library versions, torch 2.15.0+cu132 and transformers 5.23.0, the demonstration's shares moved by up to about 0.01. The numbers on this page are those of the tested versions.
       <div class="figures"><span>shares differ by at most <b>0.011</b></span></div></dd></div>
-    <div><dt>Tests a reader can run</dt><dd><code>pytest -m "not legacy"</code> runs the 36 tests that need no private data. The other tests need the original project's code and results. The pass/fail rules were written down before the comparisons were run and are in <code>tests/EQUIVALENCE_RULES.md</code>.</dd></div>
+    <div><dt>Tests a reader can run</dt><dd><code>pytest -m "not legacy"</code> runs the 36 tests that need no private data. The other tests need our research code and results. The pass/fail rules were written down before the comparisons were run and are in <code>tests/EQUIVALENCE_RULES.md</code>.</dd></div>
   </dl>
-  <p>Every comparison used one machine and one GPU model, RTX 5090. A second machine and a different GPU model were not checked.</p>
+      </div>
+    </details>
+  </div>
 </section>
 
 
-<section class="g" aria-labelledby="limits">
-  <h2 id="limits"><a href="#limits">Limits</a></h2>
-  <p>These limits belong to the results above and should be read with them.</p>
-  <dl class="ledger limits">
-    <div><dt>One model and one dictionary seed</dt><dd>The set covers one model, 0.8B, and one dictionary seed. The demonstration covers the same model and seed, with texts wrapped to a fixed width.</dd></div>
-    <div><dt>No dictionaries for the mixers</dt><dd>There are no dictionaries for the mixers, which are the GatedDeltaNet and attention sublayers. The count of characters is carried inside the L9 mixer, so that step of the chain is measured in the model's own mixer and head 10, not in a dictionary.</dd></div>
-    <div><dt>An easy task with dedicated MLP neurons</dt><dd>This is an easy task for which the model has dedicated MLP neurons. The demonstration is not evidence that dictionary units are better than neurons.</dd></div>
-    <div><dt>The script does not search</dt><dd>The script uses the original project's chosen transform, group and head and re-measures their effects. It does not search for them.</dd></div>
-    <div><dt>Group 4885 is dense</dt><dd>State group 11586 is sparse, but not every group is sparse. Some groups encountered by the original project on this task are dense 4-dimensional coordinates active on most tokens. They carry information in their coordinates. Group 4885 is one of these dense groups, not a sparse feature.</dd></div>
-    <div><dt>The frame is not the only route, and the pass rule holds only in part</dt><dd>The frame of group 4885 is not the only route from the L9 mixer to the answer. The registered pass rule for that link holds for the route through the six transforms and holds only in part for the route through transforms 410 and 1749 alone.</dd></div>
-    <div><dt>Rounding of single-item margins</dt><dd>Single-item margins of dictionary swaps are reproducible only to about 0.1. Shares are reproducible only to about 0.003. A patched tensor is rounded to bf16. A 1e-6 relative difference between implementations flips some rounded elements. Newer library versions moved shares by up to about 0.01. A pre-activation within float rounding of its hard threshold can be on in one computation and off in another.</dd></div>
-    <div><dt>The trainers are not in the repository</dt><dd>Training cannot be reproduced because the trainers for this set are not in the repository. Porting them is planned. No full-length training run was repeated for either design.</dd></div>
-    <div><dt>Numbers that cannot be recomputed from the published files</dt><dd>The per-layer reconstruction numbers and the spliced-in loss cannot be reproduced because the held-out activations and texts behind them are not published. The original project recorded MLP FVU, transforms on per token and transforms alive at training on a held-out shard of each layer's training capture. The shards were subsequently deleted, including the shard for layer 23's separate run. This repository did not repeat the original project's training-time MLP held-out measurements or the spliced-in loss measurements.</dd></div>
-    <div><dt>The earlier set had smaller spliced-in loss</dt><dd>In the original project's comparison on the same text, the earlier set had smaller increases at all 24 state layers and MLP layers 0 to 22.</dd></div>
-    <div><dt>One machine and one GPU model</dt><dd>Every comparison ran on one machine with one RTX 5090. A second machine and a different GPU model were not checked.</dd></div>
-  </dl>
-</section>
-
-
-<section class="g" aria-labelledby="use">
-  <h2 id="use"><a href="#use">Using it</a></h2>
-  <p>Python 3.12 or newer is required. In a checkout of the <a href="https://github.com/mconcat/statescope">code</a>, install the reader with the packages that <code>capture</code> and the demonstration need, and download the <a href="https://huggingface.co/mconcat/statescope-qwen3.5-0.8b">weights</a>. Replace <code>&lt;folder&gt;</code> with the destination.</p>
-  <div class="codeblock"><span class="lang">sh</span><pre><code>pip install -e '.[model]'
-hf download mconcat/statescope-qwen3.5-0.8b --local-dir &lt;folder&gt;</code></pre></div>
-  <p>The reader is the single file <code>src/statescope/reader.py</code>. It can be copied next to the weights. <code>capture</code> returns <code>resid_mid</code>, <code>mlp_out</code> and <code>resid_post</code> for the requested layer with position 0 dropped.</p>
-  <div class="codeblock wide"><span class="lang">python</span><pre><code>import torch
-from transformers import AutoModelForCausalLM, AutoTokenizer
-from statescope.reader import StateVocab, PublicMolt, capture
-tokenizer = AutoTokenizer.from_pretrained(&quot;Qwen/Qwen3.5-0.8B&quot;)
-model = AutoModelForCausalLM.from_pretrained(&quot;Qwen/Qwen3.5-0.8B&quot;, dtype=torch.bfloat16, device_map=&quot;cuda&quot;).eval()
-input_ids = torch.tensor([tokenizer(&quot;The committee met on Thursday to review the budget.&quot;)[&quot;input_ids&quot;]], device=&quot;cuda&quot;)
-V = StateVocab(&quot;&lt;folder&gt;/state/L9&quot;, &quot;cuda&quot;)
-M = PublicMolt(&quot;&lt;folder&gt;/mlp/L9&quot;, &quot;cuda&quot;)
-acts = capture(model, 9, input_ids)                      # resid_mid, mlp_out, resid_post; position 0 dropped
-x_hat = V.reconstruct(acts[&quot;resid_post&quot;], &quot;resid_post.9&quot;)
-gate, y_hat = M.forward(acts[&quot;resid_mid&quot;])               # gate (tokens, 3968), y_hat ~ acts[&quot;mlp_out&quot;]</code></pre></div>
-  <p>The first command checks all 144 files against the manifest. The second re-runs the traced line-count chain; it ran in under two minutes on one RTX 5090, including model loading.</p>
-  <div class="codeblock"><span class="lang">sh</span><pre><code>python demo/verify_release.py --release &lt;folder&gt;
-python demo/line_count.py --release &lt;folder&gt; --device cuda:0 --out &lt;folder for the result&gt;</code></pre></div>
-  <p class="small">Without flash-linear-attention, transformers silently uses a slow GatedDeltaNet reference implementation. Drop position 0 when measuring with the state dictionary. The <code>capture</code> function already does this.</p>
-</section>
-
-
-<section class="g" aria-labelledby="credits">
-  <h2 id="credits"><a href="#credits">Licences and credits</a></h2>
-  <div class="credits">
+<section class="band tint" aria-labelledby="credits">
+  <div class="wrap">
+    <h2 id="credits"><a href="#credits">Licences and credits</a></h2>
+  <div class="credits cols">
     <p>The code is licensed under MIT. The dictionary weights in the Hugging Face repository are released under MIT. The base model <code>Qwen/Qwen3.5-0.8B</code> is licensed under the Apache License, Version 2.0. The base model is not part of this set and is not redistributed here.</p>
     <p>The MLP dictionary's form and trainer come from the public <code>crosslayer-transcoder</code> code, branch MOLT, commit 376fabe. That code is MIT licensed, Copyright 2025 Georg Lange. The training fork changes no mechanism.</p>
     <p>The demonstration texts come from <code>HuggingFaceFW/fineweb-edu</code>, licensed under ODC-By 1.0. The texts shown on this page are re-wrapped excerpts from that dataset.</p>
     <p>This page is set in Pretendard and Geist Mono, both under the SIL Open Font License and served from this site as Latin subsets. The licence texts are in <a href="assets/fonts/LICENSE-Pretendard.txt">LICENSE-Pretendard.txt</a> and <a href="assets/fonts/LICENSE-Geist.txt">LICENSE-Geist.txt</a>.</p>
   </div>
+  </div>
 </section>
 
-</article>
 </main>
 
-<footer class="colophon g">
-  <p>Every measurement and count on this page is filled in from the repository's files and from one run of its demonstration script by the scripts in this site's <code>tools/</code> folder. No number is typed by hand.</p>
-  <p>The page is static. It sets no cookies, loads nothing from another host and has no analytics. <a href="#top">Back to the top</a></p>
+<footer class="colophon">
+  <nav aria-label="Code and weights, again">
+    <a href="https://github.com/mconcat/statescope">Code</a>
+    <a href="https://huggingface.co/mconcat/statescope-qwen3.5-4b">Weights for Qwen3.5-4B</a>
+    <a href="https://huggingface.co/mconcat/statescope-qwen3.5-0.8b">Weights for Qwen3.5-0.8B</a>
+    <a href="#top">Back to the top</a>
+  </nav>
 </footer>
 
 <div class="tip" id="tip" hidden></div>
-<noscript><div class="g"><p class="limit-note">The interactive figures need JavaScript. The text, the first figure and the tables behind each "Table" line do not.</p></div></noscript>
+<noscript><div class="wrap"><p class="aside-note">The interactive figures need JavaScript. The text, the first figure and the tables behind each "Table" line do not.</p></div></noscript>
 <script type="module" src="assets/js/main.js"></script>
 </body>
 </html>

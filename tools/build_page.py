@@ -13,9 +13,14 @@ Placeholders of the template (an unknown one stops the build):
   {{rates}}                    the firing-rate chart of the first figure, built from data/demo.json
   {{toc}}                      the list of sections (every <h2 id=...> of the page)
   {{fig|<name>}}               the number of <figure id="fig-<name>">, counted in page order
+  {{steer|<cell>|<swap>|<dose>}}   share on all items of a cell at one dose, from data/steer.json
 Blocks:
   <!--if 4b--> ... <!--endif 4b-->        kept only when data/layers-4b.json exists
   <!--if steer--> ... <!--endif steer-->  kept only when data/steer.json exists
+  <!--if curve--> ... <!--endif curve-->  kept only when data/count-curve.json exists
+  <!--if examples--> ... <!--endif examples-->  kept only when data/examples-4b.json exists
+  {{context|<set>|<n>}}        a natural-text context of data/examples-4b.json, its marked token in <mark>
+  {{references}}               the list of tools/references.json
 Every <h2 id> and <h3 id> becomes its own link. Standard library only.
 """
 from __future__ import annotations
@@ -50,20 +55,60 @@ def table(caption: str, head: list[str], rows: list[list[str]], row_header: bool
     return "\n".join(out)
 
 
-def tables() -> dict[str, str]:
+def details_table(f: dict, caption: str, four: bool) -> str:
+    """sizes and training settings of one set, from data/facts.json (every value a fact read by tools/build_data.py)"""
+    v = lambda key: f[key]["display"]
+    p = "b4" if four else "mlp"
+    tiers = ", ".join(f"{v(f'{p}.tier{i}_n')} of rank {v(f'{p}.tier{i}_rank')}" for i in range(1, 6))
+    if four:
+        rows = [["Base model", v("b4.model")], ["Layers, width", f"{v('b4.layers')}, {v('b4.width')}"],
+                ["State dictionary: groups", f"{v('b4.groups')} groups of {v('b4.group_size')} directions"],
+                ["State dictionary: active groups per token", v("b4.active")],
+                ["State dictionary: training", f"{v('b4.state_train_tokens')} tokens over {v('b4.state_train_steps')} steps"],
+                ["MLP dictionary: transforms", v("b4.transforms")], ["MLP dictionary: rank tiers", tiers],
+                ["MLP dictionary: gate", "JumpReLU"], ["MLP dictionary: read and write matrices", "free, no skip connection"],
+                ["MLP dictionary: sparsity penalty", f"tanh, coefficient {v('b4.penalty')} at all {v('b4.layers')} layers"],
+                ["MLP dictionary: training", f"{v('b4.mlp_train_steps')} steps of {v('b4.mlp_step_tokens')} tokens, or {v('b4.mlp_train_million_tokens')} million tokens, per layer"],
+                ["MLP dictionary: learning rate", v("b4.learning_rate")],
+                ["Files", f"{v('b4.files')} weight and config files"],
+                ["Size", f"about {v('b4.total_gib')} GiB: state about {v('b4.state_gib')} GiB, MLP about {v('b4.mlp_gib')} GiB"]]
+    else:
+        rows = [["Base model", v("set.model")], ["Layers, width", f"{v('model.layers')}, {v('model.width')}"],
+                ["State dictionary: groups", f"{v('state.groups')} groups of {v('state.group_size')} directions"],
+                ["State dictionary: active groups per token", v("state.active")],
+                ["State dictionary: training", f"{v('state.train_tokens')} tokens over {v('state.train_steps')} steps"],
+                ["MLP dictionary: transforms", v("mlp.transforms")], ["MLP dictionary: rank tiers", tiers],
+                ["MLP dictionary: gate", "JumpReLU"], ["MLP dictionary: read and write matrices", "free, no skip connection"],
+                ["MLP dictionary: sparsity penalty", f"tanh, coefficient {v('mlp.penalty_main')} at layers {v('model.first_layer')} to {v('mlp.penalty_main_last_layer')}, "
+                                                    f"{v('mlp.penalty_last')} at layer {v('model.last_layer')}"],
+                ["MLP dictionary: training", f"{v('mlp.train_steps')} steps of {v('mlp.step_tokens')} tokens, or {v('mlp.train_million_tokens')} million tokens, per layer"],
+                ["MLP dictionary: learning rate", v("mlp.learning_rate")],
+                ["Files", f"{v('set.files')} weight and config files"],
+                ["Size", f"about {v('set.total_gib')} GiB: state about {v('set.state_gib')} GiB, MLP about {v('set.mlp_gib')} GiB"]]
+    return table(caption, ["Setting", v("b4.model") if four else v("set.model")], rows, row_header=True)
+
+
+# captions of the two tables of training details, written for this page
+DETAILS_CAPTION_4B = ("This table lists the dictionary sizes, training settings, file counts, and file sizes for our Qwen3.5-4B set, using values from the "
+                      "README, model card, and manifest.")
+DETAILS_CAPTION_08B = ("This table lists the dictionary sizes, training settings, file counts, and file sizes for our Qwen3.5-0.8B set, using values from the "
+                       "README, model card, and manifest.")
+
+
+def tables(facts: dict) -> dict[str, str]:
     layers, splice, demo = data("layers.json"), data("splice.json"), data("demo.json")
     col = layers["columns"]
     cells = [c["key"] for c in demo["cells"]]
     labels = demo["link_labels"]
     out = {}
     out["layers"] = table(
-        "Numbers per layer. The first three value columns were measured by this repository with position 0 dropped. "
-        "The next three were recorded at training by the original project.",
+        "Numbers per layer. The first three value columns were re-measured with the published reader with position 0 dropped. "
+        "The next three were recorded at training by us.",
         ["Layer", col["state_mid"], col["state_post"], col["mlp"], col["mlp_train"], col["on_per_token"], col["alive"], col["penalty"]],
         [[str(r["layer"]), r["dropped"]["state_mid"], r["dropped"]["state_post"], r["dropped"]["mlp"], r["mlp_train"], r["on_per_token"],
           r["alive_text"], r["penalty"]] for r in layers["rows"]])
     out["splice"] = table(
-        "Spliced-in loss: increase in cross-entropy in nats, recorded by the original project and not repeated by this repository.",
+        "Spliced-in loss: increase in cross-entropy in nats, recorded at training and not re-measured with the published reader.",
         ["Layer", splice["columns"]["state"], splice["columns"]["mlp"]],
         [[str(r["layer"]), r["state"], r["mlp"]] for r in splice["rows"]])
     main = [a for a in demo["arms"] if a["group"] == "main"]
@@ -93,13 +138,15 @@ def tables() -> dict[str, str]:
         rate_rows.append([f"other token, {b} characters in the line"] + [demo["firing_rate"][u]["by_chars_in_line"][i]["rate"] for u in units])
     out["rates"] = table(
         "Fraction of tokens at which each transform's gate is open, on the clean texts of the two count cells. "
-        "Measured by this repository's demonstration script.", ["Tokens"] + units, rate_rows, row_header=True)
+        "Measured by our demonstration script.", ["Tokens"] + units, rate_rows, row_header=True)
+    out["details08b"] = details_table(facts, DETAILS_CAPTION_08B, False)
     if exists("layers-4b.json"):
+        out["details4b"] = details_table(facts, DETAILS_CAPTION_4B, True)
         four = data("layers-4b.json")
         col = four["columns"]
         out["layers4b"] = table(
-            "Qwen3.5-4B set, numbers per layer. The first three value columns were measured by this repository with position 0 dropped. "
-            "The others were recorded by the original project.",
+            "Qwen3.5-4B set, numbers per layer. The first three value columns were re-measured with the published reader with position 0 dropped. "
+            "The others were recorded at training.",
             ["Layer", col["state_mid"], col["state_post"], col["mlp"], col["mlp_train"], col["on_per_token"], col["alive"], col["always"], col["always_energy"]],
             [[str(r["layer"]), r["dropped"]["state_mid"], r["dropped"]["state_post"], r["dropped"]["mlp"], r["mlp_train"], r["on_per_token"],
               r["alive_text"], r["always_text"], r["always_energy"]] for r in four["rows"]])
@@ -198,11 +245,24 @@ def rates_chart(demo: dict) -> str:
     return "\n".join(out)
 
 
+def references() -> str:
+    """the list of works the page refers to, from tools/references.json; an entry with "needs" is listed only when that data file exists"""
+    with open(os.path.join(HERE, "tools", "references.json")) as f:
+        entries = json.load(f)["references"]
+    out = []
+    for e in entries:
+        if "needs" in e and not exists(e["needs"]):
+            continue
+        title = e["title"] if e["title"].endswith("?") else e["title"] + "."
+        out.append(f'    <p class="citation">{esc(e["authors"])}. {esc(title)} {esc(e["id"])}, {esc(e["date"])}. <a href="{esc(e["url"])}">{esc(e["url"])}</a></p>')
+    return "\n".join(out)
+
+
 # ------------------------------------------------------------------------------------------------ the page
 def conditional(page: str, name: str, keep: bool) -> str:
     pattern = re.compile(rf"<!--if {name}-->(.*?)<!--endif {name}-->", flags=re.S)
     assert pattern.search(page), f"no block for {name!r} in the template"
-    return pattern.sub((lambda m: m.group(1)) if keep else "", page)
+    return pattern.sub((lambda m: m.group(1)) if keep else (lambda m: ""), page)
 
 
 def main() -> None:
@@ -213,11 +273,15 @@ def main() -> None:
     page = page[:page.index("<!--")] + page[page.index("-->") + 4:]          # the template's own header comment
     page = conditional(page, "4b", exists("layers-4b.json"))
     page = conditional(page, "steer", exists("steer.json"))
+    page = conditional(page, "curve", exists("count-curve.json"))
+    page = conditional(page, "examples", exists("examples-4b.json"))
+    examples = data("examples-4b.json") if exists("examples-4b.json") else None
+    steer = data("steer.json") if exists("steer.json") else None
     page = re.sub(r"<!--.*?-->", "", page, flags=re.S)                        # the template's remaining notes are not part of the page
 
     figures = {name: n for n, name in enumerate(re.findall(r'<figure[^>]*\bid="fig-([a-z0-9-]+)"', page), start=1)}
     sections = re.findall(r'<h2 id="([a-z0-9-]+)">(.*?)</h2>', page, flags=re.S)
-    built, used = tables(), set()
+    built, used = tables(facts), set()
 
     def fill(match: re.Match) -> str:
         key = match.group(1)
@@ -229,6 +293,12 @@ def main() -> None:
         if parts[0] in ("share", "ci"):
             e = demo["shares"][parts[1]][parts[2]]["even"]
             return e["s"] if parts[0] == "share" else f"{e['s']} ({e['slo']} to {e['shi']})"
+        if parts[0] == "steer":                                               # share on all items of a cell at one dose
+            return steer["cells"][parts[1]]["arms"][parts[2]]["share"][steer["alphas"].index(parts[3])]
+        if parts[0] == "context":                                             # a natural-text context; the marked token stands in [[ ]]
+            return re.sub(r"\[\[(.*?)\]\]", r"<mark>\1</mark>", esc(examples["contexts"][parts[1]][int(parts[2])]))
+        if key == "references":
+            return references()
         if parts[0] == "rate":
             return next(b["rate"] for b in demo["firing_rate"][parts[1]]["by_chars_in_line"] if b["bin"] == parts[2])
         if key == "lead":

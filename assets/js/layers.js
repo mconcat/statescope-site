@@ -1,5 +1,5 @@
 // Numbers per layer: small multiples over one shared layer axis, for the 0.8B set, its spliced-in loss, and the 4B set.
-// Solid lines and filled marks: measured by this repository. Dashed lines, open marks and bars: recorded by the original project.
+// Solid lines and filled marks: re-measured with the published reader. Dashed lines, open marks and bars: recorded at training.
 import { svg, h, clear, linear, niceTicks, tickText, onResize, diamond, segmented } from "./svg.js";
 
 const HEIGHT = 190;
@@ -135,7 +135,7 @@ export function initLayers(layers, splice) {
     panels: [
       {
         title: "State FVU",
-        sub: () => `Measured by this repository, ${p0Text()}.`,
+        sub: () => `Re-measured with the published reader, ${p0Text()}.`,
         series: [
           { label: "resid_mid", cls: "s-n", shape: "circle", value: (r) => Number(r[p0].state_mid) },
           { label: "resid_post", cls: "s-r", shape: "diamond", value: (r) => Number(r[p0].state_post) },
@@ -145,18 +145,18 @@ export function initLayers(layers, splice) {
         title: "MLP FVU",
         sub: () => `Two measurements on different tokens; the solid series has ${p0Text()}.`,
         series: [
-          { label: "measured by this repository", cls: "s-n", shape: "circle", value: (r) => Number(r[p0].mlp) },
+          { label: "re-measured with the published reader", cls: "s-n", shape: "circle", value: (r) => Number(r[p0].mlp) },
           { label: "recorded at training", cls: "s-n", shape: "circle", recorded: true, value: (r) => Number(r.mlp_train) },
         ],
       },
       {
         title: col.on_per_token,
-        sub: () => "Recorded at training by the original project, position 0 included.",
+        sub: () => "Recorded at training by us, position 0 included.",
         series: [{ label: col.on_per_token, cls: "s-n", shape: "circle", recorded: true, value: (r) => Number(r.on_per_token) }],
       },
       {
         title: col.alive,
-        sub: () => "Recorded at training by the original project. The dashed line is the number of transforms.",
+        sub: () => "Recorded at training by us. The dashed line is the number of transforms.",
         bars: { value: (r) => r.alive, total: layers.rows[0].transforms },
       },
     ],
@@ -181,12 +181,12 @@ export function initLayers(layers, splice) {
     panels: [
       {
         title: splice.columns.state,
-        sub: () => "Recorded by the original project, in nats.",
+        sub: () => "Recorded at training, in nats.",
         series: [{ label: splice.columns.state, cls: "s-n", shape: "circle", recorded: true, value: (r) => Number(r.state) }],
       },
       {
         title: splice.columns.mlp,
-        sub: () => "Recorded by the original project, in nats.",
+        sub: () => "Recorded at training, in nats.",
         series: [{ label: splice.columns.mlp, cls: "s-n", shape: "circle", recorded: true, value: (r) => Number(r.mlp) }],
       },
     ],
@@ -214,7 +214,7 @@ export function initFourB(four) {
     panels: [
       {
         title: "State FVU",
-        sub: () => "Measured by this repository, position 0 dropped.",
+        sub: () => "Re-measured with the published reader, position 0 dropped.",
         series: [
           { label: "resid_mid", cls: "s-n", shape: "circle", value: (r) => Number(r.dropped.state_mid) },
           { label: "resid_post", cls: "s-r", shape: "diamond", value: (r) => Number(r.dropped.state_post) },
@@ -224,18 +224,18 @@ export function initFourB(four) {
         title: "MLP FVU",
         sub: () => "Two measurements on different tokens.",
         series: [
-          { label: "measured by this repository", cls: "s-n", shape: "circle", value: (r) => Number(r.dropped.mlp) },
+          { label: "re-measured with the published reader", cls: "s-n", shape: "circle", value: (r) => Number(r.dropped.mlp) },
           { label: "recorded at training", cls: "s-n", shape: "circle", recorded: true, value: (r) => Number(r.mlp_train) },
         ],
       },
       {
         title: col.alive,
-        sub: () => "Recorded at training by the original project. The dashed line is the number of transforms.",
+        sub: () => "Recorded at training by us. The dashed line is the number of transforms.",
         bars: { value: (r) => r.alive, total: four.rows[0].transforms },
       },
       {
         title: "Write energy of the always-on transforms",
-        sub: () => "Share of the summed write energy carried by transforms on at 90% of tokens or more, web text. Recorded by the original project.",
+        sub: () => "Share of the summed write energy carried by transforms on at 90% of tokens or more, web text. Recorded at training.",
         series: [{ label: "share", cls: "s-n", shape: "circle", recorded: true, value: (r) => Number(r.always_energy) }],
       },
     ],

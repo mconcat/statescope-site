@@ -5,6 +5,9 @@
 
 Reads only. Needs torch, safetensors and transformers (the tokenizer decodes the demonstration items; no model is loaded, CPU only).
 --result is the folder that `python demo/line_count.py --release <weights> --out <folder>` wrote.
+--repo may be a folder exported from one commit (`git -C <checkout> archive <commit> README.md demo release | tar -x -C <folder>`);
+then give that commit with --source-commit. The patterns below are tied to the wording of the files at the commit they were
+written for, so a build from a later commit stops at the first sentence that has changed.
 
 Sources, all relative to --repo:
   README.md                                  facts stated in prose (found by a pattern around the number, never retyped)
@@ -18,6 +21,11 @@ Sources, all relative to --repo:
   <result>/result.json, result.safetensors   shares, firing rates, per-item margins, gates
 
 Writes data/facts.json, layers.json, splice.json, demo.json and items-<cell>.json.
+
+The dose figure is optional. With
+  --steer <folder>  a folder that holds steer.json and steer_margins.safetensors (one run of steer_dose.py, made for this page)
+data/steer.json is written: the margins as strings, and only named fields of the run's record. Otherwise the file is removed and
+tools/build_page.py leaves the figure out.
 
 The Qwen3.5-4B section is optional. It is built when the checkout holds release/qwen35-4b/reader_fvu.json and MODEL_CARD.md and
   --weights-4b <folder>  a folder of the 4B weights repository that holds ALWAYS_ON.json
@@ -103,8 +111,11 @@ class Facts:
 # ---------------------------------------------------------------------------------------------- facts stated in prose and in the manifest
 def text_facts(facts: Facts, manifest: dict, reader_fvu: dict) -> None:
     f = facts
-    f.find(CARD, r"for each of the (\d+) layers of `Qwen/Qwen3\.5-0\.8B`\. The model has width (\d+)\. The base-model revision is `([0-9a-f]{40})`\.",
-           ["model.layers", "model.width", "model.revision"])
+    f.find(README, r"\| `Qwen/Qwen3\.5-0\.8B` \| (\d+) \| ([\d,]+) \| ([\d,]+) / (\d+) \| ([\d,]+) \| About ([\d.]+) GiB \|",
+           ["model.layers", "model.width", "state.groups_readme", "state.active_readme", "mlp.transforms_readme", "set.total_gib_readme"])
+    f.find(README, r"The 0\.8B base model's revision is `([0-9a-f]{40})`\.", ["model.revision"])
+    f.find(CARD, r"The (\d+) weight and config files cover (\d+) layers", ["set.files_card", "model.layers_card"])
+    assert f.items.pop("model.layers_card")["display"] == f.items["model.layers"]["display"]
     f.find(README, r"The 0\.8B set contains (\d+) files\. Its state dictionaries occupy about ([\d.]+) GiB, and its MLP dictionaries occupy about ([\d.]+) GiB\.",
            ["set.files", "set.state_gib", "set.mlp_gib"])
     f.find(README, r"Each layer's dictionary was trained on ([\d,]+) tokens over ([\d,]+) steps\.", ["state.train_tokens", "state.train_steps"])
@@ -119,11 +130,11 @@ def text_facts(facts: Facts, manifest: dict, reader_fvu: dict) -> None:
     f.find(README, r"A (1e-6) relative difference between implementations flips some rounded elements\.", ["demo.relative_difference"])
     f.find(README, r"The rule requires at least ([\d.]+) of the whole share inside the frame, at most ([\d.]+) of it and at most ([\d.]+) in the rest, and at most "
                    r"([\d.]+) in random frames, in both count cells\.", ["rule.inside_min", "rule.rest_max_fraction", "rule.rest_max", "rule.random_max"])
-    f.find(README, r"because it recorded a share of ([\d.]+) for the rest in `count:100` through those two transforms", ["rule.recorded_rest"])
-    f.find(CARD, r"in nats on text with clean cross-entropy ([\d.]+)\.", ["splice.clean_ce"])
-    f.find(CARD, r"It took the first (\d+) documents of at least (\d+) tokens and the first (\d+) tokens of each", ["splice.documents", "splice.min_tokens", "splice.tokens_each"])
-    f.find(CARD, r"The loss was averaged over positions (\d+) to (\d+), or ([\d,]+) positions\.", ["splice.first_position", "splice.last_position", "splice.positions"])
-    f.find(CARD, r"For the state dictionary at layer (\d+), the recorded increase was (\+[\d.]+) for this set against (\+[\d.]+) for the earlier set\.",
+    f.find(README, r"because we recorded a share of ([\d.]+) for the rest in `count:100` through those two transforms", ["rule.recorded_rest"])
+    f.find(CARD, r"Clean cross-entropy was ([\d.]+)\.", ["splice.clean_ce"])
+    f.find(CARD, r"the first (\d+) documents of at least (\d+) tokens and the first (\d+) tokens of each", ["splice.documents", "splice.min_tokens", "splice.tokens_each"])
+    f.find(CARD, r"loss was averaged over positions (\d+) to (\d+), or ([\d,]+) positions\.", ["splice.first_position", "splice.last_position", "splice.positions"])
+    f.find(CARD, r"At state layer (\d+), this set gives (\+[\d.]+) versus (\+[\d.]+) for the earlier set\.",
            ["splice.example_layer", "splice.l9_state_here", "splice.l9_state_earlier"])
     f.find(README, r"with the bootstrap interval from ([\d.]+) % to ([\d.]+) % in parentheses", ["demo.interval_low", "demo.interval_high"])
     f.find(README, r"At layer (\d+), `resid_mid`, state FVU is ([\d.]+) with position 0 and ([\d.]+) without it\. At layer 0",
@@ -131,24 +142,23 @@ def text_facts(facts: Facts, manifest: dict, reader_fvu: dict) -> None:
     example = re.findall(r"```python\n(import torch\n.*?)```", f.read(CARD), flags=re.S)
     assert example and "from statescope.reader import" in example[0] and "Qwen/Qwen3.5-0.8B" in example[0]
     f.add("reader.example", example[0].rstrip("\n"), CARD, "the first python block of the card, unchanged")
-    f.find(CARD, r"At layer 23, the released MLP dictionary had the smaller increase, (\+[\d.]+) against (\+[\d.]+) for the earlier set\.",
+    f.find(CARD, r"At MLP layer 23, this set gives (\+[\d.]+) versus (\+[\d.]+) for the earlier set\.",
            ["splice.l23_mlp_here", "splice.l23_mlp_earlier"])
     # what the tests showed, and what a reader can run
     f.find(README, r'`pytest -m "not legacy"` runs the (\d+) tests that need no private data\.', ["check.tests"])
-    f.find(CARD, r"This covered (\d+) layers and (\d+) splits of ([\d,]+) tokens at (\d+) sites\. Of ([\d,]+) tokens, (\d+) selected a different group set\. "
-                 r"Each had its 24th and 25th group norms within ([\d.e-]+)\. Raw reconstructions elsewhere agreed within ([\d.e-]+) relative\. "
-                 r"All (\d+) of the trainer's held-out FVU numbers in its own units were reproduced within ([\d.e-]+)\.",
-           ["check.state_layers", "check.state_splits", "check.state_split_tokens", "check.state_sites", "check.state_tokens", "check.state_differ",
+    f.find(CARD, r"across (\d+) layers, (\d+) splits of ([\d,]+) tokens and (\d+) sites, (\d+) of ([\d,]+) tokens selected different groups; their 24th and "
+                 r"25th group norms differed by at most ([\d.e-]+)\. Other raw reconstructions agreed within ([\d.e-]+) relative\. "
+                 r"All (\d+) own-unit FVU values agreed within ([\d.e-]+)\.",
+           ["check.state_layers", "check.state_splits", "check.state_split_tokens", "check.state_sites", "check.state_differ", "check.state_tokens",
             "check.state_norm_gap", "check.state_recon", "check.state_fvu_n", "check.state_fvu"])
-    f.find(CARD, r"The MLP reader was compared with the unmodified public forward pass at (\d+) layers\. There was (\d+) differing gate decision, "
-                 r"at layer (\d+)\. Outputs on other tokens agreed within ([\d.e-]+) relative\.",
-           ["check.mlp_layers", "check.mlp_differ", "check.mlp_differ_layer", "check.mlp_out"])
-    f.find(CARD, r"matched the forward pass within ([\d.e-]+) relative\.", ["check.mlp_sum"])
-    f.find(CARD, r"agreed with the original project's table within ([\d.e-]+) at all 24 layers and both sites\. The limit was ([\d.e-]+)\.",
-           ["check.fvu_agree", "check.fvu_limit"])
-    f.find(CARD, r"Every demonstration share agreed within ([\d.]+) with the original harness's reference run and the original project's recorded "
-                 r"numbers\. There were (\d+) swaps x (\d+) cells x (\d+) halves = (\d+) comparisons\. The original registration's tolerance was ([\d.]+)\.",
-           ["check.share_agree", "check.share_swaps", "check.share_cells", "check.share_halves", "check.share_n", "check.share_limit"])
+    f.find(CARD, r"Against the unmodified public MLP forward pass at (\d+) layers, (\d+) gate differed, at layer (\d+); other-token outputs agreed within "
+                 r"([\d.e-]+) relative\. The sum of firing transforms' writes plus the output mean agreed within ([\d.e-]+) relative\.",
+           ["check.mlp_layers", "check.mlp_differ", "check.mlp_differ_layer", "check.mlp_out", "check.mlp_sum"])
+    f.find(CARD, r"All-token state FVU agreed with the record within ([\d.e-]+) at all 24 layers and both sites, with and without position 0, within the "
+                 r"([\d.e-]+) limit\.", ["check.fvu_agree", "check.fvu_limit"])
+    f.find(CARD, r"All (\d+) shares \((\d+) swaps × (\d+) cells × (\d+) halves\) agreed within ([\d.]+) with the reference run and recorded numbers, "
+                 r"within tolerance ([\d.]+)\.",
+           ["check.share_n", "check.share_swaps", "check.share_cells", "check.share_halves", "check.share_agree", "check.share_limit"])
     f.find(README, r"A fresh clone, a new environment and a fresh download reproduce the demonstration byte for byte with torch ([\w.+]+) and transformers ([\d.]+)\.",
            ["check.tested_torch", "check.tested_transformers"])
     f.find(README, r"With newer library versions, torch ([\w.+]+) and transformers ([\d.]+), shares differ by at most ([\d.]+)\.",
@@ -156,8 +166,6 @@ def text_facts(facts: Facts, manifest: dict, reader_fvu: dict) -> None:
     f.find(README, r"With newer library versions, the demonstration's shares moved by up to about ([\d.]+),", ["check.new_share_about"])
     f.find(CARD, r"The (\d+) files occupy about ([\d.]+) gibibytes", ["set.all_files", "set.total_gib"])
     assert "It ran in under two minutes on one RTX 5090, including model loading." in f.read(README)
-    assert "Rules R8 and R9 were written and committed before the runs they judge." in f.read(CARD)
-    assert "All comparisons ran on one machine with one RTX 5090." in f.read(README)
     # how the paired texts are made (item_files() measures the same numbers on the texts and compares)
     f.find(README, r"In every cell, the clean text's last line is full, at most (\d+) characters short of the width, so a line break is due\.", ["demo.clean_short_max"])
     f.find(README, r"chosen so that the line holds between (\d+)% and (\d+)% of the width at the last word, and the preceding lines are wrapped backward from that "
@@ -174,6 +182,9 @@ def text_facts(facts: Facts, manifest: dict, reader_fvu: dict) -> None:
     values = {m["transforms"] for m in mlp}
     assert len(values) == 1
     f.add("mlp.transforms", comma(values.pop()), MANIFEST, "layers.*.mlp.transforms, the same at every layer")
+    for mine, stated in (("state.groups", "state.groups_readme"), ("state.active", "state.active_readme"), ("mlp.transforms", "mlp.transforms_readme"),
+                         ("set.total_gib", "set.total_gib_readme"), ("set.files", "set.files_card")):
+        assert f.items[mine]["display"] == f.items.pop(stated)["display"], mine          # the README's table row and the card say the same
     assert len(layers) == int(f.items["model.layers"]["display"])
     assert {comma(s["steps"]) for s in state} == {f.items["state.train_steps"]["display"]}
     f.add("set.model", manifest["model"], MANIFEST, "model")
@@ -553,34 +564,42 @@ def four_b(facts: Facts, repo: str, weights: str) -> dict:
         assert f.items.pop(f"b4.{key}_readme")["display"] == f.items[f"b4.{key}"]["display"], key
     f.find(README, r"The 4B set contains (\d+) weight and config files\. Its state dictionaries occupy about ([\d.]+) GiB, and its MLP dictionaries occupy about "
                    r"([\d.]+) GiB\.", ["b4.files", "b4.state_gib", "b4.mlp_gib"])
-    f.find(card, r"Middle-layer state FVU is ([\d.]+) to ([\d.]+) for this set, against ([\d.]+) to ([\d.]+) for the 0\.8B set\. The proposed cause, the smaller "
-                 r"active fraction of ([\d.]+)% against ([\d.]+)% of the width, is an inference, not a measurement\.",
+    f.find(card, r"Middle-layer state FVU is ([\d.]+) to ([\d.]+) here and ([\d.]+) to ([\d.]+) for the smaller set; the proposed explanation in terms of the "
+                 r"smaller active fraction, ([\d.]+)% against ([\d.]+)% of model width, is an inference\.",
            ["b4.mid_fvu_low", "b4.mid_fvu_high", "b4.mid_fvu_low_08b", "b4.mid_fvu_high_08b", "b4.active_pct", "b4.active_pct_08b"])
-    f.find(card, r"The original project measured spliced-in loss at layer (\d+) only\. The other (\d+) layers were not measured\.", ["b4.probe_layer", "b4.unprobed_layers"])
-    f.find(card, r"The original project chose the sparsity penalty at one layer only, layer (\d+)\. No other layer compared penalties\.", ["b4.penalty_layer"])
+    f.find(card, r"We measured it at layer (\d+) only\.", ["b4.probe_layer"])
+    f.find(card, r"We chose the penalty at layer (\d+) alone", ["b4.penalty_layer"])
     assert f.items.pop("b4.penalty_layer")["display"] == f.items["b4.probe_layer"]["display"]
-    f.find(card, r"the maximum was ([\d.]+) on the web text sample, at layer (\d+), and ([\d.]+) on the training-mix shard, at layer (\d+)\. On the training-mix shard "
-                 r"the share was at least ([\d.]+) at (\d+) of 32 layers\.",
+    f.find(card, r"On web text, these transforms carry up to ([\d.]+) of summed write energy, at layer (\d+)\. On the training mix, they carry up to ([\d.]+), "
+                 r"at layer (\d+), and at least ([\d.]+) at (\d+) of the 32 layers\.",
            ["b4.energy_max", "b4.energy_max_layer", "b4.energy_max_train", "b4.energy_max_train_layer", "b4.energy_floor", "b4.energy_layers"])
     best = max(rows, key=lambda r: float(r["always_energy"]))
     assert (best["always_energy"], str(best["layer"])) == (f.items["b4.energy_max"]["display"], f.items["b4.energy_max_layer"]["display"]), best
     f.find(card, r"and (\d+)% at layer 31, where ([\d,]+) of ([\d,]+) were alive\.", ["b4.dead_last_pct", "b4.alive_last", "b4.alive_last_of"])
     assert rows[-1]["alive_text"] == f"{f.items['b4.alive_last']['display'].replace(',', '')} of {f.items['b4.alive_last_of']['display'].replace(',', '')}"
-    f.find(card, r"For the state dictionary at `resid_post\.16`, the original project recorded (\+[\d.]+) on held-out text the model itself answered, comprising "
-                 r"(\d+) rows and ([\d,]+) positions\. On the same text, the MLP dictionary gave (\+[\d.]+)\.",
-           ["b4.splice_state", "b4.splice_rows", "b4.splice_positions", "b4.splice_mlp"])
+    f.find(card, r"On held-out text the model itself answered, comprising (\d+) rows and ([\d,]+) positions, the state dictionary at `resid_post\.16` gave "
+                 r"(\+[\d.]+)\. The MLP dictionary gave (\+[\d.]+);",
+           ["b4.splice_rows", "b4.splice_positions", "b4.splice_state", "b4.splice_mlp"])
     for k in ("24", "40", "60"):
         f.find(card, rf"\| {k} \| ([\d.]+) \| (\+[\d.]+) \|", [f"b4.k{k}_fvu", f"b4.k{k}_splice"])
     assert f.items["b4.k24_splice"]["display"] == f.items["b4.splice_state"]["display"]
-    for needle in ("The dictionaries trained with 40 and 60 active groups are not in this set.",
-                   "No demonstration script exists for this set, and its trainers are not in the repository.",
-                   "No unit of this set was read, edited or steered by the experiments behind the smaller companion's documents.",
-                   "Nothing here supports a claim that this set's groups or transforms are interpretable in general.",
-                   "This repository did not compare `capture` on 4B with the original project's capture.",
-                   "This set covers one seed and one model.",
-                   "They are not a statement about quality.",
-                   "they cannot be re-run from the published files and code",
-                   "The held-out activations behind this repository's FVU columns are not published."):
+    f.find(README, r"The 4B set has (\d+) transforms of rank (\d+), (\d+) of rank (\d+), ([\d,]+) of rank (\d+), ([\d,]+) of rank (\d+) and ([\d,]+) of rank (\d+)\.",
+           ["b4.tier1_n", "b4.tier1_rank", "b4.tier2_n", "b4.tier2_rank", "b4.tier3_n", "b4.tier3_rank", "b4.tier4_n", "b4.tier4_rank", "b4.tier5_n", "b4.tier5_rank"])
+    f.find(card, r"We trained each layer on ([\d,]+) tokens over ([\d,]+) steps, with seed 0\.", ["b4.state_train_tokens", "b4.state_train_steps"])
+    f.find(card, r"Training used ([\d,]+) steps of (\d+) tokens, or ([\d.]+) million tokens, with learning rate ([\d.e+-]+) and penalty ([\d.e+-]+) at all 32 layers\.",
+           ["b4.mlp_train_steps", "b4.mlp_step_tokens", "b4.mlp_train_million_tokens", "b4.learning_rate", "b4.penalty_card"])
+    assert f.items.pop("b4.penalty_card")["display"] == f.items["b4.penalty"]["display"]
+    f.find(card, r"download one layer: about ([\d.]+) gibibytes \(GiB\) for state and ([\d.]+) GiB for MLP files\.", ["b4.layer_state_gib", "b4.layer_mlp_gib"])
+    f.find(README, r"The 4B model in bf16 plus one layer's two dictionaries needed more than (\d+) GiB of GPU memory\.", ["b4.gpu_gib"])
+    example = re.findall(r"```python\n(import torch\n.*?)```", f.read(card), flags=re.S)
+    assert example and "from statescope.reader import" in example[0] and "Qwen/Qwen3.5-4B" in example[0]
+    f.add("reader.example_4b", example[0].rstrip("\n"), card, "the first python block of the 4B card, unchanged")
+    one_layer = re.findall(r"```sh\n(hf download mconcat/statescope-qwen3\.5-4b --include [^\n]+)\n```", f.read(README))
+    assert len(one_layer) == 1
+    f.add("b4.download_one_layer", one_layer[0], README, "the command that downloads one layer of the 4B set, unchanged")
+    for needle in ("The 40- and 60-group dictionaries are outside this set.",
+                   "`ALWAYS_ON.json` lists transforms firing on at least 90% of tokens",
+                   "A smaller set for [Qwen3.5-0.8B](https://huggingface.co/mconcat/statescope-qwen3.5-0.8b) is published separately and comes with a runnable demonstration."):
         assert needle in f.read(card), f"the 4B model card no longer holds: {needle}"
     return {"sources": [f"{REL4}/reader_fvu.json", f"{REL4}/MANIFEST.json", f"{REL4}/layers_table.md (compared, equal)", ALWAYS_ON],
             "columns": {"state_mid": "State FVU, resid_mid", "state_post": "State FVU, resid_post", "mlp": "MLP FVU",
@@ -591,8 +610,218 @@ def four_b(facts: Facts, repo: str, weights: str) -> dict:
             "rows": rows}
 
 
-def source_commit(repo: str) -> dict:
-    """the commit of the checkout the data was read from, and whether the files read differ from it (read-only git calls)"""
+# ---------------------------------------------------------------------------------------------- what the 4B units have been used for (optional)
+def used_4b(facts: Facts) -> dict:
+    """the numbers of the three experiments in the 4B model card (its sections "What these units have been used for"), each read by a
+    pattern around the number, and the rows of the three small charts built from them. No number comes from anywhere else."""
+    f, card = facts, f"{REL4}/MODEL_CARD.md"
+    f.find(card, r"We used group (\d+) of `resid_mid\.(\d+)`, and the model then reasoned in comments before writing the rule\.", ["b4u.rule_group", "b4u.rule_layer"])
+    f.find(card, r"Across (\d+) rule families it had not been tuned on, correct-rule rates rose from ([\d.]+) to ([\d.]+): ([\d,]+) generations from (\d+) prompts",
+           ["b4u.rule_families", "b4u.rule_before", "b4u.rule_after", "b4u.rule_generations", "b4u.rule_prompts"])
+    f.find(card, r"Among the \d+ greedy generations, (\d+) correct answers became wrong and (\d+) wrong answers became correct\.", ["b4u.rule_to_wrong", "b4u.rule_to_right"])
+    f.find(card, r"Forcing the first body token to `#` gives a similar rate: ([\d.]+), against ([\d.]+) with the unit, with the difference inside the interval\.",
+           ["b4u.rule_forced", "b4u.rule_unit_same_run"])
+    f.find(card, r"at layers (\d+) to (\d+), one state group's frame carried ([\d.]+) to ([\d.]+) of the effect of swapping the whole residual difference; four groups "
+                 r"carried ([\d.]+) to ([\d.]+) and sixteen ([\d.]+) to ([\d.]+)\. One direction found with supervision carried ([\d.]+) to ([\d.]+); a random "
+                 r"(\d+)-dimensional subspace carried ([\d.]+) to ([\d.]+)\.",
+           ["b4u.aba_layer_first", "b4u.aba_layer_last", "b4u.aba_one_lo", "b4u.aba_one_hi", "b4u.aba_four_lo", "b4u.aba_four_hi", "b4u.aba_sixteen_lo",
+            "b4u.aba_sixteen_hi", "b4u.aba_direction_lo", "b4u.aba_direction_hi", "b4u.aba_random_dims", "b4u.aba_random_lo", "b4u.aba_random_hi"])
+    f.find(card, r"Shifting inside group (\d+)'s frame at `resid_post\.(\d+)` by the mean difference between rules flipped ABA to ABB in ([\d.]+) of prompts, or "
+                 r"([\d.]+) at twice the shift\. ABB to ABA reached ([\d.]+), or ([\d.]+) at twice the shift\.",
+           ["b4u.aba_group", "b4u.aba_layer", "b4u.aba_to_abb", "b4u.aba_to_abb_twice", "b4u.abb_to_aba", "b4u.abb_to_aba_twice"])
+    f.find(card, r"At layer (\d+) of a hand-traced ternary-expression circuit, the MLP reconstruction carried ([\d.]+) of the MLP's contribution, with an interval of "
+                 r"([\d.]+) to ([\d.]+)\. Transform (\d+), rank (\d+), ranked first\.",
+           ["b4u.js_layer", "b4u.js_share", "b4u.js_lo", "b4u.js_hi", "b4u.js_transform", "b4u.js_rank"])
+    f.find(card, r"Two MLP neurons carried ([\d.]+) of the same contribution\.", ["b4u.js_neurons"])
+    v = lambda key: f.items[key]["display"]
+    for a, b in (("b4u.rule_before", r"The rate of correct rules rose from ([\d.]+) to"), ("b4u.aba_to_abb", r"It flipped from ABA to ABB in ([\d.]+) of prompts\."),
+                 ("b4u.js_share", r"the MLP dictionary's reconstruction carries ([\d.]+) of the MLP's contribution")):
+        stated = re.findall(b, f.read(card))                                     # the card's first part states the same numbers
+        assert len(stated) == 1 and stated[0] == v(a), (a, stated)
+    # rows of the three charts: label keys are worded in the page template; values are the card's strings
+    return {"sources": [f"{card}, sections 'What these units have been used for' and '... in full', each number matched by a pattern"],
+            "rule": {"bars": [{"key": "before", "value": v("b4u.rule_before"), "set": "families"}, {"key": "after", "value": v("b4u.rule_after"), "set": "families"},
+                              {"key": "unit", "value": v("b4u.rule_unit_same_run"), "set": "control"}, {"key": "forced", "value": v("b4u.rule_forced"), "set": "control"}]},
+            "aba": {"ranges": [{"key": k, "lo": v(f"b4u.aba_{k}_lo"), "hi": v(f"b4u.aba_{k}_hi")} for k in ("one", "four", "sixteen", "direction", "random")],
+                    "flips": [{"key": "aba_to_abb", "value": v("b4u.aba_to_abb"), "twice": v("b4u.aba_to_abb_twice")},
+                              {"key": "abb_to_aba", "value": v("b4u.abb_to_aba"), "twice": v("b4u.abb_to_aba_twice")}]},
+            "js": {"bars": [{"key": "dictionary", "value": v("b4u.js_share"), "lo": v("b4u.js_lo"), "hi": v("b4u.js_hi")}, {"key": "neurons", "value": v("b4u.js_neurons")}]}}
+
+
+# ---------------------------------------------------------------------------------------------- the count as a curve inside one group's frame (optional)
+CURVE_JSON = "count_curve.json of one run of count_curve.py (measured for this page; not part of the repository)"
+
+
+def curve_data(facts: Facts, demo: dict, folder: str) -> dict:
+    """the mean code of one state group by the number of characters in the line, projected onto the plane of its two largest
+    components, for the two wrapping widths. Coordinates are kept as strings; the numbers the page states become facts."""
+    with open(os.path.join(folder, "count_curve.json")) as fh:
+        src = json.load(fh)
+    c = demo["constants"]
+    assert src["group"] == c["l9_group"] and src["site"] == "resid_mid.9" and src["layer"] == 9
+    widths = {}
+    for w, d in src["widths"].items():
+        n = len(d["counts"])
+        assert d["counts"] == list(range(n)) and len(d["projection"]) == n == len(d["tokens_active"]) == len(d["tokens_all"])
+        assert min(d["tokens_active"]) >= src["min_tokens_per_count"]
+        widths[w] = {"counts": [str(v) for v in d["counts"]], "x": [fixed(p[0], 3) for p in d["projection"]], "y": [fixed(p[1], 3) for p in d["projection"]],
+                     "tokens": [comma(v) for v in d["tokens_active"]]}
+        facts.add(f"curve.w{w}_plane", fixed(sum(d["variance_share_of_components"][:2]), 3), CURVE_JSON, f"widths.{w}.variance_share_of_components, first two summed")
+        facts.add(f"curve.w{w}_halves", fixed(d["correlation_between_item_halves"], 4), CURVE_JSON, f"widths.{w}.correlation_between_item_halves")
+    assert sorted(widths, key=int) == ["60", "100"] and {x["width"] for x in demo["cells"]} == {60, 100}
+    texts = {str(w): sum(demo["items"] for x in demo["cells"] if x["width"] == w) for w in (60, 100)}
+    facts.add("curve.plane", fixed(sum(src["plane"]["variance_share_of_components"][:2]), 3), CURVE_JSON, "plane.variance_share_of_components, first two summed")
+    facts.add("curve.active", fixed(src["active_fraction"], 3), CURVE_JSON, "active_fraction")
+    facts.add("curve.active_first", fixed(sum(d["tokens_active"][0] for d in src["widths"].values()) / sum(d["tokens_all"][0] for d in src["widths"].values()), 2),
+              CURVE_JSON, "tokens_active / tokens_all at count 0, both widths together")
+    facts.add("curve.tokens", comma(src["tokens"]), CURVE_JSON, "tokens")
+    facts.add("curve.texts", str(sum(texts.values())), "data/demo.json", "clean texts of all cells")
+    facts.add("curve.texts_60", str(texts["60"]), "data/demo.json", "clean texts of the cells wrapped at 60")
+    facts.add("curve.texts_100", str(texts["100"]), "data/demo.json", "clean texts of the cells wrapped at 100")
+    facts.add("curve.min_tokens", str(src["min_tokens_per_count"]), CURVE_JSON, "min_tokens_per_count")
+    facts.add("curve.same_count", fixed(src["same_count_two_widths"]["correlation"], 3), CURVE_JSON, "same_count_two_widths.correlation")
+    print(f"count curve: widths {list(widths)}, {sum(len(v['counts']) for v in widths.values())} points")
+    return {"sources": [CURVE_JSON], "group": src["group"], "site": src["site"], "frame_dim": c["frame_dim"], "widths": widths}
+
+
+# ---------------------------------------------------------------------------------------------- samples of the 4B experiments (optional)
+EXAMPLES = "notes of the project with selected results (not published): samples and three pairs of rates"
+
+
+def examples_4b(facts: Facts, path: str) -> dict:
+    """samples shown beside the three 4B experiments, cut by pattern from the project's notes of selected results: one generated
+    function, natural-text contexts with the marked token in double brackets, the ids of two sibling transforms, and three
+    pairs of rates of combined steering. Numbers of the experiments themselves come from the model card (used_4b)."""
+    with open(path) as fh:
+        text = fh.read()
+
+    def section(n: int) -> str:
+        start = re.search(rf"^### {n}\. ", text, flags=re.M).start()
+        nxt = re.search(r"^### \d+\. |^## ", text[start + 5:], flags=re.M)
+        return text[start:start + 5 + nxt.start()] if nxt else text[start:]
+
+    one, three, four, five = section(1), section(3), section(4), section(5)
+    sample = re.findall(r"```python\n(def f\(n\):\n.*?)```", one, flags=re.S)
+    assert len(sample) == 1 and "return n * n + 1" in sample[0]
+    assert f"그룹 {facts.items['b4u.rule_group']['display']}" in one                # the same unit as in the model card
+    rates = re.findall(r"주석 밀도 (\.\d+) → (\.\d+), 비라틴 주석 (\.\d+) → (\.\d+), 입력 검사 (\.\d+) → (\.\d+)\.", three)
+    assert len(rates) == 1
+    for key, value in zip(("comment_before", "comment_after", "nonlatin_before", "nonlatin_after", "validation_before", "validation_after"), rates[0]):
+        facts.add(f"b4x.{key}", "0" + value, EXAMPLES, "rate in the notes' item on combined steering, with a leading zero added")
+    aba = re.findall(r'"([^"]*\[\[[^\]]+\]\][^"]*)"', four)
+    assert len(aba) == 2 and f"그룹 {facts.items['b4u.aba_group']['display']}" in four, aba
+    unit = re.findall(r"L7 MLP MOLT 변환 (\d+), 형제 (\d+)\(같다\), (\d+)\(크다\)", five)
+    assert len(unit) == 1 and unit[0][0] == facts.items["b4u.js_transform"]["display"]
+    facts.add("b4x.equal_transform", unit[0][1], EXAMPLES, "sibling transform for 'equal'")
+    facts.add("b4x.greater_transform", unit[0][2], EXAMPLES, "sibling transform for 'greater'")
+    less = re.findall(r"`([^`]*\[\[[^\]]+\]\][^`]*)`", five)
+    assert len(less) == 2, less
+    facts.add("b4x.rule_sample", sample[0].rstrip("\n"), EXAMPLES, "the generated function of the notes' first item, unchanged")
+    for i, c in enumerate(aba + less):
+        assert all(ord(ch) < 127 or ch == "…" for ch in c), c
+    return {"sources": [EXAMPLES], "rule_sample": sample[0].rstrip("\n"), "contexts": {"aba": aba, "less": less}}
+
+
+READOUT_JSON = "count_readout.json of one run of count_readout.py (measured for this page; not part of the repository)"
+
+
+def readout_data(facts: Facts, demo: dict, folder: str, curve: dict) -> dict:
+    """how the two L9 transforms read the count from the group's frame: per width and transform the mean gate input, the mean
+    part of it that comes from the group's frame and the firing rate by count, the threshold, and the read direction in the
+    plane of the count curve. Values are kept as strings; the numbers the page states become facts."""
+    with open(os.path.join(folder, "count_readout.json")) as fh:
+        src = json.load(fh)
+    c = demo["constants"]
+    assert src["group"] == c["l9_group"] and src["transforms"] == c["l9_transforms"] and src["site"] == "resid_mid.9"
+    units = [str(t) for t in src["transforms"]]
+    out = {"sources": [READOUT_JSON], "group": src["group"], "transforms": units,
+           "threshold": {t: fixed(src["threshold"][t], 3) for t in units},
+           "direction": {t: [fixed(v, 3) for v in src["read_direction_in_curve_plane"][t]] for t in units}, "widths": {}}
+    for w, d in src["widths"].items():
+        assert [str(v) for v in d["counts"]] == curve["widths"][w]["counts"], w       # the same counts as the curve figure
+        out["widths"][w] = {"counts": [str(v) for v in d["counts"]]}
+        for t in units:
+            out["widths"][w][t] = {"gate": [fixed(v, 2) for v in d[t]["mean_gate_input"]], "frame": [fixed(v, 2) for v in d[t]["mean_frame_part"]],
+                                   "rate": [fixed(v, 2) for v in d[t]["firing_rate"]]}
+            facts.add(f"read.t{t}_r2_w{w}", fixed(d[t]["r2_gate_input_on_frame_part"], 3), READOUT_JSON, f"widths.{w}.{t}.r2_gate_input_on_frame_part")
+    for t in units:
+        facts.add(f"read.t{t}_inside", fixed(src["share_of_read_direction_inside_curve_plane"][t], 4), READOUT_JSON, f"share_of_read_direction_inside_curve_plane.{t}")
+        facts.add(f"read.t{t}_threshold", out["threshold"][t], READOUT_JSON, f"threshold.{t}")
+    assert src["tokens"] == int(facts.items["curve.tokens"]["display"].replace(",", ""))
+    print(f"count readout: transforms {units}, widths {list(out['widths'])}")
+    return out
+
+
+# ---------------------------------------------------------------------------------------------- steering one unit by a dose (optional)
+STEER_JSON, STEER_ST = "steer.json of one run of steer_dose.py (measured for this page; not part of the repository)", \
+                       "steer_margins.safetensors of the same run (per-item margins, unrounded)"
+
+
+def steer_data(facts: Facts, demo: dict, folder: str) -> dict:
+    """the dose figure: per cell and arm, the margin of every item at every dose, the mean margin, the share and its interval.
+    Per-item margins, means and shares are computed from the unrounded margins and compared with steer.json; the two doses that
+    the demonstration also has (0 = the clean run, 1 = its swap) are compared with data/demo.json, string for string.
+    Only named fields of the run's source record are kept."""
+    with open(os.path.join(folder, "steer.json")) as fh:
+        src = json.load(fh)
+    T = load_file(os.path.join(folder, "steer_margins.safetensors"))
+    alphas = [f"{a:g}" for a in src["alphas"]]
+    assert alphas == sorted(alphas, key=float) and "0" in alphas and "1" in alphas
+    i0, i1 = alphas.index("0"), alphas.index("1")
+    labels = {a["key"]: a["label"] for a in demo["arms"]}
+    reference = {"l8": "l8/mlp8_true", "l9": "l9/mlp9_y"}                      # the whole component a unit belongs to, measured by the same route
+    assert set(reference.values()) == set(src["reference_arms"])
+    units = [{"key": k, "label": labels[k], "reference": reference.get(k.split("/")[0]) if "/" in k else None} for k in src["unit_arms"]]
+    for u in units:
+        u["reference_label"] = labels[u["reference"]] if u["reference"] else None
+    cells = {}
+    for cell in [c["key"] for c in demo["cells"]]:
+        m_c, m_x = T[f"margin/{cell}/m_c"].double(), T[f"margin/{cell}/m_x"].double()
+        held = demo["margins"][cell]
+        clean, corrupt = [fixed(v, 2) for v in m_c.tolist()], [fixed(v, 2) for v in m_x.tolist()]
+        assert clean == held["clean"] and corrupt == held["corrupt"], cell      # the unpatched runs equal the demonstration's
+        den = float((m_c - m_x).mean())
+        arms = {}
+        for arm in src["unit_arms"] + src["reference_arms"]:
+            items, mean, share = [], [], []
+            for i, a in enumerate(alphas):
+                m = T[f"margin/{cell}/{arm}@{a}"].double()
+                items.append([fixed(v, 2) for v in m.tolist()])
+                mean.append(float(m.mean()))
+                share.append(float((m_c - m).mean()) / den)
+                assert abs(mean[-1] - src["cells"][cell]["mean"][arm][i]) < 1e-4 and abs(share[-1] - src["cells"][cell]["share"][arm][i]) < 1e-5, (cell, arm, a)
+            assert items[i0] == clean, (cell, arm)                               # dose 0 is the clean run
+            assert items[i1] == held["arms"][arm], (cell, arm)                   # dose 1 is the demonstration's swap, item by item
+            e = demo["shares"][cell][arm]["all"]
+            ci = src["cells"][cell]["share_ci95"][arm]
+            assert (fixed(share[i1], 3), fixed(ci[i1][0], 3), fixed(ci[i1][1], 3)) == (e["s"], e["slo"], e["shi"]), (cell, arm)
+            arms[arm] = {"mean": [fixed(v, 2) for v in mean], "share": [fixed(v, 3) for v in share],
+                         "lo": [fixed(v[0], 3) for v in ci], "hi": [fixed(v[1], 3) for v in ci], "items": items}
+        cells[cell] = {"clean": clean, "corrupt": corrupt, "mean_clean": fixed(float(m_c.mean()), 2), "mean_corrupt": fixed(float(m_x.mean()), 2), "arms": arms}
+    assert all(src["checks"]["bit_exact"].values()), "the run's own checks against the tested demonstration result did not all pass"
+    n_items = len(cells[next(iter(cells))]["clean"])
+    facts.add("steer.doses", str(len(alphas)), STEER_JSON, "number of doses")
+    facts.add("steer.dose_min", alphas[0], STEER_JSON, "smallest dose")
+    facts.add("steer.dose_max", alphas[-1], STEER_JSON, "largest dose")
+    facts.add("steer.items", str(n_items), STEER_ST, "items per cell")
+    facts.add("steer.units", str(len(units)), STEER_JSON, "number of unit arms")
+    print(f"dose figure: {len(cells)} cells x {len(arms)} arms x {len(alphas)} doses x {n_items} items; dose 0 equals the clean run and dose 1 equals "
+          "the demonstration's swap (items and shares on all items), string for string")
+    record = src["source"]
+    return {"sources": [STEER_JSON, STEER_ST, "data/demo.json (doses 0 and 1 compared, equal)"],
+            "definition": {k: src["definition"][k] for k in ("margin", "difference", "dose", "share")},
+            "alphas": alphas, "clean_dose": "0", "swap_dose": "1", "units": units, "cells": cells,
+            "source": {"script": record["script"], "script_sha256": record["script_sha256"], "demo_result_sha256": record["demo_result_sha256"],
+                       "statescope_commit": record["repository"]["git_commit"], "model": record["model"],
+                       "library_versions": record["library_versions"], "patched_runs": record["run"]["patched_runs"]}}
+
+
+def source_commit(repo: str, stated: str | None) -> dict:
+    """the commit of the checkout the data was read from, and whether the files read differ from it (read-only git calls).
+    For a folder exported from a commit (git archive), which has no history, the commit is the one given with --source-commit."""
+    if stated:
+        assert not os.path.exists(os.path.join(repo, ".git")), "--source-commit is for a folder exported with git archive"
+        return {"commit": stated, "exported_with": "git archive"}
     import subprocess
     def git(*args: str) -> str:
         return subprocess.run(["git", "-C", repo, *args], capture_output=True, text=True, check=True).stdout.strip()
@@ -613,6 +842,10 @@ def main() -> None:
     ap.add_argument("--repo", required=True)
     ap.add_argument("--hf-home", required=True)
     ap.add_argument("--result", required=True)
+    ap.add_argument("--source-commit", help="the commit that --repo was exported from with git archive, when --repo is such a folder")
+    ap.add_argument("--steer", help="folder with steer.json and steer_margins.safetensors of a run of steer_dose.py; it adds the dose figure")
+    ap.add_argument("--count-curve", help="folder with count_curve.json and count_readout.json (runs of count_curve.py and count_readout.py); it adds the two count figures")
+    ap.add_argument("--examples-4b", help="the project's notes of selected results (markdown); it adds the samples beside the 4B experiments")
     ap.add_argument("--weights-4b", help="folder of the Qwen3.5-4B weights repository that holds ALWAYS_ON.json; it adds the 4B section")
     args = ap.parse_args()
     torch.set_num_threads(4)
@@ -639,11 +872,32 @@ def main() -> None:
     has_4b = all(os.path.exists(os.path.join(args.repo, REL4, name)) for name in ("reader_fvu.json", "MODEL_CARD.md"))
     if has_4b and args.weights_4b:
         write("layers-4b.json", four_b(facts, args.repo, args.weights_4b))
+        write("used-4b.json", used_4b(facts))
+        if args.examples_4b:
+            write("examples-4b.json", examples_4b(facts, args.examples_4b))
+        elif os.path.exists(os.path.join(DATA, "examples-4b.json")):
+            os.remove(os.path.join(DATA, "examples-4b.json"))
     else:
-        if os.path.exists(os.path.join(DATA, "layers-4b.json")):
-            os.remove(os.path.join(DATA, "layers-4b.json"))
+        for name in ("layers-4b.json", "used-4b.json", "examples-4b.json"):
+            if os.path.exists(os.path.join(DATA, name)):
+                os.remove(os.path.join(DATA, name))
         print("no Qwen3.5-4B section: " + ("--weights-4b was not given" if has_4b else f"{REL4}/reader_fvu.json or MODEL_CARD.md is not in the checkout"))
-    write("facts.json", {"sources": sorted({v["source"] for v in facts.items.values()}), "source_commit": source_commit(args.repo),
+    if args.steer:
+        write("steer.json", steer_data(facts, demo, args.steer))
+    else:
+        if os.path.exists(os.path.join(DATA, "steer.json")):
+            os.remove(os.path.join(DATA, "steer.json"))
+        print("no dose figure: --steer was not given")
+    if args.count_curve:
+        curve = curve_data(facts, demo, args.count_curve)
+        write("count-curve.json", curve)
+        write("count-readout.json", readout_data(facts, demo, args.count_curve, curve))
+    else:
+        for name in ("count-curve.json", "count-readout.json"):
+            if os.path.exists(os.path.join(DATA, name)):
+                os.remove(os.path.join(DATA, name))
+        print("no count-curve figure: --count-curve was not given")
+    write("facts.json", {"sources": sorted({v["source"] for v in facts.items.values()}), "source_commit": source_commit(args.repo, args.source_commit),
                          "facts": facts.items})
 
 

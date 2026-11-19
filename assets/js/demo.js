@@ -20,7 +20,7 @@ export function initDemo(demo, load) {
     arm: `l8/t${c.l8_transform}`,
     item: 0,
     base: Object.keys(demo.link_labels.bases)[0],
-    sort: "index",
+    sort: "clean",
     lines: "tail",
   };
   const itemFiles = new Map();
@@ -131,7 +131,7 @@ export function initDemo(demo, load) {
       model: true,
       site: "the model's own L9 mixer",
       unit: `GatedDeltaNet head ${c.head}`,
-      note: "carries the count inside the mixer; there is no dictionary for this step",
+      note: "carries the count; read directly as a model head",
       route: "The output of the L9 mixer is replaced.",
       rows: [
         { arm: "head_o", name: `head ${c.head}'s read only`, unit: true },
@@ -231,9 +231,13 @@ export function initDemo(demo, load) {
     document.getElementById("share-what").textContent = `${arms.get(state.arm).label}. ${arms.get(state.arm).what}`;
   }
 
+  // Each item is one arrow from its clean margin to its margin after the swap; a faint tick is its corrupt margin, the place a
+  // complete swap would take it. At the right, the same for the means of the selected items: the share is how far the bold arrow
+  // gets toward the corrupt mean. The words on the plot come from the page (data attributes of #items-plot).
   const plot = document.getElementById("items-plot");
-  const H = 300;
-  const M = { l: 40, r: 8, t: 26, b: 34 };
+  const words = plot.dataset;
+  const H = 340;
+  const M = { l: 40, r: 4, t: 30, b: 34 };
   let plotWidth = 0;
   function drawItems() {
     if (!plotWidth) return;
@@ -254,25 +258,32 @@ export function initDemo(demo, load) {
     }
     const yt = niceTicks(lo, hi, 5);
     const y = linear(yt.lo, yt.hi, H - M.b, M.t);
-    const iw = plotWidth - M.l - M.r;
+    const meanW = plotWidth < 560 ? 104 : 168; // the panel of the means
+    const right = plotWidth - M.r - meanW - 14;
+    const iw = right - M.l;
     const step = iw / n;
-    const r = Math.max(2, Math.min(3.6, step * 0.36));
-    const root = svg("svg", { width: plotWidth, height: H, role: "group", "aria-label": `Margin of each of the ${n} items of ${state.cell}. The table below the figure holds every value.` });
+    const r = Math.max(1.4, Math.min(2.4, step * 0.26));
+    const root = svg("svg", { width: plotWidth, height: H, role: "group", "aria-label": `${words.aria} The table below the figure holds every value.` });
     const axis = svg("g", { "data-axis": "margin", "aria-hidden": "true" });
     for (const tick of yt.ticks) {
-      axis.append(svg("path", { d: `M${M.l} ${y(tick)}H${plotWidth - M.r}`, class: tick === 0 ? "zero" : "gridline" }));
+      axis.append(svg("path", { d: `M${M.l} ${y(tick)}H${right}`, class: tick === 0 ? "zero" : "gridline" }));
       axis.append(svg("text", { x: M.l - 7, y: y(tick) + 3.5, "text-anchor": "end" }, tickText(tick, yt.step)));
     }
-    axis.append(svg("text", { x: 0, y: 10, class: "axis-label" }, "margin"));
     if (state.sort === "index") {
       for (let i = 0; i < n; i += 8) axis.append(svg("text", { x: M.l + (i + 0.5) * step, y: H - M.b + 15, "text-anchor": "middle" }, String(i)));
     }
-    axis.append(svg("text", { x: M.l + iw / 2, y: H - 4, "text-anchor": "middle", class: "axis-label" }, state.sort === "index" ? "item number" : "items, ordered by clean margin"));
     root.append(axis);
+    const labels = svg("g", { "aria-hidden": "true" });
+    labels.append(svg("text", { x: 0, y: 11, class: "axis-label" }, words.y));
+    labels.append(svg("text", { x: M.l + iw / 2, y: H - 4, "text-anchor": "middle", class: "axis-label" }, state.sort === "index" ? "item number" : words.x));
+    if (yt.lo < 0 && yt.hi > 0) labels.append(svg("text", { x: right - 4, y: y(0) - 6, "text-anchor": "end", class: "on-plot quiet" }, words.zero));
+    root.append(labels);
     const colour = colourOf(state.arm);
     order.forEach((i, k) => {
       const inSet = state.half === "all" || (state.half === "even") === (i % 2 === 0);
       const x = M.l + (k + 0.5) * step;
+      const y0 = y(Number(m.clean[i]));
+      const y1 = y(Number(patched[i]));
       const col = svg("g", {
         class: `item-col ${colour}${inSet ? "" : " dim"}${i === state.item ? " current" : ""}`,
         tabindex: "0",
@@ -281,10 +292,17 @@ export function initDemo(demo, load) {
         "aria-label": `Item ${i}: clean ${m.clean[i]}, corrupt ${m.corrupt[i]}, with the swap ${patched[i]}`,
       });
       col.append(svg("rect", { x: x - step / 2, y: M.t, width: step, height: H - M.b - M.t }));
-      col.append(svg("path", { d: `M${x} ${y(Number(m.clean[i]))}V${y(Number(m.corrupt[i]))}`, class: "stem" }));
-      col.append(svg("circle", { cx: x, cy: y(Number(m.corrupt[i])), r: r - 0.4, class: "pt-corrupt" }));
-      col.append(svg("circle", { cx: x, cy: y(Number(m.clean[i])), r, class: "pt-clean" }));
-      col.append(svg("path", { d: diamond(x, y(Number(patched[i])), r + 1.2), class: "pt-patched" }));
+      const half = Math.max(2.5, step * 0.36);
+      col.append(svg("path", { d: `M${x - half} ${y(Number(m.corrupt[i]))}H${x + half}`, class: "pt-target" }));
+      col.append(svg("circle", { cx: x, cy: y0, r, class: "pt-clean" }));
+      const head = Math.max(2.6, Math.min(4.2, step * 0.42));
+      if (Math.abs(y1 - y0) > head * 2.2) {
+        const dir = y1 > y0 ? 1 : -1;
+        col.append(svg("path", { d: `M${x} ${y0}V${y1 - dir * head * 1.5}`, class: "arrow-item" }));
+        col.append(svg("path", { d: `M${x - head} ${y1 - dir * head * 1.7}L${x} ${y1}L${x + head} ${y1 - dir * head * 1.7}z`, class: "arrow-head pt-patched" }));
+      } else {
+        col.append(svg("path", { d: diamond(x, y1, head), class: "arrow-head pt-patched" }));
+      }
       const tip = (event) =>
         showTip(event, (node) => {
           node.append(h("div", { text: `Item ${i}, ${i % 2 ? "odd" : "even"}-numbered` }));
@@ -303,6 +321,30 @@ export function initDemo(demo, load) {
       });
       root.append(col);
     });
+    // the means of the selected items
+    const mean = demo.means[state.cell][state.half];
+    const share = demo.shares[state.cell][state.arm][state.half];
+    const mc = Number(mean.clean);
+    const mx = Number(mean.corrupt);
+    const mp = mc - Number(mean.num[state.arm]);
+    const x0 = plotWidth - M.r - meanW;
+    const xc = x0 + (meanW < 120 ? 20 : 30);
+    const panel = svg("g", { class: "mean-arrow", "aria-hidden": "true" });
+    panel.append(svg("rect", { x: x0, y: M.t - 22, width: meanW, height: H - M.b - M.t + 30, rx: 8, class: "mean-panel" }));
+    panel.append(svg("text", { x: x0 + 10, y: M.t - 7, class: "on-plot strong" }, words.mean));
+    panel.append(svg("path", { d: `M${x0 + 8} ${y(mc)}H${x0 + meanW - 8}`, class: "mean-line" }));
+    panel.append(svg("path", { d: `M${x0 + 8} ${y(mx)}H${x0 + meanW - 8}`, class: "mean-line target" }));
+    panel.append(svg("text", { x: xc + 16, y: y(mc) - 5, class: "on-plot quiet" }, words.start));
+    panel.append(svg("text", { x: xc + 16, y: y(mx) + 14, class: "on-plot quiet" }, words.target));
+    const dir = y(mp) > y(mc) ? 1 : -1;
+    if (Math.abs(y(mp) - y(mc)) > 12) {
+      panel.append(svg("path", { d: `M${xc} ${y(mc)}V${y(mp) - dir * 9}`, class: "arrow-mean" }));
+      panel.append(svg("path", { d: `M${xc - 7} ${y(mp) - dir * 10}L${xc} ${y(mp)}L${xc + 7} ${y(mp) - dir * 10}z`, class: "arrow-mean-head" }));
+    } else {
+      panel.append(svg("path", { d: diamond(xc, y(mp), 6), class: "arrow-mean-head" }));
+    }
+    panel.append(svg("text", { x: xc + 16, y: Math.max(y(mc) + 22, Math.min(y(mx) - 10, (y(mc) + y(mp)) / 2 + 4)), class: "on-plot strong", "data-share": share.s }, `share ${share.s}`));
+    root.append(panel);
     clear(plot).append(root);
   }
   const redrawPlot = onResize(plot, (w) => {
