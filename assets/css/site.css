@@ -468,6 +468,9 @@ figcaption code {
   gap: 0.45rem;
   margin: 0;
 }
+.keys li[hidden] {
+  display: none;
+}
 .keys svg {
   flex: none;
 }
@@ -1313,6 +1316,9 @@ input[type="number"]::-webkit-inner-spin-button {
 .plot .zone {
   fill: var(--sunk);
 }
+.plot .zone.above {
+  fill: var(--paper);
+}
 .plot .chosen-line {
   stroke: var(--ink);
   stroke-dasharray: 2 3;
@@ -2000,6 +2006,9 @@ details.more > summary:hover {
 .credits {
   font-size: 0.88rem;
   color: var(--muted);
+}
+#credits {
+  font-size: 1.3rem;
 }
 .colophon {
   padding: 2rem var(--gutter) 3.2rem;

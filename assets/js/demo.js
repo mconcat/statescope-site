@@ -276,7 +276,14 @@ export function initDemo(demo, load) {
     const labels = svg("g", { "aria-hidden": "true" });
     labels.append(svg("text", { x: 0, y: 11, class: "axis-label" }, words.y));
     labels.append(svg("text", { x: M.l + iw / 2, y: H - 4, "text-anchor": "middle", class: "axis-label" }, state.sort === "index" ? "item number" : words.x));
-    if (yt.lo < 0 && yt.hi > 0) labels.append(svg("text", { x: right - 4, y: y(0) - 6, "text-anchor": "end", class: "on-plot quiet" }, words.zero));
+    if (yt.lo < 0 && yt.hi > 0) {
+      // the half above zero is tinted and named; the items stand in the order of their clean margin, so its right corner is empty
+      axis.prepend(svg("rect", { x: M.l, y: y(yt.hi), width: iw, height: y(0) - y(yt.hi), class: "zone above" }));
+      const text = words.zero;
+      const cut = text.length * 6 > iw - 12 ? text.lastIndexOf(" ", Math.ceil(text.length / 2) + 3) : -1;
+      const parts = cut > 0 ? [text.slice(0, cut), text.slice(cut + 1)] : [text];
+      parts.forEach((part, k) => labels.append(svg("text", { x: right - 5, y: y(yt.hi) + 14 + k * 14, "text-anchor": "end", class: "on-plot quiet" }, part)));
+    }
     root.append(labels);
     const colour = colourOf(state.arm);
     order.forEach((i, k) => {

@@ -67,7 +67,9 @@ export function initCurve(curve, readout) {
         const uy = (ay - Y(0)) / L;
         note.append(svg("path", { d: `M${X(0)} ${Y(0)}L${ax - ux * 9} ${ay - uy * 9}`, class: "arrow-mean read-arrow" }));
         note.append(svg("path", { d: `M${ax} ${ay}L${ax - ux * 12 - uy * 6} ${ay - uy * 12 + ux * 6}L${ax - ux * 12 + uy * 6} ${ay - uy * 12 - ux * 6}z`, class: "arrow-mean-head read-arrow" }));
-        note.append(svg("text", { x: ax + (ux >= 0 ? 8 : -8), y: ay + (uy > 0 ? 14 : -6), "text-anchor": ux >= 0 ? "start" : "end", class: "on-plot strong" }, words.arrow));
+        const room = words.arrow.length * 6.6 + 12; // the label stands on the side of the arrow's tip that has room for it
+        const after = ux >= 0 ? ax + room < width : ax - room < 0;
+        note.append(svg("text", { x: ax + (after ? 8 : -8), y: ay + (uy > 0 ? 14 : -6), "text-anchor": after ? "start" : "end", class: "on-plot strong" }, words.arrow));
       }
       root.append(note);
       const at = (event) => {
