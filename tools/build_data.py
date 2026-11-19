@@ -18,6 +18,12 @@ Sources, all relative to --repo:
   <result>/result.json, result.safetensors   shares, firing rates, per-item margins, gates
 
 Writes data/facts.json, layers.json, splice.json, demo.json and items-<cell>.json.
+
+The Qwen3.5-4B section is optional. It is built when the checkout holds release/qwen35-4b/reader_fvu.json and both of these are given:
+  --facts-4b <file>      the fact sheet (later: the model card) of the 4B set; its sentences are matched by pattern like the README's
+  --weights-4b <folder>  a folder of the 4B weights repository that holds ALWAYS_ON.json
+Then data/layers-4b.json is written and the facts get keys that start with "b4.". Without them the file is removed and
+tools/build_page.py leaves the section out.
 """
 from __future__ import annotations
 
@@ -35,6 +41,9 @@ REL = "release/qwen35-08b-v2"
 README, CARD, MANIFEST, READER_FVU = "README.md", f"{REL}/MODEL_CARD.md", f"{REL}/MANIFEST.json", f"{REL}/reader_fvu.json"
 SCRIPT, ITEMS = "demo/line_count.py", "demo/line_count_items.safetensors"
 RESULT_JSON, RESULT_ST = "result.json of one run of demo/line_count.py", "result.safetensors of one run of demo/line_count.py"
+REL4 = "release/qwen35-4b"
+FACTS_4B, ALWAYS_ON = "fact sheet of the Qwen3.5-4B set", "ALWAYS_ON.json of the Qwen3.5-4B weights repository"
+LEAD = ("count:100", 47, 7)     # the text of the page's first figure: cell, item, number of last lines. Chosen by hand as a readable example.
 
 
 def comma(n: int) -> str:
@@ -82,9 +91,9 @@ class Facts:
         assert key not in self.items, key
         self.items[key] = {"display": display, "source": source, "how": how}
 
-    def find(self, rel: str, pattern: str, keys: list[str]) -> None:
-        """one pattern, one capture group per key; the pattern must match exactly once in the file"""
-        found = re.findall(pattern, self.read(rel))
+    def find(self, rel: str, pattern: str, keys: list[str], text: str | None = None) -> None:
+        """one pattern, one capture group per key; the pattern must match exactly once in the file (or in `text`, named `rel`)"""
+        found = re.findall(pattern, self.read(rel) if text is None else text)
         assert len(found) == 1, f"{rel}: {len(found)} matches for {pattern!r}"
         groups = found[0] if isinstance(found[0], tuple) else (found[0],)
         assert len(groups) == len(keys), (pattern, groups)
@@ -125,6 +134,44 @@ def text_facts(facts: Facts, manifest: dict, reader_fvu: dict) -> None:
     f.add("reader.example", example[0].rstrip("\n"), README, "the python block of the section 'Reading the dictionaries', unchanged")
     f.find(README, r"At layer 23, the released MLP dictionary had the smaller increase, (\+[\d.]+) against (\+[\d.]+) for the earlier set\.",
            ["splice.l23_mlp_here", "splice.l23_mlp_earlier"])
+
+    # what the tests showed, and what a reader can run
+    f.find(README, r'`pytest -m "not legacy"` runs the (\d+) tests that need no private data\.', ["check.tests"])
+    f.find(README, r"This covered (\d+) layers and (\d+) splits of ([\d,]+) tokens at (\d+) sites\. Of ([\d,]+) tokens, (\d+) selected a different group set\. "
+                   r"Each had its 24th and 25th group norms within ([\d.e-]+)\. Raw reconstructions elsewhere agreed within ([\d.e-]+) relative\. "
+                   r"All (\d+) of the trainer's held-out FVU numbers in its own units were reproduced within ([\d.e-]+)\.",
+           ["check.state_layers", "check.state_splits", "check.state_split_tokens", "check.state_sites", "check.state_tokens", "check.state_differ",
+            "check.state_norm_gap", "check.state_recon", "check.state_fvu_n", "check.state_fvu"])
+    f.find(README, r"The MLP reader was compared with the unmodified public forward pass at (\d+) layers\. There was (\d+) differing gate decision, "
+                   r"at layer (\d+)\. Outputs on other tokens agreed within ([\d.e-]+) relative\.",
+           ["check.mlp_layers", "check.mlp_differ", "check.mlp_differ_layer", "check.mlp_out"])
+    f.find(README, r"matched the forward pass within ([\d.e-]+) relative\.", ["check.mlp_sum"])
+    f.find(README, r"agreed with the original project's table within ([\d.e-]+) at all 24 layers and both sites\. The limit was ([\d.e-]+)\.",
+           ["check.fvu_agree", "check.fvu_limit"])
+    f.find(README, r"Every demonstration share agreed within ([\d.]+) with the original harness's reference run and the original project's recorded "
+                   r"numbers\. There were (\d+) swaps x (\d+) cells x (\d+) halves = (\d+) comparisons\. The original registration's tolerance was ([\d.]+)\.",
+           ["check.share_agree", "check.share_swaps", "check.share_cells", "check.share_halves", "check.share_n", "check.share_limit"])
+    f.find(README, r"On (\d{4}-\d\d-\d\d), after the re-upload, the code was cloned from GitHub into an empty folder and installed into a new environment",
+           ["check.download_date"])
+    f.find(README, r"Both repositories were made public on (\d{4}-\d\d-\d\d)\.", ["set.public"])
+    f.find(README, r"All (\d+) tests passed: the (\d+) that need no private data and (\d+) that do\.", ["check.tests_all", "check.tests_open", "check.tests_private"])
+    assert f.items.pop("check.tests_open")["display"] == f.items["check.tests"]["display"]
+    f.find(README, r"In the new environment with torch ([\w.+]+) and transformers ([\d.]+), the same demonstration ran in 1 min 49 s and was not byte-identical\. "
+                   r"The model's unpatched single-item margins differed by at most ([\d.]+), and the (\d+) shares differed from the tested run by at most ([\d.]+)\.",
+           ["check.new_torch", "check.new_transformers", "check.new_margin_diff", "check.new_shares_n", "check.new_share_diff"])
+    assert f.items.pop("check.new_shares_n")["display"] == f.items["check.share_n"]["display"]
+    f.find(README, r"The documented numbers are exact for the tested versions; newer versions moved shares by up to about ([\d.]+)\.", ["check.new_share_about"])
+    f.find(README, r"`demo/line_count\.py` in the tested versions, torch ([\w.+]+) and transformers ([\d.]+), wrote a result byte-identical to the tested run\.",
+           ["check.tested_torch", "check.tested_transformers"])
+    # how the paired texts are made (item_files() measures the same three numbers on the texts and compares)
+    f.find(README, r"In every cell, the clean text's last line is full, at most (\d+) characters short of the width, so a line break is due\.", ["demo.clean_short_max"])
+    f.find(README, r"chosen so that the line holds between (\d+)% and (\d+)% of the width at the last word, and the preceding lines are wrapped backward from that "
+                   r"word at the same width, moving their line breaks too\.", ["demo.corrupt_fill_low", "demo.corrupt_fill_high"])
+    f.find(README, r"the corrupt text's last line starts at the same word as the clean text's, and the preceding lines are wrapped backward at ([\d.]+) times the "
+                   r"width\.", ["demo.width_factor"])
+    f.find(CARD, r"The (\d+) files occupy about ([\d.]+) gibibytes", ["set.all_files", "set.total_gib"])
+    assert "It ran in under two minutes on one RTX 5090, including model loading." in f.read(README)
+    assert "Rules R8 and R9 were written and committed before the runs they judge." in f.read(README)
 
     layers = manifest["layers"]
     state, mlp = [layers[str(i)]["state"] for i in range(len(layers))], [layers[str(i)]["mlp"] for i in range(len(layers))]
@@ -361,6 +408,9 @@ def demo_data(facts: Facts, c: dict, result: dict, tensors: dict, n_items: int, 
     facts.add("demo.tokens_per_text", str(n_tokens), ITEMS, "second dimension of <cell>/ids")
     facts.add("demo.items_per_half", str(means[cells[0]]["even"]["n"]), ITEMS, "even-numbered items of one cell")
     facts.add("demo.arms", str(len(keys)), RESULT_JSON, "number of swaps per cell in shares")
+    facts.add("demo.lead_cell", LEAD[0], "tools/build_data.py", "LEAD: the text of the page's first figure, chosen by hand")
+    facts.add("demo.lead_item", str(LEAD[1]), "tools/build_data.py", "LEAD: the text of the page's first figure, chosen by hand")
+    facts.add("demo.lead_lines", str(LEAD[2]), "tools/build_data.py", "LEAD: number of last lines of that text shown")
     for cell in cells:                                                    # the README's sentences about the rest, as facts
         tag = cell.replace(":", "")
         rest = link_rows[2]["cells"][cell]
@@ -378,17 +428,19 @@ def demo_data(facts: Facts, c: dict, result: dict, tensors: dict, n_items: int, 
             "cells": cell_info, "count_cells": c["count_cells"], "items": n_items, "constants": c, "arms": arms, "shares": shares,
             "means": means, "margins": margins, "link_table": link_tables,
             "link_labels": {"bases": bases, "parts": parts, "routes": link_routes}, "firing_rate": firing,
+            "lead": {"cell": LEAD[0], "item": LEAD[1], "lines": LEAD[2]},
             "energy_fraction": {"group": fixed(energy["group"], 3),
                                 "random": [fixed(energy[f"random{j}"], 3) for j in range(c["random_frames"])]}}
 
 
-def item_files(repo: str, hf_home: str, c: dict, tensors: dict, cell_info: list[dict]) -> None:
+def item_files(facts: Facts, repo: str, hf_home: str, c: dict, tensors: dict, cell_info: list[dict]) -> None:
     os.environ["HF_HOME"], os.environ["HF_HUB_OFFLINE"] = hf_home, "1"
     from transformers import AutoTokenizer
     tok = AutoTokenizer.from_pretrained("Qwen/Qwen3.5-0.8B")
     items = load_file(os.path.join(repo, ITEMS))
     piece = {}
     start = 0
+    fill, widest, short = [], [], []                # how the paired texts are made, measured on the texts
     for info in cell_info:
         cell = info["key"]
         ids, cor = items[f"{cell}/ids"], items[f"{cell}/cor"]
@@ -409,14 +461,145 @@ def item_files(repo: str, hf_home: str, c: dict, tensors: dict, cell_info: list[
             bits = {str(c["l8_transform"]): "".join("1" if v > 0 else "0" for v in gate8[i, :, 0].tolist())}
             for j, t in enumerate(c["l9_transforms"]):
                 bits[str(t)] = "".join("1" if v > 0 else "0" for v in gate9[i, :, j].tolist())
-            out.append({"clean": texts["clean"], "corrupt": texts["corrupt"], "gate": bits})
+            # characters in the line up to and including each token of the clean text, as the script labelled them; a token
+            # before the first line break of the text has no known count
+            chars = [int(v) for v in tensors["label/chars"][start + i].tolist()]
+            known = "".join("1" if v > 0 else "0" for v in tensors["label/known"][start + i].tolist())
+            count = 0
+            for j, p in enumerate(texts["clean"]):
+                count = 0 if p == "\n" else count + len(p)
+                assert known[j] == "0" or chars[j] == count, (cell, i, j)
+            out.append({"clean": texts["clean"], "corrupt": texts["corrupt"], "gate": bits, "chars": chars, "known": known})
+            clean_text, corrupt_text = "".join(texts["clean"]), "".join(texts["corrupt"])
+            clean_last, corrupt_last = clean_text.split("\n")[-1], corrupt_text.split("\n")[-1]
+            assert clean_last.endswith(corrupt_last), (cell, i)                    # both texts end on the same words
+            assert max(len(line) for line in clean_text.split("\n")[1:]) <= info["width"], (cell, i)
+            short.append(info["width"] - len(clean_last))
+            if info["kind"] == "count":
+                assert len(corrupt_last) < len(clean_last), (cell, i)              # the corrupt last line starts at a later word
+                assert max(len(line) for line in corrupt_text.split("\n")[1:]) <= info["width"], (cell, i)
+                fill.append(len(corrupt_last) / info["width"])
+            else:
+                assert corrupt_last == clean_last, (cell, i)                        # the corrupt last line starts at the same word
+                widest.append(max(len(line) for line in corrupt_text.split("\n")[1:]) / info["width"])
         start += n
         write(info["file"], {"sources": [ITEMS + " (token ids decoded with the Qwen3.5-0.8B tokenizer, one string per token)",
                                          RESULT_ST + " (gate/l8, gate/l9: gate open on the clean text, per token)"],
                              "attribution": "Re-wrapped excerpts from HuggingFaceFW/fineweb-edu, ODC-By 1.0.",
                              "cell": cell, "width": info["width"], "items": out})
     assert start == tensors["gate/l8"].shape[0]
+    # the README's description of the paired texts, measured again on the decoded texts
+    assert f"{min(fill) * 100:.0f}" == facts.items["demo.corrupt_fill_low"]["display"], min(fill)
+    assert f"{max(fill) * 100:.0f}" == facts.items["demo.corrupt_fill_high"]["display"], max(fill)
+    assert f"{max(widest):.2f}" == facts.items["demo.width_factor"]["display"], max(widest)
+    assert max(short) == int(facts.items["demo.clean_short_max"]["display"]), max(short)
+    print(f"corrupt texts: last line holds {min(fill):.3f} to {max(fill):.3f} of the width in the count cells; "
+          f"longest line {max(widest):.2f} times the width in the width cell; the clean last line is at most {max(short)} characters short; "
+          "equal to the README's description")
     print("every text: the per-token strings joined equal the decoded text; all characters are printable ASCII or line breaks")
+
+
+# ---------------------------------------------------------------------------------------------- the Qwen3.5-4B set (optional)
+def four_b(facts: Facts, repo: str, sheet_path: str, weights: str) -> dict:
+    """rows per layer of the 4B set, and the facts of its section; every sentence of the fact sheet that a number is read from is
+    matched by pattern, so a changed sentence stops the build"""
+    f = facts
+    manifest, fvu = json.loads(f.read(f"{REL4}/MANIFEST.json")), json.loads(f.read(f"{REL4}/reader_fvu.json"))
+    with open(sheet_path) as fh:
+        sheet = fh.read()
+    with open(os.path.join(weights, "ALWAYS_ON.json")) as fh:
+        always = json.load(fh)
+    assert manifest["model"] == always["model"] == "Qwen/Qwen3.5-4B"
+    n = len(manifest["layers"])
+    assert len(fvu["layers"]) == n == len(always["layers"]) and len(fvu["splits"]) == 4
+    rows = []
+    for i in range(n):
+        m, r, a = manifest["layers"][str(i)]["mlp"], fvu["layers"][str(i)], always["layers"][str(i)]
+        mid, post, mlp = r[f"resid_mid.{i}"], r[f"resid_post.{i}"], r["mlp"]
+        rows.append({
+            "layer": i,
+            "dropped": {"state_mid": fixed(mid["position_0_dropped"], 4), "state_post": fixed(post["position_0_dropped"], 4),
+                        "mlp": fixed(mlp["position_0_dropped"], 4)},
+            "with_p0": {"state_mid": fixed(mid["with_position_0"], 4), "state_post": fixed(post["with_position_0"], 4),
+                        "mlp": fixed(mlp["with_position_0"], 4)},
+            "mlp_train": fixed(m["heldout_fvu"], 4), "on_per_token": fixed(m["heldout_l0"], 1),
+            "alive": m["alive"], "transforms": m["transforms"], "alive_text": f"{m['alive']} of {m['transforms']}",
+            "penalty": f"{m['penalty']:.0e}",
+            "always_web": len(a["on_90pct"]), "always_train": a["training_mix_heldout_counts"]["on_90pct"],
+            "always_text": f"{len(a['on_90pct'])} / {a['training_mix_heldout_counts']['on_90pct']}",
+            "always_energy": fixed(a["energy_share_on_90pct"], 2)})
+    table = md_table(f.read(f"{REL4}/layers_table.md"), "Layer")
+    assert len(table) == n
+    for row, cells in zip(rows, table):
+        mine = [str(row["layer"]), row["dropped"]["state_mid"], row["dropped"]["state_post"], row["dropped"]["mlp"], row["mlp_train"],
+                row["on_per_token"], row["alive_text"], row["penalty"], row["always_text"]]
+        assert mine == cells, (mine, cells)
+    print(f"4B per-layer strings equal {REL4}/layers_table.md: {n} rows x {len(table[0])} columns")
+
+    def sheet_find(pattern: str, keys: list[str]) -> None:
+        f.find(FACTS_4B, pattern, keys, text=sheet)
+
+    f.add("b4.model", manifest["model"], f"{REL4}/MANIFEST.json", "model")
+    f.add("b4.copied", manifest["frozen"], f"{REL4}/MANIFEST.json", "frozen (the date this copy was made, see note_frozen)")
+    assert "was not frozen" in manifest["note_frozen"]
+    f.add("b4.layers", str(n), f"{REL4}/MANIFEST.json", "number of layers")
+    f.add("b4.last_layer", str(n - 1), f"{REL4}/MANIFEST.json", "index of the last layer")
+    for key, field in (("b4.groups", "groups"), ("b4.group_size", "group_size"), ("b4.active", "k")):
+        values = {manifest["layers"][str(i)]["state"][field] for i in range(n)}
+        assert len(values) == 1
+        f.add(key, comma(values.pop()), f"{REL4}/MANIFEST.json", f"layers.*.state.{field}, the same at every layer")
+    assert f.items["b4.groups"]["display"] == f.items["state.groups"]["display"] and f.items["b4.active"]["display"] == f.items["state.active"]["display"]
+    values = {r["transforms"] for r in rows}
+    assert len(values) == 1
+    f.add("b4.transforms", comma(values.pop()), f"{REL4}/MANIFEST.json", "layers.*.mlp.transforms, the same at every layer")
+    assert len({r["penalty"] for r in rows}) == 1
+    f.add("b4.penalty", rows[0]["penalty"], f"{REL4}/MANIFEST.json", "layers.*.mlp.penalty, the same at every layer")
+    tokens, p0 = {v["tokens"] for v in fvu["layers"].values()}, {v["position_0_tokens"] for v in fvu["layers"].values()}
+    assert len(tokens) == 1 and len(p0) == 1
+    f.add("b4.fvu_tokens", comma(tokens.pop()), f"{REL4}/reader_fvu.json", "layers.*.tokens, the same at every layer")
+    f.add("b4.fvu_position_0_tokens", comma(p0.pop()), f"{REL4}/reader_fvu.json", "layers.*.position_0_tokens, the same at every layer")
+
+    sheet_find(r"Base model `Qwen/Qwen3\.5-4B`, (\d+) layers, width ([\d,]+), revision", ["b4.layers_sheet", "b4.width"])
+    assert f.items.pop("b4.layers_sheet")["display"] == str(n)
+    sheet_find(r"(\d+) weight and config files, plus the three files at the top\. State dictionaries occupy about ([\d.]+) GiB \([\d.]+ GB\), "
+               r"MLP dictionaries about ([\d.]+) GiB \([\d.]+ GB\), about (\d+) GiB", ["b4.files", "b4.state_gib", "b4.mlp_gib", "b4.total_gib"])
+    sheet_find(r"\(96 of 2,560 dimensions, ([\d.]+)%; the 0\.8B set activates 96 of 1,024, ([\d.]+)%\)", ["b4.active_pct", "b4.active_pct_08b"])
+    sheet_find(r"The penalty 3e-05 was chosen at ONE layer \((\d+)\), where its spliced-in loss was lower than with ([\d.e-]+) \((\+[\d.]+) against (\+[\d.]+) nat\)",
+               ["b4.probe_layer", "b4.penalty_other", "b4.penalty_splice", "b4.penalty_other_splice"])
+    sheet_find(r"counted on a web text sample \(FineWeb-Edu, (\d+) documents of (\d+) tokens, position 0 dropped, ([\d,]+) tokens; not the training mix\)",
+               ["b4.always_documents", "b4.always_doc_tokens", "b4.always_tokens"])
+    sheet_find(r"the held-out shard of the training mix \(([\d,]+) tokens\)\. The two counts differ at (\d+) layers", ["b4.shard_tokens", "b4.always_differ_layers"])
+    sheet_find(r"carry up to ([\d.]+) of the summed write energy \(layer (\d+)\); on the training-mix shard up to ([\d.]+) \(layer (\d+)\), and at (\d+) of the 32 "
+               r"layers at least ([\d.]+)\.", ["b4.energy_max", "b4.energy_max_layer", "b4.energy_max_train", "b4.energy_max_train_layer",
+                                              "b4.energy_layers", "b4.energy_floor"])
+    best = max(rows, key=lambda r: float(r["always_energy"]))
+    assert (best["always_energy"], str(best["layer"])) == (f.items["b4.energy_max"]["display"], f.items["b4.energy_max_layer"]["display"]), best
+    sheet_find(r"(\d+)% at layer 31 \(([\d,]+) of ([\d,]+) alive\)", ["b4.dead_last_pct", "b4.alive_last", "b4.alive_last_of"])
+    assert rows[-1]["alive_text"] == f"{f.items['b4.alive_last']['display'].replace(',', '')} of {f.items['b4.alive_last_of']['display'].replace(',', '')}"
+    sheet_find(r"State dictionary at `resid_post\.16`, on held-out text the model itself answered \((\d+) rows, ([\d,]+) positions\): (\+[\d.]+)\.",
+               ["b4.splice_rows", "b4.splice_positions", "b4.splice_state"])
+    sheet_find(r"MLP dictionary at layer 16: (\+[\d.]+) on the same text \(replacing the MLP output by zero gives (\+[\d.]+), so the dictionary recovers "
+               r"([\d.]+) of the gap\)", ["b4.splice_mlp", "b4.splice_zero", "b4.splice_recovered"])
+    assert f.items["b4.splice_mlp"]["display"] == f.items["b4.penalty_splice"]["display"]
+    sheet_find(r"with 24 / 40 / 60 active groups per token: raw FVU at `resid_post` ([\d.]+) / ([\d.]+) / ([\d.]+) and spliced-in loss "
+               r"(\+[\d.]+) / (\+[\d.]+) / (\+[\d.]+)\.", ["b4.k24_fvu", "b4.k40_fvu", "b4.k60_fvu", "b4.k24_splice", "b4.k40_splice", "b4.k60_splice"])
+    assert f.items["b4.k24_splice"]["display"] == f.items["b4.splice_state"]["display"]
+    sheet_find(r"state FVU in the middle layers is ([\d.]+) to ([\d.]+) against ([\d.]+) to ([\d.]+) for 0\.8B",
+               ["b4.mid_fvu_low", "b4.mid_fvu_high", "b4.mid_fvu_low_08b", "b4.mid_fvu_high_08b"])
+    for needle in ("Measured at layer 16 only. The other 31 layers were not measured.", "One training seed.", "The 40- and 60-group dictionaries are not in this set.",
+                   "No demonstration script exists for this set, and the trainers are not in the repository.",
+                   "No unit of this set was read, edited or steered by the experiments behind the 0.8B documents",
+                   "`capture` on the 4B model was not compared with the original project's capture",
+                   "That the cause is the smaller active fraction (3.75% against 9.4% of the width) is an inference, not a measurement.",
+                   "The held-out activations behind this repository's FVU columns are not published."):
+        assert needle in sheet, f"the 4B fact sheet no longer holds: {needle}"
+    return {"sources": [f"{REL4}/reader_fvu.json", f"{REL4}/MANIFEST.json", f"{REL4}/layers_table.md (compared, equal)", ALWAYS_ON],
+            "columns": {"state_mid": "State FVU, resid_mid", "state_post": "State FVU, resid_post", "mlp": "MLP FVU",
+                        "mlp_train": "MLP FVU recorded at training", "on_per_token": "MLP transforms on per token",
+                        "alive": "MLP transforms alive", "penalty": "MLP penalty",
+                        "always": "MLP transforms on at 90% of tokens or more (web text / training mix)",
+                        "always_energy": "Share of the summed write energy carried by those transforms on the web text"},
+            "rows": rows}
 
 
 def source_commit(repo: str) -> dict:
@@ -424,7 +607,8 @@ def source_commit(repo: str) -> dict:
     import subprocess
     def git(*args: str) -> str:
         return subprocess.run(["git", "-C", repo, *args], capture_output=True, text=True, check=True).stdout.strip()
-    tracked = [README, CARD, MANIFEST, READER_FVU, f"{REL}/layers_table.md", f"{REL}/line_count_table.md", f"{REL}/line_count_link_table.md", SCRIPT, ITEMS]
+    tracked = [README, CARD, MANIFEST, READER_FVU, f"{REL}/layers_table.md", f"{REL}/line_count_table.md", f"{REL}/line_count_link_table.md", SCRIPT, ITEMS,
+               f"{REL4}/reader_fvu.json", f"{REL4}/MANIFEST.json", f"{REL4}/layers_table.md"]
     return {"commit": git("rev-parse", "HEAD"), "date": git("log", "-1", "--format=%cI"),
             "files_modified_since_commit": [line[3:] for line in git("status", "--porcelain", "--", *tracked).splitlines()]}
 
@@ -440,6 +624,8 @@ def main() -> None:
     ap.add_argument("--repo", required=True)
     ap.add_argument("--hf-home", required=True)
     ap.add_argument("--result", required=True)
+    ap.add_argument("--facts-4b", help="fact sheet (later: model card) of the Qwen3.5-4B set; with --weights-4b it adds the 4B section")
+    ap.add_argument("--weights-4b", help="folder of the Qwen3.5-4B weights repository that holds ALWAYS_ON.json")
     args = ap.parse_args()
     torch.set_num_threads(4)
     os.makedirs(DATA, exist_ok=True)
@@ -461,7 +647,14 @@ def main() -> None:
     write("layers.json", layers_data(facts, manifest, reader_fvu))
     write("splice.json", splice_data(facts))
     write("demo.json", demo)
-    item_files(args.repo, args.hf_home, constants, tensors, demo["cells"])
+    item_files(facts, args.repo, args.hf_home, constants, tensors, demo["cells"])
+    has_4b = os.path.exists(os.path.join(args.repo, REL4, "reader_fvu.json"))
+    if has_4b and args.facts_4b and args.weights_4b:
+        write("layers-4b.json", four_b(facts, args.repo, args.facts_4b, args.weights_4b))
+    else:
+        if os.path.exists(os.path.join(DATA, "layers-4b.json")):
+            os.remove(os.path.join(DATA, "layers-4b.json"))
+        print("no Qwen3.5-4B section: " + ("--facts-4b and --weights-4b were not both given" if has_4b else f"{REL4}/reader_fvu.json is not in the checkout"))
     write("facts.json", {"sources": sorted({v["source"] for v in facts.items.values()}), "source_commit": source_commit(args.repo),
                          "facts": facts.items})
 

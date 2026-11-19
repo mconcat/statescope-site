@@ -1,198 +1,243 @@
-// Numbers per layer and spliced-in loss: small multiples over one shared layer axis.
-// Solid lines and filled marks: measured by this repository. Dashed lines and open marks: recorded by the original project.
-import { svg, h, clear, linear, niceTicks, tickText, onResize, diamond } from "./svg.js";
+// Numbers per layer: small multiples over one shared layer axis, for the 0.8B set, its spliced-in loss, and the 4B set.
+// Solid lines and filled marks: measured by this repository. Dashed lines, open marks and bars: recorded by the original project.
+import { svg, h, clear, linear, niceTicks, tickText, onResize, diamond, segmented } from "./svg.js";
 
-const HEIGHT = 196;
-const M = { l: 42, r: 12, t: 12, b: 30 };
+const HEIGHT = 190;
+const M = { l: 40, r: 10, t: 10, b: 28 };
+
+function mark(s, x, y, r) {
+  const cls = `mark ${s.cls}${s.recorded ? " recorded" : ""}`;
+  return s.shape === "diamond" ? svg("path", { d: diamond(x, y, r + 1), class: cls }) : svg("circle", { cx: x, cy: y, r, class: cls });
+}
 
 function legendKey(s) {
   const node = svg("svg", { width: 26, height: 12, "aria-hidden": "true" });
-  node.append(svg("path", { d: "M1 6H25", class: `series ${s.cls}` }));
-  node.append(mark(s, 13, 6, 3.4));
+  node.append(svg("path", { d: "M1 6H25", class: `series ${s.cls}${s.recorded ? " recorded" : ""}` }), mark(s, 13, 6, 3));
   return node;
 }
 
-function mark(s, x, y, r) {
-  if (s.shape === "diamond") return svg("path", { d: diamond(x, y, r + 1), class: `mark ${s.cls}` });
-  return svg("circle", { cx: x, cy: y, r, class: `mark ${s.cls}` });
-}
+// A group of panels over the layers of one set.
+//   rows: one object per layer; panels: [{ title, sub(), series: [{ label, cls, shape, recorded, value(row) }], bars: { value(row), total } }]
+//   readout(row): [[label, text], ...] shown above the panels for the layer under the pointer or the slider
+export function layerPanels({ grid, readoutBox, range, rows, panels, readout, start }) {
+  const n = rows.length;
+  let layer = start ?? Math.min(9, n - 1);
+  const drawers = [];
 
-// One panel: a card with a title, a provenance line, a legend when there are two series, and a plot.
-// spec: { title, sub(), series: [{ label, cls, shape, values() }], yMax, bars, reference }
-function panel(grid, spec, n, store) {
-  const card = h("div", { class: "card" });
-  const title = h("h4", { text: spec.title });
-  const sub = h("div", { class: "figure-sub" });
-  const legend = h("div", { class: "legend", "aria-hidden": "true" });
-  const plot = h("div", { class: "plot" });
-  card.append(title, sub, legend, plot);
-  grid.append(card);
-
-  if (spec.series.length > 1) {
-    for (const s of spec.series) legend.append(h("span", {}, legendKey(s), document.createTextNode(s.label)));
+  function showReadout() {
+    clear(readoutBox);
+    for (const [label, text] of readout(rows[layer])) readoutBox.append(h("span", {}, `${label} `, h("b", { text })));
+    if (range) range.value = String(layer);
+  }
+  function setLayer(value) {
+    const v = Math.max(0, Math.min(n - 1, value));
+    if (v === layer) return;
+    layer = v;
+    showReadout();
+    for (const draw of drawers) draw.cursor();
   }
 
-  let width = 0;
-  function draw() {
-    if (!width) return;
-    sub.textContent = spec.sub();
-    clear(plot);
-    const root = svg("svg", { width, height: HEIGHT, role: "img", "aria-label": `${spec.title}. ${spec.sub()}. The table below the charts holds every value.` });
-    const iw = width - M.l - M.r;
-    const ih = HEIGHT - M.t - M.b;
-    const x = (i) => M.l + (n === 1 ? iw / 2 : (i / (n - 1)) * iw);
-    const yt = niceTicks(0, spec.yMax, 4);
-    const y = linear(0, yt.hi, M.t + ih, M.t);
+  for (const spec of panels) {
+    const sub = h("p", { class: "figure-sub" });
+    const keys = h("ul", { class: "keys", "aria-hidden": "true" });
+    const plot = h("div", { class: "plot" });
+    grid.append(h("div", { class: "panel" }, h("h4", { text: spec.title }), sub, keys, plot));
+    const series = spec.series ?? [];
+    if (series.length > 1) for (const s of series) keys.append(h("li", {}, legendKey(s), s.label));
 
-    const axis = svg("g", { class: "axis", "data-axis": "" });
-    for (const v of yt.ticks) {
-      axis.append(svg("path", { d: `M${M.l} ${y(v)}H${width - M.r}`, class: v === 0 ? "baseline" : "gridline" }));
-      axis.append(svg("text", { x: M.l - 7, y: y(v) + 3.5, "text-anchor": "end" }, document.createTextNode(tickText(v, yt.step))));
-    }
-    const every = iw / n < 15 ? 4 : 2;
-    for (let i = 0; i < n; i++) {
-      if (i % every !== 0 && i !== n - 1) continue;
-      if (i !== n - 1 && n - 1 - i < every) continue;
-      axis.append(svg("text", { x: x(i), y: HEIGHT - 12, "text-anchor": "middle" }, document.createTextNode(String(i))));
-    }
-    axis.append(svg("text", { x: width - M.r, y: HEIGHT - 1, "text-anchor": "end", class: "axis-title" }, document.createTextNode("layer")));
-    root.append(axis);
-
-    const sel = store.layer;
-    root.append(svg("path", { d: `M${x(sel)} ${M.t}V${M.t + ih}`, class: "crosshair" }));
-
-    if (spec.bars) {
-      const s = spec.series[0];
-      const values = s.values();
-      const bw = Math.max(3, Math.min(14, (iw / n) * 0.62));
-      if (spec.reference) {
-        const ref = spec.reference();
-        const ry = y(ref.value);
-        root.append(svg("path", { d: `M${M.l} ${ry}H${width - M.r}`, class: "series rest" }));
-        root.append(svg("text", { x: width - M.r, y: ry - 5, "text-anchor": "end", class: "axis-title" }, document.createTextNode(ref.label)));
+    let width = 0;
+    let cursor = null;
+    let x = () => 0;
+    function draw() {
+      if (!width) return;
+      sub.textContent = spec.sub();
+      clear(plot);
+      const iw = width - M.l - M.r;
+      const ih = HEIGHT - M.t - M.b;
+      x = (i) => M.l + (n === 1 ? iw / 2 : (i / (n - 1)) * iw);
+      const values = spec.bars ? rows.map(spec.bars.value).concat(spec.bars.total ?? []) : series.flatMap((s) => rows.map(s.value));
+      const yt = niceTicks(0, Math.max(...values), 4);
+      const y = linear(0, yt.hi, M.t + ih, M.t);
+      const root = svg("svg", { width, height: HEIGHT, role: "img", "aria-label": `${spec.title}. ${spec.sub()} The table below the panels holds every value.` });
+      const axis = svg("g", { "data-axis": "layer", "aria-hidden": "true" });
+      for (const tick of yt.ticks) {
+        axis.append(svg("path", { d: `M${M.l} ${y(tick)}H${width - M.r}`, class: tick === 0 ? "zero" : "gridline" }));
+        axis.append(svg("text", { x: M.l - 6, y: y(tick) + 3.5, "text-anchor": "end" }, tickText(tick, yt.step)));
       }
-      values.forEach((v, i) => {
-        const top = y(v);
-        root.append(svg("rect", { x: x(i) - bw / 2, y: top, width: bw, height: Math.max(0, M.t + ih - top), rx: 2, class: `bar ${s.cls}${i === sel ? " on" : ""}` }));
-      });
-    } else {
-      for (const s of spec.series) {
-        const values = s.values();
-        root.append(svg("path", { d: values.map((v, i) => `${i ? "L" : "M"}${x(i).toFixed(1)} ${y(v).toFixed(1)}`).join(""), class: `series ${s.cls}` }));
-        values.forEach((v, i) => root.append(mark(s, x(i), y(v), i === sel ? 4.4 : 2.4)));
+      const every = n > 26 ? 8 : 4;
+      for (let i = 0; i < n; i += every) axis.append(svg("text", { x: x(i), y: HEIGHT - M.b + 14, "text-anchor": "middle" }, String(i)));
+      axis.append(svg("text", { x: width - M.r, y: HEIGHT - 1, "text-anchor": "end", class: "axis-label" }, "layer"));
+      root.append(axis);
+      cursor = svg("path", { class: "cursor" });
+      root.append(cursor);
+      if (spec.bars) {
+        const bw = Math.max(2, (iw / (n - 1)) * 0.62);
+        if (spec.bars.total) root.append(svg("path", { d: `M${M.l} ${y(spec.bars.total)}H${width - M.r}`, class: "series s-r recorded" }));
+        rows.forEach((row, i) => {
+          const v = spec.bars.value(row);
+          root.append(svg("rect", { x: x(i) - bw / 2, y: y(v), width: bw, height: Math.max(0, y(0) - y(v)), class: "bar-rect", "data-layer": i }));
+        });
       }
+      for (const s of series) {
+        const pts = rows.map((row, i) => [x(i), y(s.value(row))]);
+        root.append(svg("path", { d: "M" + pts.map((p) => p.join(" ")).join("L"), class: `series ${s.cls}${s.recorded ? " recorded" : ""}` }));
+        const r = width < 330 ? 2 : 2.6;
+        for (const [px, py] of pts) root.append(mark(s, px, py, r));
+      }
+      const at = (event) => {
+        const box = root.getBoundingClientRect();
+        setLayer(Math.round(((event.clientX - box.left - M.l) / iw) * (n - 1)));
+      };
+      root.addEventListener("pointermove", at);
+      root.addEventListener("pointerdown", at);
+      plot.append(root);
+      moveCursor();
     }
-
-    const hit = svg("rect", { x: M.l - 8, y: M.t, width: iw + 16, height: ih + 16, fill: "transparent" });
-    const pick = (event) => {
-      const box = root.getBoundingClientRect();
-      const i = Math.round(((event.clientX - box.left - M.l) / iw) * (n - 1));
-      store.set(Math.max(0, Math.min(n - 1, i)));
-    };
-    hit.addEventListener("pointermove", pick);
-    hit.addEventListener("pointerdown", pick);
-    root.append(hit);
-    plot.append(root);
+    function moveCursor() {
+      if (!cursor) return;
+      cursor.setAttribute("d", `M${x(layer)} ${M.t}V${HEIGHT - M.b}`);
+      for (const bar of plot.querySelectorAll(".bar-rect")) bar.classList.toggle("hot", Number(bar.dataset.layer) === layer);
+    }
+    const redraw = onResize(plot, (w) => {
+      width = w;
+      draw();
+    });
+    drawers.push({ redraw, cursor: moveCursor });
   }
-  onResize(plot, (w) => {
-    width = w;
-    draw();
-  });
-  return draw;
-}
 
-function readout(node, pairs) {
-  clear(node);
-  for (const [label, value] of pairs) node.append(h("div", {}, h("span", { text: label }), h("b", { text: value })));
+  if (range) {
+    range.max = String(n - 1);
+    range.addEventListener("input", () => setLayer(Number(range.value)));
+  }
+  showReadout();
+  return { redraw: () => drawers.forEach((d) => d.redraw()), showReadout };
 }
 
 export function initLayers(layers, splice) {
-  const rows = layers.rows;
-  const n = rows.length;
   const col = layers.columns;
-  const draws = [];
-  const store = {
-    layer: 0,
-    p0: "dropped",
-    set(i) {
-      if (i === store.layer) return;
-      store.layer = i;
-      update();
-    },
-  };
-  const num = (key) => rows.map((r) => Number(key in r ? r[key] : r[store.p0][key]));
-  const fvuMax = Math.max(...rows.flatMap((r) => [r.dropped, r.with_p0].flatMap((v) => [v.state_mid, v.state_post, v.mlp].map(Number))), ...rows.map((r) => Number(r.mlp_train)));
-  const p0Text = () => (store.p0 === "dropped" ? "position 0 dropped" : "position 0 included");
-  const repo = () => `Measured by this repository, ${p0Text()}`;
-  const training = "Recorded at training by the original project, position 0 included";
-
-  const grid = document.getElementById("layer-panels");
-  draws.push(panel(grid, {
-    title: "State dictionary FVU", sub: repo, yMax: fvuMax,
-    series: [{ label: "resid_mid", cls: "a", shape: "circle", values: () => num("state_mid") },
-             { label: "resid_post", cls: "b", shape: "diamond", values: () => num("state_post") }],
-  }, n, store));
-  draws.push(panel(grid, {
-    title: "MLP dictionary FVU", sub: () => `Two measurements on different tokens; the solid series has ${p0Text()}`, yMax: fvuMax,
-    series: [{ label: "measured by this repository", cls: "n", shape: "circle", values: () => num("mlp") },
-             { label: "recorded at training", cls: "rest", shape: "circle", values: () => num("mlp_train") }],
-  }, n, store));
-  draws.push(panel(grid, {
-    title: col.on_per_token, sub: () => training, yMax: Math.max(...num("on_per_token")),
-    series: [{ label: col.on_per_token, cls: "rest", shape: "circle", values: () => num("on_per_token") }],
-  }, n, store));
-  draws.push(panel(grid, {
-    title: col.alive, sub: () => training, yMax: rows[0].transforms, bars: true,
-    reference: () => ({ value: rows[0].transforms, label: `all ${rows[0].transforms.toLocaleString("en-US")} transforms` }),
-    series: [{ label: col.alive, cls: "rest", values: () => num("alive") }],
-  }, n, store));
-
-  const spliceGrid = document.getElementById("splice-panels");
-  const recorded = "Recorded by the original project, not repeated by this repository; increase in nats";
-  for (const key of ["state", "mlp"]) {
-    const values = splice.rows.map((r) => Number(r[key]));
-    draws.push(panel(spliceGrid, {
-      title: splice.columns[key], sub: () => recorded, yMax: Math.max(...values),
-      series: [{ label: splice.columns[key], cls: "rest", shape: "circle", values: () => values }],
-    }, n, store));
-  }
-
-  const range = document.getElementById("layer-range");
-  const out = document.getElementById("layer-out");
-  range.max = String(n - 1);
-  range.addEventListener("input", () => store.set(Number(range.value)));
-
-  const seg = document.getElementById("p0-seg");
-  seg.addEventListener("click", (event) => {
-    const button = event.target.closest("button");
-    if (!button) return;
-    store.p0 = button.dataset.value;
-    for (const b of seg.querySelectorAll("button")) b.setAttribute("aria-pressed", String(b === button));
-    update();
-  });
-
-  function update() {
-    const r = rows[store.layer];
-    const v = r[store.p0];
-    range.value = String(store.layer);
-    out.textContent = String(r.layer);
-    readout(document.getElementById("layer-readout"), [
+  let p0 = "dropped";
+  const p0Text = () => (p0 === "dropped" ? "position 0 dropped" : "position 0 included");
+  const main = layerPanels({
+    grid: document.getElementById("layer-panels"),
+    readoutBox: document.getElementById("layer-readout"),
+    range: document.getElementById("layer-range"),
+    rows: layers.rows,
+    readout: (r) => [
       ["Layer", String(r.layer)],
-      [col.state_mid, v.state_mid],
-      [col.state_post, v.state_post],
-      [col.mlp, v.mlp],
+      [col.state_mid, r[p0].state_mid],
+      [col.state_post, r[p0].state_post],
+      [col.mlp, r[p0].mlp],
       [col.mlp_train, r.mlp_train],
       [col.on_per_token, r.on_per_token],
       [col.alive, r.alive_text],
       [col.penalty, r.penalty],
-    ]);
-    const s = splice.rows[store.layer];
-    readout(document.getElementById("splice-readout"), [
-      ["Layer", String(s.layer)],
-      [splice.columns.state, s.state],
-      [splice.columns.mlp, s.mlp],
-    ]);
-    for (const draw of draws) draw();
-  }
-  update();
+    ],
+    panels: [
+      {
+        title: "State FVU",
+        sub: () => `Measured by this repository, ${p0Text()}.`,
+        series: [
+          { label: "resid_mid", cls: "s-n", shape: "circle", value: (r) => Number(r[p0].state_mid) },
+          { label: "resid_post", cls: "s-r", shape: "diamond", value: (r) => Number(r[p0].state_post) },
+        ],
+      },
+      {
+        title: "MLP FVU",
+        sub: () => `Two measurements on different tokens; the solid series has ${p0Text()}.`,
+        series: [
+          { label: "measured by this repository", cls: "s-n", shape: "circle", value: (r) => Number(r[p0].mlp) },
+          { label: "recorded at training", cls: "s-n", shape: "circle", recorded: true, value: (r) => Number(r.mlp_train) },
+        ],
+      },
+      {
+        title: col.on_per_token,
+        sub: () => "Recorded at training by the original project, position 0 included.",
+        series: [{ label: col.on_per_token, cls: "s-n", shape: "circle", recorded: true, value: (r) => Number(r.on_per_token) }],
+      },
+      {
+        title: col.alive,
+        sub: () => "Recorded at training by the original project. The dashed line is the number of transforms.",
+        bars: { value: (r) => r.alive, total: layers.rows[0].transforms },
+      },
+    ],
+  });
+  const seg = segmented(document.getElementById("p0-seg"), (value) => {
+    p0 = value;
+    main.redraw();
+    main.showReadout();
+  });
+  seg.set(p0);
+
+  layerPanels({
+    grid: document.getElementById("splice-panels"),
+    readoutBox: document.getElementById("splice-readout"),
+    range: null,
+    rows: splice.rows,
+    readout: (r) => [
+      ["Layer", String(r.layer)],
+      [splice.columns.state, r.state],
+      [splice.columns.mlp, r.mlp],
+    ],
+    panels: [
+      {
+        title: splice.columns.state,
+        sub: () => "Recorded by the original project, in nats.",
+        series: [{ label: splice.columns.state, cls: "s-n", shape: "circle", recorded: true, value: (r) => Number(r.state) }],
+      },
+      {
+        title: splice.columns.mlp,
+        sub: () => "Recorded by the original project, in nats.",
+        series: [{ label: splice.columns.mlp, cls: "s-n", shape: "circle", recorded: true, value: (r) => Number(r.mlp) }],
+      },
+    ],
+  });
+}
+
+export function initFourB(four) {
+  const col = four.columns;
+  layerPanels({
+    grid: document.getElementById("b4-panels"),
+    readoutBox: document.getElementById("b4-readout"),
+    range: document.getElementById("b4-range"),
+    rows: four.rows,
+    start: 16,
+    readout: (r) => [
+      ["Layer", String(r.layer)],
+      [col.state_mid, r.dropped.state_mid],
+      [col.state_post, r.dropped.state_post],
+      [col.mlp, r.dropped.mlp],
+      [col.mlp_train, r.mlp_train],
+      [col.alive, r.alive_text],
+      ["On at 90% of tokens or more, web text / training mix", r.always_text],
+      ["Their share of the write energy, web text", r.always_energy],
+    ],
+    panels: [
+      {
+        title: "State FVU",
+        sub: () => "Measured by this repository, position 0 dropped.",
+        series: [
+          { label: "resid_mid", cls: "s-n", shape: "circle", value: (r) => Number(r.dropped.state_mid) },
+          { label: "resid_post", cls: "s-r", shape: "diamond", value: (r) => Number(r.dropped.state_post) },
+        ],
+      },
+      {
+        title: "MLP FVU",
+        sub: () => "Two measurements on different tokens.",
+        series: [
+          { label: "measured by this repository", cls: "s-n", shape: "circle", value: (r) => Number(r.dropped.mlp) },
+          { label: "recorded at training", cls: "s-n", shape: "circle", recorded: true, value: (r) => Number(r.mlp_train) },
+        ],
+      },
+      {
+        title: col.alive,
+        sub: () => "Recorded at training by the original project. The dashed line is the number of transforms.",
+        bars: { value: (r) => r.alive, total: four.rows[0].transforms },
+      },
+      {
+        title: "Write energy of the always-on transforms",
+        sub: () => "Share of the summed write energy carried by transforms on at 90% of tokens or more, web text. Recorded by the original project.",
+        series: [{ label: "share", cls: "s-n", shape: "circle", recorded: true, value: (r) => Number(r.always_energy) }],
+      },
+    ],
+  });
 }
