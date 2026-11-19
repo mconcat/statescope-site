@@ -1,6 +1,20 @@
 {
-  "note": "Works the page refers to. Bibliographic data, typed by hand from the arXiv abstract pages; tools/build_page.py writes the list.",
+  "note": "Works the page refers to, in the order in which it refers to them. Bibliographic data, typed by hand from the works' own pages; tools/build_page.py writes the list.",
   "references": [
+    {
+      "authors": "Jack Lindsey, Brian Chen, Adam Pearce, Sasha Hydrie, Thomas Conerly; edited by Jeff Wu",
+      "title": "Sparse mixtures of linear transforms",
+      "id": "Transformer Circuits Thread",
+      "date": "2025",
+      "url": "https://transformer-circuits.pub/2025/bulk-update/index.html"
+    },
+    {
+      "authors": "James Oldfield, Shawn Im, Sharon Li, Mihalis A. Nicolaou, Ioannis Patras, Grigorios G Chrysos",
+      "title": "Towards Interpretability Without Sacrifice: Faithful Dense Layer Decomposition with Mixture of Decoders",
+      "id": "arXiv:2505.21364",
+      "date": "27 May 2025",
+      "url": "https://arxiv.org/abs/2505.21364"
+    },
     {
       "authors": "Wes Gurnee, Emmanuel Ameisen, Isaac Kauvar, Julius Tarng, Adam Pearce, Chris Olah, Joshua Batson",
       "title": "When Models Manipulate Manifolds: The Geometry of a Counting Task",

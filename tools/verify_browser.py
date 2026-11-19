@@ -477,9 +477,16 @@ async def run(args) -> None:
             if args.shots:                                                    # before the interactions: the page as a reader first sees it
                 os.makedirs(args.shots, exist_ok=True)
                 await page.screenshot(path=os.path.join(args.shots, f"{name}.png"), full_page=True)
+                later = []                                                    # figures inside a closed block are taken once it is open
                 for fig in await page.eval_on_selector_all("figure[id]", "n => n.map(f => f.id)"):
-                    await page.locator(f"#{fig}").screenshot(path=os.path.join(args.shots, f"{name}-{fig}.png"))
+                    if await page.locator(f"#{fig}").is_visible():
+                        await page.locator(f"#{fig}").screenshot(path=os.path.join(args.shots, f"{name}-{fig}.png"))
+                    else:
+                        later.append(fig)
             await open_folds(page)
+            if args.shots:
+                for fig in later:
+                    await page.locator(f"#{fig}").screenshot(path=os.path.join(args.shots, f"{name}-{fig}.png"))
             await basic(page, name + " with the closed blocks opened", width)
             if name in ("desktop-light", "phone-light"):
                 await full_pass(page, demo, layers, splice, corpus, name)

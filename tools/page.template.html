@@ -8,15 +8,15 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>statescope: per-layer dictionaries for Qwen3.5</title>
-<meta name="description" content="statescope provides a Python reader and per-layer dictionaries for Qwen3.5-4B and Qwen3.5-0.8B. We use these dictionaries to follow a line-break decision through named units and to steer the model with individual state groups.">
+<title>statescope: Reading language model computation as circuits of state groups and transforms</title>
+<meta name="description" content="statescope is a method and a reader for reading language model computation as a circuit of state groups and transforms through per-layer dictionaries. We provide dictionary weights for Qwen3.5-4B and Qwen3.5-0.8B so far.">
 <meta property="og:type" content="website">
-<meta property="og:title" content="statescope: per-layer dictionaries for Qwen3.5">
-<meta property="og:description" content="statescope provides a Python reader and per-layer dictionaries for Qwen3.5-4B and Qwen3.5-0.8B. We use these dictionaries to follow a line-break decision through named units and to steer the model with individual state groups.">
+<meta property="og:title" content="statescope: Reading language model computation as circuits of state groups and transforms">
+<meta property="og:description" content="statescope is a method and a reader for reading language model computation as a circuit of state groups and transforms through per-layer dictionaries. We provide dictionary weights for Qwen3.5-4B and Qwen3.5-0.8B so far.">
 <meta property="og:site_name" content="statescope">
 <meta name="twitter:card" content="summary">
-<meta name="twitter:title" content="statescope: per-layer dictionaries for Qwen3.5">
-<meta name="twitter:description" content="statescope provides a Python reader and per-layer dictionaries for Qwen3.5-4B and Qwen3.5-0.8B. We use these dictionaries to follow a line-break decision through named units and to steer the model with individual state groups.">
+<meta name="twitter:title" content="statescope: Reading language model computation as circuits of state groups and transforms">
+<meta name="twitter:description" content="statescope is a method and a reader for reading language model computation as a circuit of state groups and transforms through per-layer dictionaries. We provide dictionary weights for Qwen3.5-4B and Qwen3.5-0.8B so far.">
 <meta name="color-scheme" content="light dark">
 <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
 <link rel="preload" href="assets/fonts/site-sans-var.woff2" as="font" type="font/woff2" crossorigin>
@@ -30,7 +30,8 @@
 
 <header class="hero" id="top">
   <h1>statescope</h1>
-  <p class="subtitle">statescope provides a Python reader and per-layer state and MLP dictionaries for Qwen3.5-4B and Qwen3.5-0.8B.</p>
+  <p class="subtitle">statescope is a method and a reader for reading language model computation through per-layer dictionaries as a circuit of state groups and transforms.</p>
+  <p class="sets">Dictionary weights are available for Qwen3.5-4B and Qwen3.5-0.8B so far; more models will follow.</p>
   <nav class="links" aria-label="Code and weights">
     <a class="pill" href="https://github.com/mconcat/statescope"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M5.6 3.6 1.6 8l4 4.4M10.4 3.6l4 4.4-4 4.4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>Code</a>
     <a class="pill" href="https://huggingface.co/mconcat/statescope-qwen3.5-4b"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M8 1.8 14 5 8 8.2 2 5zM2 8l6 3.2L14 8M2 11l6 3.2 6-3.2" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>Weights for Qwen3.5-4B</a>
@@ -66,7 +67,7 @@
 <section class="band abstract" aria-labelledby="abstract">
   <div class="wrap narrow">
     <h2 id="abstract">Abstract</h2>
-    <p>statescope is a reader in one Python file with two sets of per-layer dictionary weights. The sets are for Qwen3.5-4B and Qwen3.5-0.8B, with two separately trained dictionaries at each layer. A state dictionary writes the residual stream as a few active groups of directions. An MLP dictionary writes the layer's MLP as a sum of small gated linear operations called transforms.</p>
+    <p>We introduce statescope, a method and a reader for reading language model computation through per-layer dictionaries as a circuit of state groups and transforms. Each layer has two dictionaries: a state dictionary that writes the residual stream as a few active groups of directions, and an MLP dictionary that writes the layer’s MLP as a sum of small gated linear operations. The reader is one Python file. We provide sets of dictionary weights for Qwen3.5-4B and Qwen3.5-0.8B so far, and more models will follow.</p>
     <p>We follow a line-break decision in Qwen3.5-0.8B through named units. A layer-8 transform fires on the first token of each line, and a head of the layer-9 mixer carries the count of characters since then. Two layer-9 transforms turn that count into the line-break decision. In text wrapped at 60 characters, swapping only the first transform's write through the mixer carries {{share|count:60|l8/t189}} of the change in the model's preference for a line break, and swapping the whole layer-8 MLP output the same way carries {{share|count:60|l8/mlp8_true}}.</p>
 <!--if 4b-->
     <p>We steered Qwen3.5-4B with single state groups. In a Python rule-completion task, moving the residual stream inside one group's frame raised the rate of correct rules from {{b4u.rule_before}} to {{b4u.rule_after}}.</p>
@@ -150,7 +151,7 @@
         </article>
         <article class="unit mlp">
           <h3 class="unit-title"><i></i>MLP dictionary: transforms</h3>
-          <p>The <dfn>MLP dictionary</dfn> represents the layer's MLP operations, taking the post-norm MLP input and reconstructing the raw MLP output. It uses the sparse mixture of linear transforms, or MOLT, from the public <code>crosslayer-transcoder</code> code.</p>
+          <p>The <dfn>MLP dictionary</dfn> represents the layer's MLP operations, taking the post-norm MLP input and reconstructing the raw MLP output. Our MLP dictionary’s form, a sparse mixture of linear transforms (MOLT), follows <a href="https://transformer-circuits.pub/2025/bulk-update/index.html">Lindsey et al. (2025)</a>, with <a href="https://arxiv.org/abs/2505.21364">Oldfield et al. (2025)</a> providing closely related work on decomposing MLP layers into sparse mixtures of linear maps.</p>
           <p>A transform reads one direction of the MLP input, opens its gate when that reading passes a learned threshold, and writes a low-rank linear map of the input scaled by the gate value. Each Qwen3.5-0.8B layer has {{mlp.transforms}} transforms, with only a few gates open per token, and their writes sum to reconstruct the MLP output.</p>
       <p>In Figure {{fig|lead}}, L8 transform {{demo.l8_transform}} marks the first token of each line: its gate opens on {{demo.t189_line_first}} of first tokens, {{demo.t189_newline}} of line-break tokens and {{demo.t189_other}} of other tokens. L9 transform {{demo.l9_transform_short}} fires on {{rate|L9 transform 410|40-49}} to {{rate|L9 transform 410|30-39}} of tokens at line lengths of 20 to 49 characters, falling to {{rate|L9 transform 410|70-79}} at 70 to 79 characters. L9 transform {{demo.l9_transform_long}} fires on {{rate|L9 transform 1749|60-69}} of tokens below 70 characters and {{rate|L9 transform 1749|90-99}} at 90 to 99 characters, as the bars in Figure {{fig|lead}} show.</p>
       <p>We can read where a transform's gate opens and what it adds to the MLP output, or change its gate and recompute the output.</p>
@@ -565,10 +566,10 @@ python demo/line_count.py --release &lt;folder&gt; --device cuda:0 --out &lt;fol
 <section class="band tint" aria-labelledby="cite">
   <div class="wrap mid">
     <h2 id="cite">How to cite</h2>
-    <p class="citation">mconcat. statescope: per-layer dictionaries for Qwen3.5. 2026. <a href="https://github.com/mconcat/statescope">https://github.com/mconcat/statescope</a></p>
+    <p class="citation">mconcat. statescope: Reading language model computation as circuits of state groups and transforms. 2026. <a href="https://github.com/mconcat/statescope">https://github.com/mconcat/statescope</a></p>
     <div class="codeblock"><span class="lang">bibtex</span><pre><code>@misc{statescope,
   author = {mconcat},
-  title = {statescope: per-layer dictionaries for Qwen3.5},
+  title = {statescope: Reading language model computation as circuits of state groups and transforms},
   year = {2026},
   url = {https://github.com/mconcat/statescope},
   note = {Weights: https://huggingface.co/mconcat/statescope-qwen3.5-4b and https://huggingface.co/mconcat/statescope-qwen3.5-0.8b}
