@@ -444,7 +444,7 @@ async def new_figures(page, demo: dict) -> list[str]:
         expect([b[0] for b in bars["fig-u2"]] == want2, f"bars of the second 4B example: {[b[0] for b in bars['fig-u2']]}")
         expect([b[1][0][1:] for b in bars["fig-u2"][:5]] == [[r["lo"], r["hi"]] for r in used["aba"]["ranges"]], "range bars of the second 4B example")
         js = used["js"]["bars"]
-        expect([b[0] for b in bars["fig-u3"]] == [f"{js[0]['value']} ({js[0]['lo']} to {js[0]['hi']})", js[1]["value"]], f"bars of the third 4B example: {bars['fig-u3']}")
+        expect([b[0] for b in bars["fig-u3"]] == [f"{js[0]['value']} ({js[0]['lo']} to {js[0]['hi']})"], f"bar of the third 4B example: {bars['fig-u3']}")
         counts["bars"] += sum(len(v) for v in bars.values())
         for fig in bars:                                                      # a bar is as long as its value on the track from 0 to 1
             sizes = await page.eval_on_selector_all(f"#{fig} .hbar-track", "n => n.map(t => [t.getBoundingClientRect().width, ...[...t.children].map(i => i.getBoundingClientRect().width)])")

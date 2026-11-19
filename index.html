@@ -26,7 +26,7 @@
 
 <header class="hero" id="top">
   <h1>statescope</h1>
-  <p class="subtitle">statescope is a method and a reader for reading language model computation through per-layer dictionaries as a circuit of state groups and transforms.</p>
+  <p class="subtitle">Reading language model computation as circuits of state groups and transforms</p>
   <p class="sets">Dictionary weights are available for Qwen3.5-4B and Qwen3.5-0.8B so far; more models will follow.</p>
   <nav class="links" aria-label="Code and weights">
     <a class="pill" href="https://github.com/mconcat/statescope"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M5.6 3.6 1.6 8l4 4.4M10.4 3.6l4 4.4-4 4.4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>Code</a>
@@ -302,7 +302,7 @@
       </details>
       <details class="more"><summary>Table: firing rates of the three transforms</summary>
 <div class="table-wrap"><table>
-<caption>Fraction of tokens at which each transform&#x27;s gate is open, on the clean texts of the two count cells. Measured by our demonstration script.</caption>
+<caption>Fraction of tokens at which each transform&#x27;s gate is open, on the clean texts of the two count cells.</caption>
 <thead><tr>
 <th scope="col">Tokens</th>
 <th scope="col">L8 transform 189</th>
@@ -474,7 +474,7 @@ The frame part gives most, but not all, of the movement of the gate input; the r
 
 
     <h3 id="steer"><a href="#steer">Steering one unit by a dose</a></h3>
-    <p class="lead">A dose α scales the change from a unit's clean value toward its corrupt value, aligned to the clean text's token positions. In Figure 9, we varied the dose across 10 measured values from -1 to 2 for 5 units. For L8 transform 189 in <code>count:60</code>, the share is 0.348 at α = 1 and 0.349 at α = 2, so going past the full swap adds nothing there; at α = -1, the share is 0.073, so a negative dose is not the mirror image of a positive one.</p>
+    <p class="lead">A dose α scales the change from a unit’s clean value toward its corrupt value, aligned to the clean text’s token positions, and we varied the dose across 10 values from -1 to 2 for 5 units. The shares in Figure 9 are over all 64 items of a cell, while we read shares elsewhere on the page on the 32 even-numbered items, so the numbers differ. For L8 transform 189 in <code>count:60</code>, over all 64 items, we observed a share of 0.348 at the full swap and 0.349 at α = 2, so going past the full swap adds nothing there, while the share of 0.073 at α = -1 shows that a negative dose is not the mirror image of a positive one.</p>
     <figure class="needs-js" id="fig-steer" data-zone="Extrapolated values" data-aria-share="The curve shows how the share changes with dose, with a bootstrap interval band and the chosen dose marked." data-aria-mean="The curve shows how the mean margin changes with dose against horizontal clean and corrupt means, with the chosen dose marked." data-aria-items="The plot compares each item's clean, corrupt and dosed margins at the chosen dose." data-key-clean="Clean margin" data-key-corrupt="Corrupt margin" data-key-dosed="Dosed margin" data-readout-interval="Bootstrap interval">
       <div class="figure-head">
         <div class="controls">
@@ -552,12 +552,12 @@ The frame part gives most, but not all, of the movement of the gate input; the r
 
         <figure id="fig-u1">
           <div class="bars">
-            <h4>24 rule families</h4>
-            <div class="hbar ref"><span class="hbar-label">Before the shift</span><b>0.516</b><div class="hbar-track"><i style="--v:0.516"></i></div></div>
-            <div class="hbar inside"><span class="hbar-label">After the shift</span><b>0.773</b><div class="hbar-track"><i style="--v:0.773"></i></div></div>
+            <h4>Across 24 rule families</h4>
+            <div class="hbar ref"><span class="hbar-label">Without the group shift</span><b>0.516</b><div class="hbar-track"><i style="--v:0.516"></i></div></div>
+            <div class="hbar inside"><span class="hbar-label">With the group shift</span><b>0.773</b><div class="hbar-track"><i style="--v:0.773"></i></div></div>
             <h4>Comparison with forced comment sign</h4>
-            <div class="hbar inside"><span class="hbar-label">State group shift</span><b>0.72</b><div class="hbar-track"><i style="--v:0.72"></i></div></div>
-            <div class="hbar ref"><span class="hbar-label">Forced <code>#</code></span><b>0.65</b><div class="hbar-track"><i style="--v:0.65"></i></div></div>
+            <div class="hbar inside"><span class="hbar-label">With the group shift</span><b>0.72</b><div class="hbar-track"><i style="--v:0.72"></i></div></div>
+            <div class="hbar ref"><span class="hbar-label">First body token forced to <code>#</code></span><b>0.65</b><div class="hbar-track"><i style="--v:0.65"></i></div></div>
             <div class="hbar-axis" aria-hidden="true"><span>0</span><span>Rate of correct rules</span><span>1</span></div>
           </div>
           <figcaption><b>Figure 10.</b> The first pair of bars shows the rate of correct rules without and with the group shift across 24 rule families. The second pair compares the group shift with forcing the first body token to <code>#</code>.</figcaption>
@@ -621,10 +621,9 @@ The frame part gives most, but not all, of the movement of the gate input; the r
         <figure id="fig-u3">
           <div class="bars">
             <div class="hbar inside"><span class="hbar-label">MLP dictionary reconstruction</span><b>0.89 (0.78 to 1.00)</b><div class="hbar-track"><i style="--v:0.89"></i><i class="ci" style="--lo:0.78;--hi:1.00"></i></div></div>
-            <div class="hbar ref"><span class="hbar-label">2 MLP neurons</span><b>0.80</b><div class="hbar-track"><i style="--v:0.80"></i></div></div>
             <div class="hbar-axis" aria-hidden="true"><span>0</span><span>Share of the MLP’s contribution</span><span>1</span></div>
           </div>
-          <figcaption><b>Figure 12.</b> The bars show the share of the MLP’s contribution carried by the dictionary reconstruction and by two MLP neurons in the JavaScript circuit we traced by hand. The reconstruction carries 0.89, with an interval of 0.78 to 1.00, and the neurons carry 0.80.</figcaption>
+          <figcaption><b>Figure 12.</b> In the JavaScript circuit we traced by hand, the bar shows that the MLP dictionary’s reconstruction carried 0.89 of the layer-7 MLP’s contribution, with a mark showing the interval from 0.78 to 1.00.</figcaption>
         </figure>
       </div>
     </article>

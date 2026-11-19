@@ -30,7 +30,7 @@
 
 <header class="hero" id="top">
   <h1>statescope</h1>
-  <p class="subtitle">statescope is a method and a reader for reading language model computation through per-layer dictionaries as a circuit of state groups and transforms.</p>
+  <p class="subtitle">Reading language model computation as circuits of state groups and transforms</p>
   <p class="sets">Dictionary weights are available for Qwen3.5-4B and Qwen3.5-0.8B so far; more models will follow.</p>
   <nav class="links" aria-label="Code and weights">
     <a class="pill" href="https://github.com/mconcat/statescope"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M5.6 3.6 1.6 8l4 4.4M10.4 3.6l4 4.4-4 4.4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>Code</a>
@@ -391,7 +391,7 @@ The frame part gives most, but not all, of the movement of the gate input; the r
 
 <!--if steer-->
     <h3 id="steer">Steering one unit by a dose</h3>
-    <p class="lead">A dose α scales the change from a unit's clean value toward its corrupt value, aligned to the clean text's token positions. In Figure {{fig|steer}}, we varied the dose across {{steer.doses}} measured values from {{steer.dose_min}} to {{steer.dose_max}} for {{steer.units}} units. For L8 transform {{demo.l8_transform}} in <code>count:60</code>, the share is {{steer|count:60|l8/t189|1}} at α = 1 and {{steer|count:60|l8/t189|2}} at α = {{steer.dose_max}}, so going past the full swap adds nothing there; at α = {{steer.dose_min}}, the share is {{steer|count:60|l8/t189|-1}}, so a negative dose is not the mirror image of a positive one.</p>
+    <p class="lead">A dose α scales the change from a unit’s clean value toward its corrupt value, aligned to the clean text’s token positions, and we varied the dose across {{steer.doses}} values from {{steer.dose_min}} to {{steer.dose_max}} for {{steer.units}} units. The shares in Figure {{fig|steer}} are over all {{steer.items}} items of a cell, while we read shares elsewhere on the page on the {{demo.items_per_half}} even-numbered items, so the numbers differ. For L8 transform {{demo.l8_transform}} in <code>count:60</code>, over all {{steer.items}} items, we observed a share of {{steer|count:60|l8/t189|1}} at the full swap and {{steer|count:60|l8/t189|2}} at α = {{steer.dose_max}}, so going past the full swap adds nothing there, while the share of {{steer|count:60|l8/t189|-1}} at α = {{steer.dose_min}} shows that a negative dose is not the mirror image of a positive one.</p>
     <figure class="needs-js" id="fig-steer" data-zone="Extrapolated values" data-aria-share="The curve shows how the share changes with dose, with a bootstrap interval band and the chosen dose marked." data-aria-mean="The curve shows how the mean margin changes with dose against horizontal clean and corrupt means, with the chosen dose marked." data-aria-items="The plot compares each item's clean, corrupt and dosed margins at the chosen dose." data-key-clean="Clean margin" data-key-corrupt="Corrupt margin" data-key-dosed="Dosed margin" data-readout-interval="Bootstrap interval">
       <div class="figure-head">
         <div class="controls">
@@ -460,12 +460,12 @@ The frame part gives most, but not all, of the movement of the gate input; the r
 <!--endif examples-->
         <figure id="fig-u1">
           <div class="bars">
-            <h4>{{b4u.rule_families}} rule families</h4>
-            <div class="hbar ref"><span class="hbar-label">Before the shift</span><b>{{b4u.rule_before}}</b><div class="hbar-track"><i style="--v:{{b4u.rule_before}}"></i></div></div>
-            <div class="hbar inside"><span class="hbar-label">After the shift</span><b>{{b4u.rule_after}}</b><div class="hbar-track"><i style="--v:{{b4u.rule_after}}"></i></div></div>
+            <h4>Across {{b4u.rule_families}} rule families</h4>
+            <div class="hbar ref"><span class="hbar-label">Without the group shift</span><b>{{b4u.rule_before}}</b><div class="hbar-track"><i style="--v:{{b4u.rule_before}}"></i></div></div>
+            <div class="hbar inside"><span class="hbar-label">With the group shift</span><b>{{b4u.rule_after}}</b><div class="hbar-track"><i style="--v:{{b4u.rule_after}}"></i></div></div>
             <h4>Comparison with forced comment sign</h4>
-            <div class="hbar inside"><span class="hbar-label">State group shift</span><b>{{b4u.rule_unit_same_run}}</b><div class="hbar-track"><i style="--v:{{b4u.rule_unit_same_run}}"></i></div></div>
-            <div class="hbar ref"><span class="hbar-label">Forced <code>#</code></span><b>{{b4u.rule_forced}}</b><div class="hbar-track"><i style="--v:{{b4u.rule_forced}}"></i></div></div>
+            <div class="hbar inside"><span class="hbar-label">With the group shift</span><b>{{b4u.rule_unit_same_run}}</b><div class="hbar-track"><i style="--v:{{b4u.rule_unit_same_run}}"></i></div></div>
+            <div class="hbar ref"><span class="hbar-label">First body token forced to <code>#</code></span><b>{{b4u.rule_forced}}</b><div class="hbar-track"><i style="--v:{{b4u.rule_forced}}"></i></div></div>
             <div class="hbar-axis" aria-hidden="true"><span>0</span><span>Rate of correct rules</span><span>1</span></div>
           </div>
           <figcaption><b>Figure {{fig|u1}}.</b> The first pair of bars shows the rate of correct rules without and with the group shift across {{b4u.rule_families}} rule families. The second pair compares the group shift with forcing the first body token to <code>#</code>.</figcaption>
@@ -529,10 +529,9 @@ The frame part gives most, but not all, of the movement of the gate input; the r
         <figure id="fig-u3">
           <div class="bars">
             <div class="hbar inside"><span class="hbar-label">MLP dictionary reconstruction</span><b>{{b4u.js_share}} ({{b4u.js_lo}} to {{b4u.js_hi}})</b><div class="hbar-track"><i style="--v:{{b4u.js_share}}"></i><i class="ci" style="--lo:{{b4u.js_lo}};--hi:{{b4u.js_hi}}"></i></div></div>
-            <div class="hbar ref"><span class="hbar-label">2 MLP neurons</span><b>{{b4u.js_neurons}}</b><div class="hbar-track"><i style="--v:{{b4u.js_neurons}}"></i></div></div>
             <div class="hbar-axis" aria-hidden="true"><span>0</span><span>Share of the MLP’s contribution</span><span>1</span></div>
           </div>
-          <figcaption><b>Figure {{fig|u3}}.</b> The bars show the share of the MLP’s contribution carried by the dictionary reconstruction and by two MLP neurons in the JavaScript circuit we traced by hand. The reconstruction carries {{b4u.js_share}}, with an interval of {{b4u.js_lo}} to {{b4u.js_hi}}, and the neurons carry {{b4u.js_neurons}}.</figcaption>
+          <figcaption><b>Figure {{fig|u3}}.</b> In the JavaScript circuit we traced by hand, the bar shows that the MLP dictionary’s reconstruction carried {{b4u.js_share}} of the layer-{{b4u.js_layer}} MLP’s contribution, with a mark showing the interval from {{b4u.js_lo}} to {{b4u.js_hi}}.</figcaption>
         </figure>
       </div>
     </article>

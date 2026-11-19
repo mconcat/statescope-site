@@ -137,8 +137,8 @@ def tables(facts: dict) -> dict[str, str]:
     for i, b in enumerate(bins):
         rate_rows.append([f"other token, {b} characters in the line"] + [demo["firing_rate"][u]["by_chars_in_line"][i]["rate"] for u in units])
     out["rates"] = table(
-        "Fraction of tokens at which each transform's gate is open, on the clean texts of the two count cells. "
-        "Measured by our demonstration script.", ["Tokens"] + units, rate_rows, row_header=True)
+        "Fraction of tokens at which each transform's gate is open, on the clean texts of the two count cells.", ["Tokens"] + units, rate_rows,
+        row_header=True)
     out["details08b"] = details_table(facts, DETAILS_CAPTION_08B, False)
     if exists("layers-4b.json"):
         out["details4b"] = details_table(facts, DETAILS_CAPTION_4B, True)
@@ -259,9 +259,10 @@ def references() -> str:
 
 
 # ------------------------------------------------------------------------------------------------ the page
-def conditional(page: str, name: str, keep: bool) -> str:
+def conditional(page: str, name: str, keep: bool, inside: str | None = None) -> str:
+    """keep or drop the blocks of one name; a name whose blocks all stand inside another block may be gone with it"""
     pattern = re.compile(rf"<!--if {name}-->(.*?)<!--endif {name}-->", flags=re.S)
-    assert pattern.search(page), f"no block for {name!r} in the template"
+    assert pattern.search(page) or (inside and not exists(inside)), f"no block for {name!r} in the template"
     return pattern.sub((lambda m: m.group(1)) if keep else (lambda m: ""), page)
 
 
@@ -274,7 +275,7 @@ def main() -> None:
     page = conditional(page, "4b", exists("layers-4b.json"))
     page = conditional(page, "steer", exists("steer.json"))
     page = conditional(page, "curve", exists("count-curve.json"))
-    page = conditional(page, "examples", exists("examples-4b.json"))
+    page = conditional(page, "examples", exists("examples-4b.json"), inside="layers-4b.json")
     examples = data("examples-4b.json") if exists("examples-4b.json") else None
     steer = data("steer.json") if exists("steer.json") else None
     page = re.sub(r"<!--.*?-->", "", page, flags=re.S)                        # the template's remaining notes are not part of the page
