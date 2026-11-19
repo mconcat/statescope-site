@@ -27,7 +27,8 @@ PAGE_DATA = ["facts.json", "layers.json", "splice.json", "demo.json"]          #
 OPTIONAL_DATA = ["layers-4b.json", "steer.json", "used-4b.json", "examples-4b.json", "count-curve.json"]
 REFERENCES = os.path.join("tools", "references.json")                          # bibliographic data of the works the page refers to
 ALLOWED_LINKS = ("https://github.com/mconcat/statescope", "https://huggingface.co/mconcat/statescope-qwen3.5-0.8b",
-                 "https://huggingface.co/mconcat/statescope-qwen3.5-4b", "https://arxiv.org/abs/2601.04480", "https://arxiv.org/abs/2611.13270")
+                 "https://huggingface.co/mconcat/statescope-qwen3.5-4b", "https://arxiv.org/abs/2601.04480", "https://arxiv.org/abs/2502.20332",
+                 "https://arxiv.org/abs/2611.13270")
 STRIP = ".,;:!?()[]{}\"'`<>‘’“”"
 
 
@@ -85,14 +86,23 @@ def words_with_digits(text: str) -> list[str]:
         word = word.strip(STRIP)
         if word.endswith(("'s", "’s")):
             word = word[:-2]
-        if any(ch.isdigit() for ch in word):
+        if any(ch in "0123456789" for ch in word):                            # a superscript, as in "R²", is not a number
             out.append(word)
     return out
 
 
 def occurs(word: str, corpus: str) -> bool:
-    """the word stands in the corpus as a whole number or name, not as a piece of a longer one"""
-    return re.search(r"(?<![A-Za-z0-9])(?<!\d[.,])" + re.escape(word) + r"(?![A-Za-z0-9]|[.,]\d)", corpus) is not None
+    """the word stands in the corpus as a whole number or name, not as a piece of a longer one.
+    "layer-7" is the sources' "layer 7", and "2.5%" their "2.5 %"."""
+    def whole(w: str) -> bool:
+        return re.search(r"(?<![A-Za-z0-9])(?<!\d[.,])" + re.escape(w) + r"(?![A-Za-z0-9]|[.,]\d)", corpus) is not None
+    if whole(word):
+        return True
+    m = re.fullmatch(r"(layer)-(\d+)", word)
+    if m:
+        return whole(f"{m.group(1)} {m.group(2)}")
+    m = re.fullmatch(r"([\d.]+)%", word)
+    return bool(m) and whole(f"{m.group(1)} %")
 
 
 def data_values(names: list[str]) -> str:

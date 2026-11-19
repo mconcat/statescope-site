@@ -58,6 +58,8 @@ def main() -> None:
     ap.add_argument("--result", required=True)
     ap.add_argument("--hf-home", required=True)
     ap.add_argument("--weights-4b", help="needed when the site has data/layers-4b.json")
+    ap.add_argument("--steer", help="folder with steer.json, steer_margins.safetensors, count_curve.json and count_readout.json; needed when the site has those figures")
+    ap.add_argument("--examples-4b", help="the project's notes of selected results; needed when the site has data/examples-4b.json")
     args = ap.parse_args()
     torch.set_num_threads(4)
     repo = lambda rel: os.path.join(args.repo, rel)
@@ -161,7 +163,7 @@ def main() -> None:
           (f"{manifest['3']['state']['groups']:,}", str(manifest["3"]["state"]["group_size"]), str(manifest["3"]["state"]["k"])),
           (facts["state.groups"]["display"], facts["state.group_size"]["display"], facts["state.active"]["display"]))
     for n, (key, sentence, text, name) in enumerate((("fvu.tokens", "The splits for the 0.8B set contain {} tokens per layer", readme, "README"),
-                                                     ("splice.clean_ce", "on text with clean cross-entropy {}.", card, "model card"),
+                                                     ("splice.clean_ce", "Clean cross-entropy was {}.", card, "model card"),
                                                      ("rule.inside_min", "The rule requires at least {} of the whole share inside the frame", readme, "README")), start=19):
         check(f"{n}. the {name} holds the sentence with the page's value of {key}", True, sentence.format(facts[key]["display"]) in text)
 
@@ -253,6 +255,54 @@ def main() -> None:
         check("26. 4B: always-on transforms at layer 13 (web text / training mix), and the layer with the largest share of write energy",
               (f"{len(always['13']['on_90pct'])} / {always['13']['training_mix_heldout_counts']['on_90pct']}", best, f"{always[best]['energy_share_on_90pct']:.2f}"),
               (four[13]["always_text"], facts["b4.energy_max_layer"]["display"], facts["b4.energy_max"]["display"]))
+
+    # 27-30: the dose figure and the two count figures, from the files of their runs
+    if os.path.exists(os.path.join(HERE, "data", "steer.json")):
+        assert args.steer, "--steer is needed to check the dose figure"
+        held = site("steer.json")
+        S = load_file(os.path.join(args.steer, "steer_margins.safetensors"))
+        cell, arm, alpha = "width:100", "head_o", "0.75"
+        m_c, m_x, m = (S[f"margin/{cell}/{k}"].double() for k in ("m_c", "m_x", f"{arm}@{alpha}"))
+        i = held["alphas"].index(alpha)
+        a = held["cells"][cell]["arms"][arm]
+        check(f"27. dose figure: share, mean margin and the margin of item 12 recomputed from the run's margins: {cell}, {arm}, dose {alpha}",
+              (f3(float((m_c - m).mean() / (m_c - m_x).mean())), f2(float(m.mean())), f2(float(m[12]))), (a["share"][i], a["mean"][i], a["items"][i][12]))
+        i1 = held["alphas"].index("1")
+        check("28. dose figure: dose 1 is the demonstration's swap (share on all items, L8 transform 189, count:60), and dose 0 is the clean run (item 5)",
+              (demo["shares"]["count:60"]["l8/t189"]["all"]["s"], demo["margins"]["count:60"]["clean"][5]),
+              (held["cells"]["count:60"]["arms"]["l8/t189"]["share"][i1], held["cells"]["count:60"]["arms"]["l8/t189"]["items"][held["alphas"].index("0")][5]))
+    if os.path.exists(os.path.join(HERE, "data", "count-curve.json")):
+        assert args.steer, "--steer is needed to check the count figures"
+        with open(os.path.join(args.steer, "count_curve.json")) as f:
+            cc = json.load(f)
+        with open(os.path.join(args.steer, "count_readout.json")) as f:
+            cr = json.load(f)
+        held, heldr = site("count-curve.json"), site("count-readout.json")
+        check("29. count curve: the point of count 40 in texts wrapped at 100, its tokens, and the share of variance in the plane",
+              (f3(cc["widths"]["100"]["projection"][40][0]), f3(cc["widths"]["100"]["projection"][40][1]), f"{cc['widths']['100']['tokens_active'][40]:,}",
+               f3(sum(cc["plane"]["variance_share_of_components"][:2]))),
+              (held["widths"]["100"]["x"][40], held["widths"]["100"]["y"][40], held["widths"]["100"]["tokens"][40], facts["curve.plane"]["display"]))
+        check("30. count readout: threshold of transform 1749, its mean gate input and firing rate at 95 characters (width 100), R² of transform 410 (width 60)",
+              (f3(cr["threshold"]["1749"]), f2(cr["widths"]["100"]["1749"]["mean_gate_input"][95]), f2(cr["widths"]["100"]["1749"]["firing_rate"][95]),
+               f3(cr["widths"]["60"]["410"]["r2_gate_input_on_frame_part"])),
+              (heldr["threshold"]["1749"], heldr["widths"]["100"]["1749"]["gate"][95], heldr["widths"]["100"]["1749"]["rate"][95], facts["read.t410_r2_w60"]["display"]))
+    # 31-32: the 4B examples: numbers from the 4B model card, samples from the notes
+    if os.path.exists(os.path.join(HERE, "data", "used-4b.json")):
+        with open(repo("release/qwen35-4b/MODEL_CARD.md")) as f:
+            card4 = f.read()
+        used = site("used-4b.json")
+        sentences = (f"The rate of correct rules rose from {used['rule']['bars'][0]['value']} to {used['rule']['bars'][1]['value']}.",
+                     f"It flipped from ABA to ABB in {used['aba']['flips'][0]['value']} of prompts.",
+                     f"sixteen {used['aba']['ranges'][2]['lo']} to {used['aba']['ranges'][2]['hi']}.",
+                     f"the MLP reconstruction carried {used['js']['bars'][0]['value']} of the MLP's contribution, with an interval of {used['js']['bars'][0]['lo']} to {used['js']['bars'][0]['hi']}.")
+        check("31. 4B examples: the 4B model card holds the sentences with the page's values", [True] * len(sentences), [x in card4 for x in sentences])
+    if os.path.exists(os.path.join(HERE, "data", "examples-4b.json")):
+        assert args.examples_4b, "--examples-4b is needed to check the samples"
+        with open(args.examples_4b) as f:
+            notes = f.read()
+        ex = site("examples-4b.json")
+        check("32. 4B examples: the generated function and the four natural-text contexts stand in the notes, character for character",
+              [True] * 5, [ex["rule_sample"] in notes] + [c in notes for c in ex["contexts"]["aba"] + ex["contexts"]["less"]])
 
     print(f"\n{sum(results)} of {len(results)} checks passed")
     sys.exit(0 if all(results) else 1)

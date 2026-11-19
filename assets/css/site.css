@@ -422,6 +422,8 @@ figcaption code {
   margin: -1.9rem 0 2.4rem;
 }
 .toggles details.more {
+  min-width: 0;
+  max-width: 100%;
   margin: 0;
 }
 .toggles details.more[open] {
@@ -749,7 +751,8 @@ figure.teaser .keys {
 .control > .label,
 .control > label {
   color: var(--muted);
-  flex: none;
+  flex: 0 1 auto;
+  min-width: 0;
 }
 .control > select {
   flex: 0 1 auto;
@@ -1080,6 +1083,9 @@ input[type="number"]::-webkit-inner-spin-button {
   line-height: 1.55;
   color: var(--muted);
 }
+.plot {
+  overflow: hidden;
+}
 .plot svg {
   display: block;
   max-width: 100%;
@@ -1176,6 +1182,19 @@ input[type="number"]::-webkit-inner-spin-button {
   font-family: var(--sans);
   font-size: 11.5px;
   fill: var(--ink);
+  paint-order: stroke;
+  stroke: var(--ground);
+  stroke-width: 3.5px;
+  stroke-linejoin: round;
+}
+.plot .mean-arrow text.on-plot {
+  stroke: var(--paper);
+}
+.plot .mean-track {
+  fill: none;
+  stroke: var(--line);
+  stroke-width: 9;
+  stroke-linecap: butt;
 }
 .plot text.on-plot.strong {
   font-weight: 650;
@@ -1191,7 +1210,7 @@ input[type="number"]::-webkit-inner-spin-button {
 .curve-pt {
   stroke: var(--ground);
   stroke-width: 1;
-  fill: color-mix(in oklab, var(--ink) calc(18% + var(--t) * 82%), var(--line-soft));
+  fill: color-mix(in oklab, var(--ink) calc(26% + var(--t) * 74%), var(--line-soft));
 }
 .curve-pt.hot {
   stroke: var(--ink);
@@ -1246,7 +1265,7 @@ input[type="number"]::-webkit-inner-spin-button {
   width: 64px;
   height: 9px;
   border-radius: 2px;
-  background: linear-gradient(90deg, color-mix(in oklab, var(--ink) 18%, var(--line-soft)), var(--ink));
+  background: linear-gradient(90deg, color-mix(in oklab, var(--ink) 26%, var(--line-soft)), var(--ink));
 }
 .steer-grid {
   display: grid;
@@ -1453,7 +1472,8 @@ input[type="range"] {
   font-weight: 620;
 }
 #fig-layer .s-steptext {
-  font: 500 10.5px var(--mono);
+  font-size: 11.5px;
+  font-weight: 620;
 }
 .s-step {
   fill: var(--mark);
@@ -1640,6 +1660,7 @@ input[type="range"] {
 }
 .exp-show {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 1.3rem;
 }
 .exp-show figure {

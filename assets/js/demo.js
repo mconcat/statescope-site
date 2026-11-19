@@ -332,6 +332,7 @@ export function initDemo(demo, load) {
     const panel = svg("g", { class: "mean-arrow", "aria-hidden": "true" });
     panel.append(svg("rect", { x: x0, y: M.t - 22, width: meanW, height: H - M.b - M.t + 30, rx: 8, class: "mean-panel" }));
     panel.append(svg("text", { x: x0 + 10, y: M.t - 7, class: "on-plot strong" }, words.mean));
+    panel.append(svg("path", { d: `M${xc} ${y(mc)}V${y(mx)}`, class: "mean-track" }));
     panel.append(svg("path", { d: `M${x0 + 8} ${y(mc)}H${x0 + meanW - 8}`, class: "mean-line" }));
     panel.append(svg("path", { d: `M${x0 + 8} ${y(mx)}H${x0 + meanW - 8}`, class: "mean-line target" }));
     panel.append(svg("text", { x: xc + 16, y: y(mc) - 5, class: "on-plot quiet" }, words.start));

@@ -1,11 +1,28 @@
 {
   "note": "Works the page refers to. Bibliographic data, typed by hand from the arXiv abstract pages; tools/build_page.py writes the list.",
   "references": [
-    {"authors": "Wes Gurnee, Emmanuel Ameisen, Isaac Kauvar, Julius Tarng, Adam Pearce, Chris Olah, Joshua Batson",
-     "title": "When Models Manipulate Manifolds: The Geometry of a Counting Task", "id": "arXiv:2601.04480", "date": "8 January 2026",
-     "url": "https://arxiv.org/abs/2601.04480"},
-    {"authors": "Melody Zixuan Li, Taylor Webb",
-     "title": "What drives the emergence of symbolic mechanisms in large language models?", "id": "arXiv:2611.13270", "date": "9 November 2026",
-     "url": "https://arxiv.org/abs/2611.13270", "needs": "examples-4b.json"}
+    {
+      "authors": "Wes Gurnee, Emmanuel Ameisen, Isaac Kauvar, Julius Tarng, Adam Pearce, Chris Olah, Joshua Batson",
+      "title": "When Models Manipulate Manifolds: The Geometry of a Counting Task",
+      "id": "arXiv:2601.04480",
+      "date": "8 January 2026",
+      "url": "https://arxiv.org/abs/2601.04480"
+    },
+    {
+      "authors": "Yukang Yang, Declan Campbell, Kaixuan Huang, Mengdi Wang, Jonathan Cohen, Taylor Webb",
+      "title": "Emergent Symbolic Mechanisms Support Abstract Reasoning in Large Language Models",
+      "id": "arXiv:2502.20332",
+      "date": "27 February 2025",
+      "url": "https://arxiv.org/abs/2502.20332",
+      "needs": "used-4b.json"
+    },
+    {
+      "authors": "Melody Zixuan Li, Taylor Webb",
+      "title": "What drives the emergence of symbolic mechanisms in large language models?",
+      "id": "arXiv:2611.13270",
+      "date": "9 November 2026",
+      "url": "https://arxiv.org/abs/2611.13270",
+      "needs": "used-4b.json"
+    }
   ]
 }

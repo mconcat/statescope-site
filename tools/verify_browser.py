@@ -7,7 +7,9 @@ Checks: no console error, no failed request, no request to another host, no hori
 width, light and dark; the first figure (built without a browser) holds the tokens, gates and character counts of the item file and
 its text sits on the scale of one character; every cell x swap x set of items shows the share of data/demo.json; the chain, the
 items, the pair viewer, the link comparison, the tables, the layer panels (by keyboard and by pointer) and the 4B panels show the
-values of the data files; no "NaN" or "undefined" anywhere; every number that the page shows after these interactions is traceable
+values of the data files; the dose figure shows the share, interval, mean margin and item margins of data/steer.json at every unit,
+cell and dose; the two count figures show the values of data/count-curve.json and data/count-readout.json; the bars of the 4B
+examples show the values of data/used-4b.json; no "NaN" or "undefined" anywhere; every number that the page shows after these interactions is traceable
 (the rule of tools/lint_page.py, with the data files added); without JavaScript the text, the first figure and the tables are there.
 """
 from __future__ import annotations
@@ -27,7 +29,7 @@ from playwright.async_api import async_playwright  # noqa: E402
 
 HERE = lint_page.HERE
 problems: list[str] = []
-counts = {"shares": 0, "chain rows": 0, "items": 0, "layers": 0, "link": 0, "tables": 0, "lead tokens": 0}
+counts = {"shares": 0, "chain rows": 0, "items": 0, "layers": 0, "link": 0, "tables": 0, "lead tokens": 0, "doses": 0, "count readouts": 0, "bars": 0}
 VIEWS = (("desktop-light", 1280, 900, "light"), ("desktop-dark", 1280, 900, "dark"), ("tablet-light", 820, 1100, "light"),
          ("tablet-dark", 820, 1100, "dark"), ("phone-light", 375, 800, "light"), ("phone-dark", 375, 800, "dark"))
 TAIL_LINES = 6          # lines of a text that the pair viewer shows before "whole text" is chosen (assets/js/demo.js)
@@ -79,9 +81,20 @@ async def open_page(browser, url: str, width: int, height: int, scheme: str, log
     await page.goto(url + "index.html", wait_until="networkidle")
     await page.wait_for_selector("#chain .chain-row .value")
     await page.wait_for_selector("#clean-box .tok")
-    await page.wait_for_selector("#layer-panels svg")
     await page.wait_for_selector("#items-plot svg")
+    for sel, name in (("#steer-items-plot svg", "steer.json"), ("#curve-plot svg", "count-curve.json"), ("#read-lines svg", "count-readout.json")):
+        if os.path.exists(os.path.join(HERE, "data", name)):
+            await page.wait_for_selector(sel)
     return ctx, page
+
+
+async def open_folds(page) -> None:
+    """the blocks that stay closed until asked for (training details, numbers per layer, what was checked) are opened by their summaries"""
+    for i in range(await page.locator("details.fold").count()):
+        d = page.locator("details.fold").nth(i)
+        if await d.get_attribute("open") is None:
+            await d.locator("> summary").click()
+    await page.wait_for_selector("#layer-panels svg")
 
 
 async def basic(page, name: str, width: int) -> None:
@@ -266,8 +279,9 @@ async def full_pass(page, demo: dict, layers: dict, splice: dict, corpus: str, n
         await page.click("#item-next")
         expect(await page.input_value("#item-number") == "0", "next-item button wraps around")
         cols = page.locator("#items-plot .item-col")
+        tenth = await cols.nth(10).get_attribute("data-item")                  # the items stand in the order of their clean margin
         await cols.nth(10).click()
-        expect(await page.input_value("#item-number") == "10", "click on an item in the plot")
+        expect(await page.input_value("#item-number") == tenth, "click on an item in the plot")
         await page.click('#sort-seg button[data-value="clean"]')
         order = await page.eval_on_selector_all("#items-plot .item-col", "n => n.map(x => +x.dataset.item)")
         clean = [float(v) for v in demo["margins"][cell]["clean"]]
@@ -342,6 +356,8 @@ async def full_pass(page, demo: dict, layers: dict, splice: dict, corpus: str, n
         expect(marks == [[2 * len(four), 0], [2 * len(four), 0], [0, len(four)], [len(four), 0]], f"marks of the 4B panels {marks}")
     seen_text.append(await page.evaluate(VISIBLE_TEXT))
 
+    seen_text += await new_figures(page, demo)
+
     # every table behind a "Table" line opens
     for i in range(await page.locator("details.more").count()):
         d = page.locator("details.more").nth(i)
@@ -365,6 +381,87 @@ async def full_pass(page, demo: dict, layers: dict, splice: dict, corpus: str, n
         expect(needle not in html_text, f"after the interactions: {needle!r} in the page")
 
 
+async def new_figures(page, demo: dict) -> list[str]:
+    """the dose figure, the two count figures and the bars of the 4B examples against their data files; returns the text seen"""
+    seen = []
+    if os.path.exists(os.path.join(HERE, "data", "steer.json")):
+        steer = data("steer.json")
+        expect(await page.locator("#steer-unit option").count() == len(steer["units"]), "dose figure: units offered")
+        for unit in steer["units"]:
+            await page.select_option("#steer-unit", unit["key"])
+            for cell, c in steer["cells"].items():
+                await page.click(f'#steer-cell button[data-value="{cell}"]')
+                a = c["arms"][unit["key"]]
+                for i, alpha in enumerate(steer["alphas"]):
+                    await page.fill("#steer-dose", str(i))
+                    got = [await page.inner_text(sel) for sel in ("#steer-dose-value", "#steer-share", "#steer-interval", "#steer-mean", "#steer-items-title")]
+                    expect(got[:2] == [alpha, a["share"][i]] and got[2].endswith(f" {a['lo'][i]} to {a['hi'][i]}") and got[3] == a["mean"][i] and got[4].endswith(f"= {alpha}"),
+                           f"dose figure {unit['key']} {cell} {alpha}: {got}")
+                    marks = await page.eval_on_selector_all("#steer-items-plot .item-col", "n => n.map(x => [+x.dataset.item, x.querySelector('.pt-patched').dataset.margin])")
+                    expect(len(marks) == len(c["clean"]) and all(m == a["items"][i][j] for j, m in marks), f"dose figure {unit['key']} {cell} {alpha}: item margins")
+                    chosen = await page.eval_on_selector_all("#steer-share-plot .mark.chosen, #steer-mean-plot .mark.chosen", "n => n.map(x => x.dataset.dose)")
+                    expect(chosen == [alpha, alpha], f"dose figure {unit['key']} {cell} {alpha}: chosen marks {chosen}")
+                    counts["doses"] += 1
+                expect(await page.locator("#steer-key-ref-item").is_visible() == bool(unit["reference"]), f"dose figure {unit['key']}: reference line key")
+            seen.append(await page.evaluate(VISIBLE_TEXT))
+        i1 = steer["alphas"].index(steer["swap_dose"])                        # dose 1 is the demonstration's swap, on all items
+        for cell in steer["cells"]:
+            for unit in steer["units"]:
+                expect(steer["cells"][cell]["arms"][unit["key"]]["share"][i1] == demo["shares"][cell][unit["key"]]["all"]["s"], f"dose 1 of {unit['key']} in {cell}")
+    if os.path.exists(os.path.join(HERE, "data", "count-curve.json")):
+        curve, read = data("count-curve.json"), data("count-readout.json")
+        total = sum(len(w["counts"]) for w in curve["widths"].values())
+        expect(await page.locator("#curve-plot .curve-pt").count() == total, "count curve: number of points")
+        for count in (0, 7, 30, 60, 61, 100):
+            await page.fill("#curve-count", str(count))
+            got = await page.eval_on_selector_all("#curve-readout b", "n => n.map(x => x.textContent)")
+            want = [str(count)] + [w["tokens"][count] for w in curve["widths"].values() if count < len(w["counts"])]
+            expect(got == want, f"count curve readout at {count}: {got} != {want}")
+            hot = await page.eval_on_selector_all("#curve-plot .curve-pt.hot", "n => n.map(x => x.dataset.count)")
+            expect(hot == [str(count)] * (len(want) - 1), f"count curve: marked points at {count}: {hot}")
+            counts["count readouts"] += 1
+        for t in read["transforms"]:
+            await page.click(f'#read-transform button[data-value="{t}"]')
+            for w, d in read["widths"].items():
+                await page.click(f'#read-width button[data-value="{w}"]')
+                for count in (0, 25, len(d["counts"]) - 1):
+                    await page.fill("#read-count", str(count))
+                    got = await page.eval_on_selector_all("#read-readout b", "n => n.map(x => x.textContent)")
+                    want = [str(count), d[t]["gate"][count], d[t]["frame"][count], read["threshold"][t], d[t]["rate"][count]]
+                    expect(got == want, f"count readout {t} width {w} at {count}: {got} != {want}")
+                    shade = await page.eval_on_selector_all(f'#read-plane .curve-pt[data-width="{w}"][data-count="{count}"]', "n => n.map(x => x.style.getPropertyValue('--t'))")
+                    expect(len(shade) == 1 and abs(float(shade[0]) - float(d[t]["rate"][count])) < 1e-6, f"count readout {t} width {w} at {count}: shade {shade}")
+                    counts["count readouts"] += 1
+            seen.append(await page.evaluate(VISIBLE_TEXT))
+        expect(await page.locator("#read-plane .read-arrow").count() == 2, "count readout: the read direction is not drawn")
+    if os.path.exists(os.path.join(HERE, "data", "used-4b.json")):
+        used = data("used-4b.json")
+        bars = {fig: await page.eval_on_selector_all(f"#{fig} .hbar", """n => n.map(x => [x.querySelector('b').textContent,
+            [...x.querySelectorAll('.hbar-track i')].map(i => ['--v', '--lo', '--hi'].map(k => i.style.getPropertyValue(k)))])""") for fig in ("fig-u1", "fig-u2", "fig-u3")}
+        want1 = [b["value"] for b in used["rule"]["bars"]]
+        expect([b[0] for b in bars["fig-u1"]] == want1 and [b[1][0][0] for b in bars["fig-u1"]] == want1, f"bars of the first 4B example: {bars['fig-u1']}")
+        want2 = [f"{r['lo']} to {r['hi']}" for r in used["aba"]["ranges"]] + [v for f in used["aba"]["flips"] for v in (f["value"], f["twice"])]
+        expect([b[0] for b in bars["fig-u2"]] == want2, f"bars of the second 4B example: {[b[0] for b in bars['fig-u2']]}")
+        expect([b[1][0][1:] for b in bars["fig-u2"][:5]] == [[r["lo"], r["hi"]] for r in used["aba"]["ranges"]], "range bars of the second 4B example")
+        js = used["js"]["bars"]
+        expect([b[0] for b in bars["fig-u3"]] == [f"{js[0]['value']} ({js[0]['lo']} to {js[0]['hi']})", js[1]["value"]], f"bars of the third 4B example: {bars['fig-u3']}")
+        counts["bars"] += sum(len(v) for v in bars.values())
+        for fig in bars:                                                      # a bar is as long as its value on the track from 0 to 1
+            sizes = await page.eval_on_selector_all(f"#{fig} .hbar-track", "n => n.map(t => [t.getBoundingClientRect().width, ...[...t.children].map(i => i.getBoundingClientRect().width)])")
+            for (text, styles), size in zip(bars[fig], sizes):
+                v, lo, hi = styles[0]
+                length = float(v) if v else float(hi) - float(lo)
+                expect(abs(size[1] - length * size[0]) < 1.5, f"{fig}: bar {text!r} is not as long as its value")
+    if os.path.exists(os.path.join(HERE, "data", "examples-4b.json")):
+        ex = data("examples-4b.json")
+        shown = await page.eval_on_selector_all(".contexts li", "n => n.map(x => [x.textContent, x.querySelector('mark').textContent])")
+        want = [[c.replace("[[", "").replace("]]", ""), c[c.index("[[") + 2:c.index("]]")]] for c in ex["contexts"]["aba"] + ex["contexts"]["less"]]
+        expect(shown == want, f"natural-text contexts: {shown}")
+        code = await page.eval_on_selector_all(".exp .codeblock code", "n => n.map(x => x.textContent)")
+        expect(code == [ex["rule_sample"]], "the generated function of the first 4B example")
+    return seen
+
+
 async def run(args) -> None:
     url = f"http://127.0.0.1:{args.port}/"
     demo, layers, splice = data("demo.json"), data("layers.json"), data("splice.json")
@@ -382,6 +479,8 @@ async def run(args) -> None:
                 await page.screenshot(path=os.path.join(args.shots, f"{name}.png"), full_page=True)
                 for fig in await page.eval_on_selector_all("figure[id]", "n => n.map(f => f.id)"):
                     await page.locator(f"#{fig}").screenshot(path=os.path.join(args.shots, f"{name}-{fig}.png"))
+            await open_folds(page)
+            await basic(page, name + " with the closed blocks opened", width)
             if name in ("desktop-light", "phone-light"):
                 await full_pass(page, demo, layers, splice, corpus, name)
                 await basic(page, name + " after the interactions", width)
@@ -393,10 +492,12 @@ async def run(args) -> None:
         ctx = await browser.new_context(java_script_enabled=False, viewport={"width": 1280, "height": 900})
         page = await ctx.new_page()
         await page.goto(url + "index.html")
+        for i in range(await page.locator("details.fold").count()):
+            await page.locator("details.fold").nth(i).locator("> summary").click()
         for i in range(await page.locator("details.more:visible").count()):
             await page.locator("details.more:visible").nth(i).locator("summary").click()
         tables = await page.locator("table:visible").count()
-        want = 5 + os.path.exists(os.path.join(HERE, "data", "layers-4b.json"))
+        want = 6 + 2 * os.path.exists(os.path.join(HERE, "data", "layers-4b.json"))   # shares, rates, link, layers, spliced-in loss, details; 4B: layers, details
         expect(tables == want, f"without JavaScript: {tables} tables visible, {want} expected")
         expect(await page.locator(".needs-js:visible").count() == 0, "without JavaScript: an empty interactive block is visible")
         expect(await page.locator("#fig-lead .tok:visible").count() > 100, "without JavaScript: the first figure is not there")

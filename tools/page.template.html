@@ -475,6 +475,7 @@ The frame part gives most, but not all, of the movement of the gate input; the r
     <article class="exp">
       <div class="exp-text">
         <h3 id="aba-abb">Changing which repetition rule the model follows</h3>
+        <p>The ABA / ABB task and the three-stage picture of how a model solves it come from <a href="https://arxiv.org/abs/2502.20332">Yang et al. (2025)</a>, and we followed this task in Qwen3.5-4B.</p>
         <p>We gave the model comma-separated words with two examples of a repetition rule: ABA repeats the first item, as in “sun, tree, sun”, while ABB repeats the second, as in “sun, tree, tree”. At layers {{b4u.aba_layer_first}} to {{b4u.aba_layer_last}}, one group carried {{b4u.aba_one_lo}} to {{b4u.aba_one_hi}} of the effect of swapping the full residual difference between the rules, four groups carried {{b4u.aba_four_lo}} to {{b4u.aba_four_hi}}, and sixteen groups carried {{b4u.aba_sixteen_lo}} to {{b4u.aba_sixteen_hi}}.</p>
       <p>We shifted the residual stream within the frame of group {{b4u.aba_group}} at <code>resid_post.{{b4u.aba_layer}}</code> by the mean difference between the rules. This changed ABA to ABB in {{b4u.aba_to_abb}} of prompts, or {{b4u.aba_to_abb_twice}} at twice the shift. The share changing from ABB to ABA was {{b4u.abb_to_aba}}, or {{b4u.abb_to_aba_twice}} at twice the shift.</p>
       <p>A related study is <a href="https://arxiv.org/abs/2611.13270">Li and Webb</a>, “What drives the emergence of symbolic mechanisms in large language models?”</p>

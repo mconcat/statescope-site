@@ -50,7 +50,7 @@ export function initCurve(curve, readout) {
       for (const p of pts) {
         const t = shade ? shade(p) : p.c / maxCount;
         const hot = p.c === state.count && (!arrow || p.w === state.width);
-        const r = hot ? 6 : p.c === 0 ? 4.4 : 3.1;
+        const r = hot ? 6.5 : p.c === 0 ? 5 : 3.6;
         const attrs = { class: `curve-pt${hot ? " hot" : ""}${shade ? " by-rate" : ""}`, style: `--t:${t.toFixed(3)}`, "data-count": p.c, "data-width": p.w };
         root.append(SHAPE[p.w] === "circle" ? svg("circle", { cx: X(p.x), cy: Y(p.y), r, ...attrs }) : svg("rect", { x: X(p.x) - r, y: Y(p.y) - r, width: 2 * r, height: 2 * r, ...attrs }));
       }

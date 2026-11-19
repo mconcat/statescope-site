@@ -567,6 +567,7 @@ The frame part gives most, but not all, of the movement of the gate input; the r
     <article class="exp">
       <div class="exp-text">
         <h3 id="aba-abb"><a href="#aba-abb">Changing which repetition rule the model follows</a></h3>
+        <p>The ABA / ABB task and the three-stage picture of how a model solves it come from <a href="https://arxiv.org/abs/2502.20332">Yang et al. (2025)</a>, and we followed this task in Qwen3.5-4B.</p>
         <p>We gave the model comma-separated words with two examples of a repetition rule: ABA repeats the first item, as in “sun, tree, sun”, while ABB repeats the second, as in “sun, tree, tree”. At layers 11 to 14, one group carried 0.18 to 0.42 of the effect of swapping the full residual difference between the rules, four groups carried 0.50 to 0.56, and sixteen groups carried 0.67 to 0.78.</p>
       <p>We shifted the residual stream within the frame of group 12112 at <code>resid_post.13</code> by the mean difference between the rules. This changed ABA to ABB in 0.45 of prompts, or 0.98 at twice the shift. The share changing from ABB to ABA was 0.03, or 0.67 at twice the shift.</p>
       <p>A related study is <a href="https://arxiv.org/abs/2611.13270">Li and Webb</a>, “What drives the emergence of symbolic mechanisms in large language models?”</p>
@@ -676,6 +677,7 @@ python demo/line_count.py --release &lt;folder&gt; --device cuda:0 --out &lt;fol
 }</code></pre></div>
     <h3 id="references"><a href="#references">References</a></h3>
     <p class="citation">Wes Gurnee, Emmanuel Ameisen, Isaac Kauvar, Julius Tarng, Adam Pearce, Chris Olah, Joshua Batson. When Models Manipulate Manifolds: The Geometry of a Counting Task. arXiv:2601.04480, 8 January 2026. <a href="https://arxiv.org/abs/2601.04480">https://arxiv.org/abs/2601.04480</a></p>
+    <p class="citation">Yukang Yang, Declan Campbell, Kaixuan Huang, Mengdi Wang, Jonathan Cohen, Taylor Webb. Emergent Symbolic Mechanisms Support Abstract Reasoning in Large Language Models. arXiv:2502.20332, 27 February 2025. <a href="https://arxiv.org/abs/2502.20332">https://arxiv.org/abs/2502.20332</a></p>
     <p class="citation">Melody Zixuan Li, Taylor Webb. What drives the emergence of symbolic mechanisms in large language models? arXiv:2611.13270, 9 November 2026. <a href="https://arxiv.org/abs/2611.13270">https://arxiv.org/abs/2611.13270</a></p>
   </div>
 </section>
