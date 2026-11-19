@@ -274,7 +274,7 @@
       </div>
     </div>
     <div class="chain" id="chain" role="group" aria-label="The traced chain from the L8 MLP to the L9 MLP, with the share of each swap"></div>
-      <figcaption><b>Figure 4.</b> Each row shows a separate swap, which replaces one unit's clean-run value with its value on the corrupt text. The dot shows the share of the mean clean-to-corrupt margin change carried by that swap, and the bar shows its bootstrap interval from 2.5% to 97.5%. Filled dots mark named units, while open dots mark whole tensors or whole dictionaries measured through the same route. The rows do not add up, and GatedDeltaNet head 10 is read directly as the model head that carries the count inside the layer-9 mixer. Selecting a row shows its items in Figure 5.</figcaption>
+      <figcaption><b>Figure 4.</b> Each row shows a separate swap, which replaces one unit's clean-run value with its value on the corrupt text. The dot shows the share of the mean clean-to-corrupt margin change carried by that swap, and the bar shows its bootstrap interval from 2.5% to 97.5%. Filled dots mark named units, while open dots mark whole tensors or whole dictionaries measured through the same route. The rows do not add up, and GatedDeltaNet head 10 is read directly as the model head that carries the count inside the layer-9 mixer. Selecting a row shows its items in Figure 7.</figcaption>
     </figure>
     <div class="toggles">
       <details class="more"><summary>Table: the eleven main swaps in the three cells</summary>
@@ -325,8 +325,78 @@
       </details>
     </div>
 
+
+    <h3 id="count-curve"><a href="#count-curve">The character count as a curve inside one state group's frame</a></h3>
+    <div class="split curve">
+      <div>
+        <p>The chain reached state group 4885 at <code>resid_mid.9</code>. It showed that the part of the layer-9 mixer's write inside this group's frame moves the layer-9 MLP transforms about as much as the whole write. Figure 5 shows that the count is a position along a curve in a plane inside the group's 4-dimensional frame.</p>
+        <p>Group 4885 is a dense group with 4-dimensional coordinates that are active on most tokens and carry information in those coordinates.</p>
+      </div>
+      <figure class="needs-js" id="fig-curve" data-first="Start of a new line" data-x="First component" data-y="Second component" data-aria="Mean codes trace a curve as the character count grows, with the start of a new line apart and texts with a wider wrapping width continuing along the same path." data-count="Character count" data-tokens="Contributing tokens">
+        <div class="figure-head">
+          <div class="controls"><div class="control"><label for="curve-count">Character count</label><input type="range" id="curve-count" min="0" max="0" step="1" value="0"></div></div>
+        </div>
+        <div class="layer-readout" id="curve-readout" aria-live="polite"></div>
+        <ul class="keys" aria-hidden="true">
+          <li><svg width="12" height="12"><circle cx="6" cy="6" r="4" class="curve-key"/></svg>Texts wrapped at 60 characters</li>
+          <li><svg width="12" height="12"><rect x="2" y="2" width="8" height="8" class="curve-key"/></svg>Texts wrapped at 100 characters</li>
+          <li><span class="ramp"></span>Characters in the line</li>
+        </ul>
+        <div class="plot" id="curve-plot"></div>
+        <figcaption><b>Figure 5.</b> Each point is the mean code of tokens with one character count and one wrapping width for which the group is active, shown only when at least 20 tokens contribute. We measured 48,960 tokens after dropping the first position from each text. The plane spans the two largest components of the mean curves and holds 0.984 of their variance. The point for count 0 sits apart, and the curve moves smoothly from about ten characters onward. Texts wrapped at 100 characters continue along the same path beyond 60 characters. Curves computed separately from even-numbered and odd-numbered items correlate 0.9945 for texts wrapped at 60 characters and 0.9963 for texts wrapped at 100 characters.</figcaption>
+      </figure>
+    </div>
+    <h3 id="count-read"><a href="#count-read">How the transforms read the count</a></h3>
+    <div class="lead-block">
+      <p class="lead">The state dictionary and the transform’s gate use the residual stream divided by the same size. The frame part of the gate input is therefore exactly linear in the group’s code: we multiply the code by a direction derived from the dictionary weights, which we call the read direction. Figure 6 shows that the two read directions differ but lie almost entirely in the plane of the count curve from Figure 5.</p>
+      <p class="lead">Along the read direction of transform 410, the middle of the curve sticks out. Along the read direction of transform 1749, only the far end sticks out.</p>
+      <p class="lead">The step from the count to the line-break decision can be read as a geometric operation: each transform reads the position on the curve along its own direction and compares that reading with a threshold.</p>
+    </div>
+    <figure class="needs-js" id="fig-read" data-arrow="Read direction" data-aria-plane="The count curve lies in a plane, with an arrow showing the chosen transform’s read direction, shading showing its firing rate and a marker showing the chosen count." data-aria-lines="The chart shows the mean gate input and mean frame part by character count, with a horizontal threshold line and a marker at the chosen count." data-aria-rate="The chart shows the chosen transform’s firing rate by character count, with a marker at the chosen count." data-line-threshold="Threshold" data-axis-x="Characters in the line" data-count="Characters in the line" data-readout-gate="Mean gate input" data-readout-frame="Mean frame part" data-readout-threshold="Threshold" data-readout-rate="Firing rate">
+      <div class="figure-head">
+        <div class="controls">
+          <div class="control"><span class="label" id="read-transform-label">Transform</span><div class="seg" role="group" aria-labelledby="read-transform-label" id="read-transform"></div></div>
+          <div class="control"><span class="label" id="read-width-label">Wrapping width</span><div class="seg code" role="group" aria-labelledby="read-width-label" id="read-width"></div></div>
+          <div class="control"><label for="read-count">Characters in the line</label><input type="range" id="read-count" min="0" max="0" step="1" value="0"></div>
+        </div>
+      </div>
+      <div class="layer-readout" id="read-readout" aria-live="polite"></div>
+      <div class="read-grid">
+        <div class="panel">
+          <ul class="keys" aria-hidden="true">
+            <li><svg width="12" height="12"><circle cx="6" cy="6" r="4" class="curve-key"/></svg>Texts wrapped at 60 characters</li>
+            <li><svg width="12" height="12"><rect x="2" y="2" width="8" height="8" class="curve-key"/></svg>Texts wrapped at 100 characters</li>
+            <li><span class="ramp by-rate"></span>Firing rate</li>
+          </ul>
+          <div class="plot" id="read-plane"></div>
+        </div>
+        <div class="read-charts">
+          <div class="panel">
+            <h4>Gate input, frame part and threshold</h4>
+            <ul class="keys" aria-hidden="true">
+              <li><svg width="26" height="12"><path d="M1 6H25" class="series s-unit"/></svg>Mean gate input</li>
+              <li><svg width="26" height="12"><path d="M1 6H25" class="series s-r"/></svg>Mean frame part</li>
+              <li><svg width="26" height="12"><path d="M1 6H25" class="mean-line target"/></svg>Threshold</li>
+            </ul>
+            <div class="plot" id="read-lines"></div>
+          </div>
+          <div class="panel">
+            <h4>Firing rate by count</h4>
+            <div class="plot" id="read-rate"></div>
+          </div>
+        </div>
+      </div>
+      <figcaption><b>Figure 6.</b> The arrow shows the chosen transform’s read direction, and the shading shows its firing rate at each count.
+The three lines show the mean gate input, the mean frame part and the threshold for the chosen transform and wrapping width.
+The chart below shows the firing rate at each count.
+The R² values for how the mean frame part follows the mean gate input at wrapping widths of 60 and 100 are 0.973 and 0.982 for transform 410, and 0.958 and 0.981 for transform 1749.
+These are means by count, and individual tokens scatter around them.
+The frame part gives most, but not all, of the movement of the gate input; the rest comes from other parts of the residual stream.</figcaption>
+    </figure>
+
+
     <h3 id="by-item"><a href="#by-item">One swap, item by item</a></h3>
-    <p class="lead">A share is a ratio of two means over items. Figure 5 shows what is behind one share: for each of the 64 items of a cell, the margin of the clean run, of the corrupt run, and of the clean run with one swap.</p>
+    <p class="lead">We next test the chain shown in these two figures causally by replacing one unit’s value with its value on a second text and measuring how far the line-break decision moves. A share is a ratio of two means over items. Figure 7 shows what is behind one share: for each of the 64 items of a cell, the margin of the clean run, of the corrupt run, and of the clean run with one swap.</p>
 
     <figure class="needs-js" id="fig-items">
       <div class="figure-head">
@@ -354,7 +424,7 @@
       </ul>
       <div class="plot" id="items-plot" data-zero="above: the model prefers a line break" data-mean="Mean swap" data-target="Corrupt mean" data-start="Clean mean" data-y="Preference for a line break over a space" data-x="Items ordered by clean margin" data-aria="Thin arrows show each item's margin before and after the swap, faint marks show corrupt margins, and a bold arrow shows the mean change."></div>
       <p class="look">Look at how swapping one unit moves the model from preferring a line break toward preferring a space, and how far the bold arrow moves on average.</p>
-      <figcaption><b>Figure 5.</b> Each thin arrow shows one item, from its clean-run margin to its margin after the swap. A faint mark shows its corrupt-run margin, and items are ordered by their clean margin. The bold arrow at the right runs from the mean clean margin to the mean margin after the swap, with the mean corrupt margin as its target. The share is the bold arrow's length divided by the distance from the clean mean to the corrupt mean. Selecting an item shows its two texts in Figure 3.</figcaption>
+      <figcaption><b>Figure 7.</b> Each thin arrow shows one item, from its clean-run margin to its margin after the swap. A faint mark shows its corrupt-run margin, and items are ordered by their clean margin. The bold arrow at the right runs from the mean clean margin to the mean margin after the swap, with the mean corrupt margin as its target. The share is the bold arrow's length divided by the distance from the clean mean to the corrupt mean. Selecting an item shows its two texts in Figure 3.</figcaption>
       <details class="more" id="items-details"><summary>Table: the margins of the items for the selected swap</summary>
         <div id="items-table"></div>
       </details>
@@ -372,7 +442,7 @@
       </div>
     </div>
     <div class="link-panels" id="link-panels"></div>
-      <figcaption><b>Figure 6.</b> The share carried by three parts of one change at the L9 mixer output, read by three routes. The part inside group 4885's frame moves the transforms about as much as the whole change, and the rest moves them little. With everything downstream, the rest still carries a share, so the frame is not the only route to the answer. The last bar of the first two panels is a control: the largest absolute share among 5 random 4-dimensional frames, measured for the whole mixer swap and through the transforms only. Bars are drawn from 0 to 1.</figcaption>
+      <figcaption><b>Figure 8.</b> The share carried by three parts of one change at the L9 mixer output, read by three routes. The part inside group 4885's frame moves the transforms about as much as the whole change, and the rest moves them little. With everything downstream, the rest still carries a share, so the frame is not the only route to the answer. The last bar of the first two panels is a control: the largest absolute share among 5 random 4-dimensional frames, measured for the whole mixer swap and through the transforms only. Bars are drawn from 0 to 1.</figcaption>
     </figure>
     <div class="toggles">
       <details class="more"><summary>Table: the link comparison in the three cells</summary>
@@ -401,31 +471,9 @@
     </div>
 
 
-    <h3 id="count-curve"><a href="#count-curve">The character count as a curve inside one state group's frame</a></h3>
-    <div class="split curve">
-      <div>
-        <p>The chain reached state group 4885 at <code>resid_mid.9</code>. It showed that the part of the layer-9 mixer's write inside this group's frame moves the layer-9 MLP transforms about as much as the whole write. Figure 7 shows that the count is a position along a curve in a plane inside the group's 4-dimensional frame.</p>
-        <p>Group 4885 is a dense group with 4-dimensional coordinates that are active on most tokens and carry information in those coordinates.</p>
-      </div>
-      <figure class="needs-js" id="fig-curve" data-first="Start of a new line" data-x="First component" data-y="Second component" data-aria="Mean codes trace a curve as the character count grows, with the start of a new line apart and texts with a wider wrapping width continuing along the same path." data-count="Character count" data-tokens="Contributing tokens">
-        <div class="figure-head">
-          <div class="controls"><div class="control"><label for="curve-count">Character count</label><input type="range" id="curve-count" min="0" max="0" step="1" value="0"></div></div>
-        </div>
-        <div class="layer-readout" id="curve-readout" aria-live="polite"></div>
-        <ul class="keys" aria-hidden="true">
-          <li><svg width="12" height="12"><circle cx="6" cy="6" r="4" class="curve-key"/></svg>Texts wrapped at 60 characters</li>
-          <li><svg width="12" height="12"><rect x="2" y="2" width="8" height="8" class="curve-key"/></svg>Texts wrapped at 100 characters</li>
-          <li><span class="ramp"></span>Characters in the line</li>
-        </ul>
-        <div class="plot" id="curve-plot"></div>
-        <figcaption><b>Figure 7.</b> Each point is the mean code of tokens with one character count and one wrapping width for which the group is active, shown only when at least 20 tokens contribute. We measured 48,960 tokens after dropping the first position from each text. The plane spans the two largest components of the mean curves and holds 0.984 of their variance. The point for count 0 sits apart, and the curve moves smoothly from about ten characters onward. Texts wrapped at 100 characters continue along the same path beyond 60 characters. Curves computed separately from even-numbered and odd-numbered items correlate 0.9945 for texts wrapped at 60 characters and 0.9963 for texts wrapped at 100 characters.</figcaption>
-      </figure>
-    </div>
-
-
 
     <h3 id="steer"><a href="#steer">Steering one unit by a dose</a></h3>
-    <p class="lead">A dose α scales the change from a unit's clean value toward its corrupt value, aligned to the clean text's token positions. In Figure 8, we varied the dose across 10 measured values from -1 to 2 for 5 units. For L8 transform 189 in <code>count:60</code>, the share is 0.348 at α = 1 and 0.349 at α = 2, so going past the full swap adds nothing there; at α = -1, the share is 0.073, so a negative dose is not the mirror image of a positive one.</p>
+    <p class="lead">A dose α scales the change from a unit's clean value toward its corrupt value, aligned to the clean text's token positions. In Figure 9, we varied the dose across 10 measured values from -1 to 2 for 5 units. For L8 transform 189 in <code>count:60</code>, the share is 0.348 at α = 1 and 0.349 at α = 2, so going past the full swap adds nothing there; at α = -1, the share is 0.073, so a negative dose is not the mirror image of a positive one.</p>
     <figure class="needs-js" id="fig-steer" data-zone="Extrapolated values" data-aria-share="The curve shows how the share changes with dose, with a bootstrap interval band and the chosen dose marked." data-aria-mean="The curve shows how the mean margin changes with dose against horizontal clean and corrupt means, with the chosen dose marked." data-aria-items="The plot compares each item's clean, corrupt and dosed margins at the chosen dose." data-key-clean="Clean margin" data-key-corrupt="Corrupt margin" data-key-dosed="Dosed margin" data-readout-interval="Bootstrap interval">
       <div class="figure-head">
         <div class="controls">
@@ -465,7 +513,7 @@
           <div class="plot" id="steer-items-plot"></div>
         </div>
       </div>
-      <figcaption><b>Figure 8.</b> A dose α replaces a unit's clean value with that value plus α times the difference from its corrupt value, aligned to the clean text's token positions. At α = 0 and α = 1, the margins exactly equal the demonstration's tested clean-run and full-swap values. Values outside [0, 1] extrapolate beyond the corrupt text. The first part shows the share over α, its bootstrap interval from 2.5% to 97.5% and the chosen dose; for layer-8 units and layer-9 transforms, a dashed line shows the whole component measured through the same route. The second part shows the mean margin over α against the clean and corrupt means, and the third shows each item's clean, corrupt and dosed margins at the chosen dose. Shares here use all 64 items of the chosen cell. We measured this for this page with the published reader and weights, and it is not part of our repository's tests.</figcaption>
+      <figcaption><b>Figure 9.</b> A dose α replaces a unit's clean value with that value plus α times the difference from its corrupt value, aligned to the clean text's token positions. At α = 0 and α = 1, the margins exactly equal the demonstration's tested clean-run and full-swap values. Values outside [0, 1] extrapolate beyond the corrupt text. The first part shows the share over α, its bootstrap interval from 2.5% to 97.5% and the chosen dose; for layer-8 units and layer-9 transforms, a dashed line shows the whole component measured through the same route. The second part shows the mean margin over α against the clean and corrupt means, and the third shows each item's clean, corrupt and dosed margins at the chosen dose. Shares here use all 64 items of the chosen cell. We measured this for this page with the published reader and weights, and it is not part of our repository's tests.</figcaption>
     </figure>
 
   </div>
@@ -511,7 +559,7 @@
             <div class="hbar ref"><span class="hbar-label">Forced <code>#</code></span><b>0.65</b><div class="hbar-track"><i style="--v:0.65"></i></div></div>
             <div class="hbar-axis" aria-hidden="true"><span>0</span><span>Rate of correct rules</span><span>1</span></div>
           </div>
-          <figcaption><b>Figure 9.</b> The first pair of bars shows the rate of correct rules without and with the group shift across 24 rule families. The second pair compares the group shift with forcing the first body token to <code>#</code>.</figcaption>
+          <figcaption><b>Figure 10.</b> The first pair of bars shows the rate of correct rules without and with the group shift across 24 rule families. The second pair compares the group shift with forcing the first body token to <code>#</code>.</figcaption>
         </figure>
       </div>
     </article>
@@ -547,7 +595,7 @@
             <div class="hbar ref"><span class="hbar-label">ABB to ABA, twice the shift</span><b>0.67</b><div class="hbar-track"><i style="--v:0.67"></i></div></div>
             <div class="hbar-axis" aria-hidden="true"><span>0</span><span>Share of prompts that flipped</span><span>1</span></div>
           </div>
-          <figcaption><b>Figure 10.</b> The left bars show the lowest and highest shares of the full residual-swap effect across layers 11 to 14 for one, four, and sixteen groups, a direction found with supervision, and a random 64-dimensional subspace. The right bars show the share of prompts that changed rules in each direction at the shift and at twice the shift.</figcaption>
+          <figcaption><b>Figure 11.</b> The left bars show the lowest and highest shares of the full residual-swap effect across layers 11 to 14 for one, four, and sixteen groups, a direction found with supervision, and a random 64-dimensional subspace. The right bars show the share of prompts that changed rules in each direction at the shift and at twice the shift.</figcaption>
         </figure>
       </div>
     </article>
@@ -574,7 +622,7 @@
             <div class="hbar ref"><span class="hbar-label">2 MLP neurons</span><b>0.80</b><div class="hbar-track"><i style="--v:0.80"></i></div></div>
             <div class="hbar-axis" aria-hidden="true"><span>0</span><span>Share of the MLP’s contribution</span><span>1</span></div>
           </div>
-          <figcaption><b>Figure 11.</b> The bars show the share of the MLP’s contribution carried by the dictionary reconstruction and by two MLP neurons in the JavaScript circuit we traced by hand. The reconstruction carries 0.89, with an interval of 0.78 to 1.00, and the neurons carry 0.80.</figcaption>
+          <figcaption><b>Figure 12.</b> The bars show the share of the MLP’s contribution carried by the dictionary reconstruction and by two MLP neurons in the JavaScript circuit we traced by hand. The reconstruction carries 0.89, with an interval of 0.78 to 1.00, and the neurons carry 0.80.</figcaption>
         </figure>
       </div>
     </article>
@@ -703,7 +751,7 @@ python demo/line_count.py --release &lt;folder&gt; --device cuda:0 --out &lt;fol
     </div>
     <div class="layer-readout" id="b4-readout" aria-live="polite"></div>
     <div class="panel-grid" id="b4-panels"></div>
-          <figcaption><b>Figure 12.</b> The panels show state FVU, MLP FVU, transforms alive, and transforms that fire on at least 90% of tokens across the 32 layers of Qwen3.5-4B. The last panel also shows the share of summed write energy those transforms carry on web text. Solid lines with filled marks show re-measured values, while dashed lines, open marks, and bars show values recorded at training.</figcaption>
+          <figcaption><b>Figure 13.</b> The panels show state FVU, MLP FVU, transforms alive, and transforms that fire on at least 90% of tokens across the 32 layers of Qwen3.5-4B. The last panel also shows the share of summed write energy those transforms carry on web text. Solid lines with filled marks show re-measured values, while dashed lines, open marks, and bars show values recorded at training.</figcaption>
         </figure>
         <details class="more"><summary>Table: all 32 layers of the Qwen3.5-4B set</summary>
 <div class="table-wrap"><table>
@@ -771,7 +819,7 @@ python demo/line_count.py --release &lt;folder&gt; --device cuda:0 --out &lt;fol
     <div class="layer-readout" id="layer-readout" aria-live="polite"></div>
     <div class="panel-grid" id="layer-panels"></div>
     <div id="load-error-layers" class="load-error" hidden></div>
-          <figcaption><b>Figure 13.</b> The panels show state FVU at both sites, MLP FVU, transforms on per token, and transforms alive across the 24 layers of Qwen3.5-0.8B. Solid MLP FVU lines show re-measured values, and dashed lines show values recorded at training. The switch includes or drops position 0 in the re-measured series. Use the slider or pointer to read one layer.</figcaption>
+          <figcaption><b>Figure 14.</b> The panels show state FVU at both sites, MLP FVU, transforms on per token, and transforms alive across the 24 layers of Qwen3.5-0.8B. Solid MLP FVU lines show re-measured values, and dashed lines show values recorded at training. The switch includes or drops position 0 in the re-measured series. Use the slider or pointer to read one layer.</figcaption>
         </figure>
         <details class="more"><summary>Table: all 24 layers</summary>
 <div class="table-wrap"><table>
@@ -816,7 +864,7 @@ python demo/line_count.py --release &lt;folder&gt; --device cuda:0 --out &lt;fol
         <figure class="needs-js" id="fig-splice">
     <div class="layer-readout" id="splice-readout" aria-live="polite"></div>
     <div class="panel-grid" id="splice-panels"></div>
-          <figcaption><b>Figure 14.</b> The panels show spliced-in loss recorded at training for the Qwen3.5-0.8B state dictionary at <code>resid_post</code> and the MLP dictionary. The panels use different vertical scales.</figcaption>
+          <figcaption><b>Figure 15.</b> The panels show spliced-in loss recorded at training for the Qwen3.5-0.8B state dictionary at <code>resid_post</code> and the MLP dictionary. The panels use different vertical scales.</figcaption>
         </figure>
         <details class="more"><summary>Table: spliced-in loss at all 24 layers</summary>
 <div class="table-wrap"><table>

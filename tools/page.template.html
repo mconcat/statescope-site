@@ -257,8 +257,78 @@
       </details>
     </div>
 
+<!--if curve-->
+    <h3 id="count-curve">The character count as a curve inside one state group's frame</h3>
+    <div class="split curve">
+      <div>
+        <p>The chain reached state group {{demo.l9_group}} at <code>resid_mid.9</code>. It showed that the part of the layer-9 mixer's write inside this group's frame moves the layer-9 MLP transforms about as much as the whole write. Figure {{fig|curve}} shows that the count is a position along a curve in a plane inside the group's {{demo.frame_dim}}-dimensional frame.</p>
+        <p>Group {{demo.l9_group}} is a dense group with {{demo.frame_dim}}-dimensional coordinates that are active on most tokens and carry information in those coordinates.</p>
+      </div>
+      <figure class="needs-js" id="fig-curve" data-first="Start of a new line" data-x="First component" data-y="Second component" data-aria="Mean codes trace a curve as the character count grows, with the start of a new line apart and texts with a wider wrapping width continuing along the same path." data-count="Character count" data-tokens="Contributing tokens">
+        <div class="figure-head">
+          <div class="controls"><div class="control"><label for="curve-count">Character count</label><input type="range" id="curve-count" min="0" max="0" step="1" value="0"></div></div>
+        </div>
+        <div class="layer-readout" id="curve-readout" aria-live="polite"></div>
+        <ul class="keys" aria-hidden="true">
+          <li><svg width="12" height="12"><circle cx="6" cy="6" r="4" class="curve-key"/></svg>Texts wrapped at 60 characters</li>
+          <li><svg width="12" height="12"><rect x="2" y="2" width="8" height="8" class="curve-key"/></svg>Texts wrapped at 100 characters</li>
+          <li><span class="ramp"></span>Characters in the line</li>
+        </ul>
+        <div class="plot" id="curve-plot"></div>
+        <figcaption><b>Figure {{fig|curve}}.</b> Each point is the mean code of tokens with one character count and one wrapping width for which the group is active, shown only when at least {{curve.min_tokens}} tokens contribute. We measured {{curve.tokens}} tokens after dropping the first position from each text. The plane spans the two largest components of the mean curves and holds {{curve.plane}} of their variance. The point for count 0 sits apart, and the curve moves smoothly from about ten characters onward. Texts wrapped at 100 characters continue along the same path beyond 60 characters. Curves computed separately from even-numbered and odd-numbered items correlate {{curve.w60_halves}} for texts wrapped at 60 characters and {{curve.w100_halves}} for texts wrapped at 100 characters.</figcaption>
+      </figure>
+    </div>
+    <h3 id="count-read">How the transforms read the count</h3>
+    <div class="lead-block">
+      <p class="lead">The state dictionary and the transform’s gate use the residual stream divided by the same size. The frame part of the gate input is therefore exactly linear in the group’s code: we multiply the code by a direction derived from the dictionary weights, which we call the read direction. Figure {{fig|read}} shows that the two read directions differ but lie almost entirely in the plane of the count curve from Figure {{fig|curve}}.</p>
+      <p class="lead">Along the read direction of transform {{demo.l9_transform_short}}, the middle of the curve sticks out. Along the read direction of transform {{demo.l9_transform_long}}, only the far end sticks out.</p>
+      <p class="lead">The step from the count to the line-break decision can be read as a geometric operation: each transform reads the position on the curve along its own direction and compares that reading with a threshold.</p>
+    </div>
+    <figure class="needs-js" id="fig-read" data-arrow="Read direction" data-aria-plane="The count curve lies in a plane, with an arrow showing the chosen transform’s read direction, shading showing its firing rate and a marker showing the chosen count." data-aria-lines="The chart shows the mean gate input and mean frame part by character count, with a horizontal threshold line and a marker at the chosen count." data-aria-rate="The chart shows the chosen transform’s firing rate by character count, with a marker at the chosen count." data-line-threshold="Threshold" data-axis-x="Characters in the line" data-count="Characters in the line" data-readout-gate="Mean gate input" data-readout-frame="Mean frame part" data-readout-threshold="Threshold" data-readout-rate="Firing rate">
+      <div class="figure-head">
+        <div class="controls">
+          <div class="control"><span class="label" id="read-transform-label">Transform</span><div class="seg" role="group" aria-labelledby="read-transform-label" id="read-transform"></div></div>
+          <div class="control"><span class="label" id="read-width-label">Wrapping width</span><div class="seg code" role="group" aria-labelledby="read-width-label" id="read-width"></div></div>
+          <div class="control"><label for="read-count">Characters in the line</label><input type="range" id="read-count" min="0" max="0" step="1" value="0"></div>
+        </div>
+      </div>
+      <div class="layer-readout" id="read-readout" aria-live="polite"></div>
+      <div class="read-grid">
+        <div class="panel">
+          <ul class="keys" aria-hidden="true">
+            <li><svg width="12" height="12"><circle cx="6" cy="6" r="4" class="curve-key"/></svg>Texts wrapped at 60 characters</li>
+            <li><svg width="12" height="12"><rect x="2" y="2" width="8" height="8" class="curve-key"/></svg>Texts wrapped at 100 characters</li>
+            <li><span class="ramp by-rate"></span>Firing rate</li>
+          </ul>
+          <div class="plot" id="read-plane"></div>
+        </div>
+        <div class="read-charts">
+          <div class="panel">
+            <h4>Gate input, frame part and threshold</h4>
+            <ul class="keys" aria-hidden="true">
+              <li><svg width="26" height="12"><path d="M1 6H25" class="series s-unit"/></svg>Mean gate input</li>
+              <li><svg width="26" height="12"><path d="M1 6H25" class="series s-r"/></svg>Mean frame part</li>
+              <li><svg width="26" height="12"><path d="M1 6H25" class="mean-line target"/></svg>Threshold</li>
+            </ul>
+            <div class="plot" id="read-lines"></div>
+          </div>
+          <div class="panel">
+            <h4>Firing rate by count</h4>
+            <div class="plot" id="read-rate"></div>
+          </div>
+        </div>
+      </div>
+      <figcaption><b>Figure {{fig|read}}.</b> The arrow shows the chosen transform’s read direction, and the shading shows its firing rate at each count.
+The three lines show the mean gate input, the mean frame part and the threshold for the chosen transform and wrapping width.
+The chart below shows the firing rate at each count.
+The R² values for how the mean frame part follows the mean gate input at wrapping widths of 60 and 100 are {{read.t410_r2_w60}} and {{read.t410_r2_w100}} for transform {{demo.l9_transform_short}}, and {{read.t1749_r2_w60}} and {{read.t1749_r2_w100}} for transform {{demo.l9_transform_long}}.
+These are means by count, and individual tokens scatter around them.
+The frame part gives most, but not all, of the movement of the gate input; the rest comes from other parts of the residual stream.</figcaption>
+    </figure>
+<!--endif curve-->
+
     <h3 id="by-item">One swap, item by item</h3>
-    <p class="lead">A share is a ratio of two means over items. Figure {{fig|items}} shows what is behind one share: for each of the {{demo.items_per_cell}} items of a cell, the margin of the clean run, of the corrupt run, and of the clean run with one swap.</p>
+    <p class="lead"><!--if curve-->We next test the chain shown in these two figures causally by replacing one unit’s value with its value on a second text and measuring how far the line-break decision moves. <!--endif curve-->A share is a ratio of two means over items. Figure {{fig|items}} shows what is behind one share: for each of the {{demo.items_per_cell}} items of a cell, the margin of the clean run, of the corrupt run, and of the clean run with one swap.</p>
 
     <figure class="needs-js" id="fig-items">
       <div class="figure-head">
@@ -317,28 +387,6 @@
       <p>We registered a pass rule for the mixer-to-MLP link. The rule requires at least {{rule.inside_min}} of the whole share inside the frame, at most {{rule.rest_max_fraction}} of it and at most {{rule.rest_max}} in the rest, and at most {{rule.random_max}} in random frames, in both count cells. Our verdict was that the rule holds for the route through the six transforms and holds only in part for the route through {{demo.l9_transform_short}} and {{demo.l9_transform_long}} alone, because we recorded a share of {{rule.recorded_rest}} for the rest in <code>count:100</code> through those two transforms.</p>
     </div>
 
-<!--if curve-->
-    <h3 id="count-curve">The character count as a curve inside one state group's frame</h3>
-    <div class="split curve">
-      <div>
-        <p>The chain reached state group {{demo.l9_group}} at <code>resid_mid.9</code>. It showed that the part of the layer-9 mixer's write inside this group's frame moves the layer-9 MLP transforms about as much as the whole write. Figure {{fig|curve}} shows that the count is a position along a curve in a plane inside the group's {{demo.frame_dim}}-dimensional frame.</p>
-        <p>Group {{demo.l9_group}} is a dense group with {{demo.frame_dim}}-dimensional coordinates that are active on most tokens and carry information in those coordinates.</p>
-      </div>
-      <figure class="needs-js" id="fig-curve" data-first="Start of a new line" data-x="First component" data-y="Second component" data-aria="Mean codes trace a curve as the character count grows, with the start of a new line apart and texts with a wider wrapping width continuing along the same path." data-count="Character count" data-tokens="Contributing tokens">
-        <div class="figure-head">
-          <div class="controls"><div class="control"><label for="curve-count">Character count</label><input type="range" id="curve-count" min="0" max="0" step="1" value="0"></div></div>
-        </div>
-        <div class="layer-readout" id="curve-readout" aria-live="polite"></div>
-        <ul class="keys" aria-hidden="true">
-          <li><svg width="12" height="12"><circle cx="6" cy="6" r="4" class="curve-key"/></svg>Texts wrapped at 60 characters</li>
-          <li><svg width="12" height="12"><rect x="2" y="2" width="8" height="8" class="curve-key"/></svg>Texts wrapped at 100 characters</li>
-          <li><span class="ramp"></span>Characters in the line</li>
-        </ul>
-        <div class="plot" id="curve-plot"></div>
-        <figcaption><b>Figure {{fig|curve}}.</b> Each point is the mean code of tokens with one character count and one wrapping width for which the group is active, shown only when at least {{curve.min_tokens}} tokens contribute. We measured {{curve.tokens}} tokens after dropping the first position from each text. The plane spans the two largest components of the mean curves and holds {{curve.plane}} of their variance. The point for count 0 sits apart, and the curve moves smoothly from about ten characters onward. Texts wrapped at 100 characters continue along the same path beyond 60 characters. Curves computed separately from even-numbered and odd-numbered items correlate {{curve.w60_halves}} for texts wrapped at 60 characters and {{curve.w100_halves}} for texts wrapped at 100 characters.</figcaption>
-      </figure>
-    </div>
-<!--endif curve-->
 
 <!--if steer-->
     <h3 id="steer">Steering one unit by a dose</h3>

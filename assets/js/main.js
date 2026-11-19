@@ -53,8 +53,14 @@ if (document.getElementById("fig-4b")) {
     .catch((error) => console.error(error));
 }
 if (document.getElementById("fig-steer")) {
-  // "Steering one unit by a dose": data/steer.json, described in the README of this site.
+  // "Steering one unit by a dose": data/steer.json
   Promise.all([import("./steer.js"), load("steer.json")])
     .then(([module, steer]) => module.initSteer(steer))
+    .catch((error) => console.error(error));
+}
+if (document.getElementById("fig-curve")) {
+  // the count as a curve inside one group's frame, and how two transforms read it: data/count-curve.json, data/count-readout.json
+  Promise.all([import("./curve.js"), load("count-curve.json"), load("count-readout.json")])
+    .then(([module, curve, readout]) => module.initCurve(curve, readout))
     .catch((error) => console.error(error));
 }

@@ -1197,6 +1197,42 @@ input[type="number"]::-webkit-inner-spin-button {
   stroke: var(--ink);
   stroke-width: 2;
 }
+.curve-pt.by-rate {
+  fill: color-mix(in oklab, var(--c, var(--ink)) calc(var(--t) * 100%), var(--line-soft));
+  stroke: var(--grid);
+  stroke-width: 0.6;
+}
+.curve-pt.by-rate.hot {
+  stroke: var(--ink);
+  stroke-width: 2;
+}
+.ramp.by-rate {
+  background: linear-gradient(90deg, var(--line-soft), var(--c, var(--ink)));
+  box-shadow: 0 0 0 0.6px var(--grid);
+}
+.read-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 6fr) minmax(0, 5fr);
+  gap: 1.6rem 2.6rem;
+  align-items: start;
+}
+.read-charts {
+  display: grid;
+  gap: 1.4rem;
+}
+.read-charts .panel h4 {
+  margin-bottom: 0.5rem;
+}
+.plot .rate-fill {
+  opacity: 0.22;
+}
+.keys .mean-line {
+  stroke: var(--ink);
+  stroke-width: 1.2;
+}
+.keys .mean-line.target {
+  stroke-dasharray: 4 3;
+}
 .curve-path {
   fill: none;
   stroke: var(--line);
@@ -1979,6 +2015,7 @@ details.more > summary:hover {
   .split.diagram,
   .split.curve,
   .steer-grid,
+  .read-grid,
   .exp {
     grid-template-columns: minmax(0, 1fr);
   }
@@ -2118,6 +2155,7 @@ details.more > summary:hover {
   }
   .split,
   .exp,
+  .read-grid,
   .steer-grid {
     display: block;
   }
