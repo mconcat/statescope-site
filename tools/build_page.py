@@ -18,8 +18,10 @@ Blocks:
   <!--if 4b--> ... <!--endif 4b-->        kept only when data/layers-4b.json exists
   <!--if steer--> ... <!--endif steer-->  kept only when data/steer.json exists
   <!--if curve--> ... <!--endif curve-->  kept only when data/count-curve.json exists
-  <!--if examples--> ... <!--endif examples-->  kept only when data/examples-4b.json exists
-  {{context|<set>|<n>}}        a natural-text context of data/examples-4b.json, its marked token in <mark>
+  <!--if trace--> ... <!--endif trace-->  kept only when data/trace.json exists
+  <!--if geom--> ... <!--endif geom-->    kept only when data/geom-4b.json exists
+  {{trace|<step>|<entry>|<cell>}}  a share of the trace table of data/trace.json
+  {{pathstrip}}                the stops of the animated figure as small static drawings
   {{references}}               the list of tools/references.json
 Every <h2 id> and <h3 id> becomes its own link. Standard library only.
 """
@@ -245,6 +247,25 @@ def rates_chart(demo: dict) -> str:
     return "\n".join(out)
 
 
+def path_strip(trace: dict) -> str:
+    """the stops of the animated figure as a row of small drawings (one curve per width), shown where scripts are off"""
+    stops, widths = trace["stops"], trace["widths"]
+    pts = [(float(x), -float(y)) for s in stops for w in widths for x, y in zip(s["curves"][w]["x"], s["curves"][w]["y"])]
+    x0, x1, y0, y1 = min(p[0] for p in pts), max(p[0] for p in pts), min(p[1] for p in pts), max(p[1] for p in pts)
+    W, H, M = 150, 104, 6
+    k = min((W - 2 * M) / (x1 - x0), (H - 2 * M) / (y1 - y0))
+    dash = ["1 3", "5 3", "", "9 3 2 3", "12 4"]
+    out = []
+    for i, s in enumerate(stops):
+        paths = []
+        for j, w in enumerate(widths):
+            c = s["curves"][w]
+            d = "M" + "L".join(f"{M + (float(x) - x0) * k:.1f} {M + (-float(y) - y0) * k:.1f}" for x, y in list(zip(c["x"], c["y"]))[::3])
+            paths.append(f'<path d="{d}" class="path-line"' + (f' stroke-dasharray="{dash[j]}"' if dash[j] else "") + "/>")
+        out.append(f'        <figure class="strip-stop"><svg viewBox="0 0 {W} {H}" width="{W}" height="{H}">{"".join(paths)}</svg><figcaption>{i + 1}. {esc(s["id"])}</figcaption></figure>')
+    return "\n".join(out)
+
+
 def references() -> str:
     """the list of works the page refers to, from tools/references.json; an entry with "needs" is listed only when that data file exists"""
     with open(os.path.join(HERE, "tools", "references.json")) as f:
@@ -275,12 +296,13 @@ def main() -> None:
     page = conditional(page, "4b", exists("layers-4b.json"))
     page = conditional(page, "steer", exists("steer.json"))
     page = conditional(page, "curve", exists("count-curve.json"))
-    page = conditional(page, "examples", exists("examples-4b.json"), inside="layers-4b.json")
-    examples = data("examples-4b.json") if exists("examples-4b.json") else None
+    page = conditional(page, "trace", exists("trace.json"))
+    page = conditional(page, "geom", exists("geom-4b.json"))
+    trace = data("trace.json") if exists("trace.json") else None
     steer = data("steer.json") if exists("steer.json") else None
     page = re.sub(r"<!--.*?-->", "", page, flags=re.S)                        # the template's remaining notes are not part of the page
 
-    figures = {name: n for n, name in enumerate(re.findall(r'<figure[^>]*\bid="fig-([a-z0-9-]+)"', page), start=1)}
+    figures = {name: n for n, name in enumerate(re.findall(r'<figure[^>]*\bid="fig-([a-z0-9-]+)"', page), start=1)}          # figures with an id are numbered
     sections = re.findall(r'<h2 id="([a-z0-9-]+)">(.*?)</h2>', page, flags=re.S)
     built, used = tables(facts), set()
 
@@ -296,8 +318,10 @@ def main() -> None:
             return e["s"] if parts[0] == "share" else f"{e['s']} ({e['slo']} to {e['shi']})"
         if parts[0] == "steer":                                               # share on all items of a cell at one dose
             return steer["cells"][parts[1]]["arms"][parts[2]]["share"][steer["alphas"].index(parts[3])]
-        if parts[0] == "context":                                             # a natural-text context; the marked token stands in [[ ]]
-            return re.sub(r"\[\[(.*?)\]\]", r"<mark>\1</mark>", esc(examples["contexts"][parts[1]][int(parts[2])]))
+        if parts[0] == "trace":                                               # a share of the trace table: step, entry, cell
+            return trace["table"][int(parts[1])]["entries"][int(parts[2])]["shares"][int(parts[3])]
+        if key == "pathstrip":
+            return path_strip(trace)
         if key == "references":
             return references()
         if parts[0] == "rate":

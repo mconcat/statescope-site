@@ -39,8 +39,12 @@ import json
 import os
 import re
 
+import sys
+
 import torch
 from safetensors.torch import load_file
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATA = os.path.join(HERE, "data")
@@ -685,6 +689,42 @@ def curve_data(facts: Facts, demo: dict, folder: str) -> dict:
     return {"sources": [CURVE_JSON], "group": src["group"], "site": src["site"], "frame_dim": c["frame_dim"], "widths": widths}
 
 
+# ---------------------------------------------------------------------------------------------- the count as a curve inside one group's frame (optional)
+CURVE_JSON = "count_curve.json of one run of count_curve.py (measured for this page; not part of the repository)"
+
+
+def curve_data(facts: Facts, demo: dict, folder: str) -> dict:
+    """the mean code of one state group by the number of characters in the line, projected onto the plane of its two largest
+    components, for the two wrapping widths. Coordinates are kept as strings; the numbers the page states become facts."""
+    with open(os.path.join(folder, "count_curve.json")) as fh:
+        src = json.load(fh)
+    c = demo["constants"]
+    assert src["group"] == c["l9_group"] and src["site"] == "resid_mid.9" and src["layer"] == 9
+    widths = {}
+    for w, d in src["widths"].items():
+        n = len(d["counts"])
+        assert d["counts"] == list(range(n)) and len(d["projection"]) == n == len(d["tokens_active"]) == len(d["tokens_all"])
+        assert min(d["tokens_active"]) >= src["min_tokens_per_count"]
+        widths[w] = {"counts": [str(v) for v in d["counts"]], "x": [fixed(p[0], 3) for p in d["projection"]], "y": [fixed(p[1], 3) for p in d["projection"]],
+                     "tokens": [comma(v) for v in d["tokens_active"]]}
+        facts.add(f"curve.w{w}_plane", fixed(sum(d["variance_share_of_components"][:2]), 3), CURVE_JSON, f"widths.{w}.variance_share_of_components, first two summed")
+        facts.add(f"curve.w{w}_halves", fixed(d["correlation_between_item_halves"], 4), CURVE_JSON, f"widths.{w}.correlation_between_item_halves")
+    assert sorted(widths, key=int) == ["60", "100"] and {x["width"] for x in demo["cells"]} == {60, 100}
+    texts = {str(w): sum(demo["items"] for x in demo["cells"] if x["width"] == w) for w in (60, 100)}
+    facts.add("curve.plane", fixed(sum(src["plane"]["variance_share_of_components"][:2]), 3), CURVE_JSON, "plane.variance_share_of_components, first two summed")
+    facts.add("curve.active", fixed(src["active_fraction"], 3), CURVE_JSON, "active_fraction")
+    facts.add("curve.active_first", fixed(sum(d["tokens_active"][0] for d in src["widths"].values()) / sum(d["tokens_all"][0] for d in src["widths"].values()), 2),
+              CURVE_JSON, "tokens_active / tokens_all at count 0, both widths together")
+    facts.add("curve.tokens", comma(src["tokens"]), CURVE_JSON, "tokens")
+    facts.add("curve.texts", str(sum(texts.values())), "data/demo.json", "clean texts of all cells")
+    facts.add("curve.texts_60", str(texts["60"]), "data/demo.json", "clean texts of the cells wrapped at 60")
+    facts.add("curve.texts_100", str(texts["100"]), "data/demo.json", "clean texts of the cells wrapped at 100")
+    facts.add("curve.min_tokens", str(src["min_tokens_per_count"]), CURVE_JSON, "min_tokens_per_count")
+    facts.add("curve.same_count", fixed(src["same_count_two_widths"]["correlation"], 3), CURVE_JSON, "same_count_two_widths.correlation")
+    print(f"count curve: widths {list(widths)}, {sum(len(v['counts']) for v in widths.values())} points")
+    return {"sources": [CURVE_JSON], "group": src["group"], "site": src["site"], "frame_dim": c["frame_dim"], "widths": widths}
+
+
 # ---------------------------------------------------------------------------------------------- samples of the 4B experiments (optional)
 EXAMPLES = "notes of the project with selected results (not published): samples and three pairs of rates"
 
@@ -847,7 +887,7 @@ def main() -> None:
     ap.add_argument("--source-commit", help="the commit that --repo was exported from with git archive, when --repo is such a folder")
     ap.add_argument("--steer", help="folder with steer.json and steer_margins.safetensors of a run of steer_dose.py; it adds the dose figure")
     ap.add_argument("--count-curve", help="folder with count_curve.json and count_readout.json (runs of count_curve.py and count_readout.py); it adds the two count figures")
-    ap.add_argument("--examples-4b", help="the project's notes of selected results (markdown); it adds the samples beside the 4B experiments")
+    ap.add_argument("--geom", help="folder with the analyses line_count, aba_abb, compare_357, random_units, steer_9167; it adds the trace and the geometry figures")
     ap.add_argument("--weights-4b", help="folder of the Qwen3.5-4B weights repository that holds ALWAYS_ON.json; it adds the 4B section")
     args = ap.parse_args()
     torch.set_num_threads(4)
@@ -874,11 +914,10 @@ def main() -> None:
     has_4b = all(os.path.exists(os.path.join(args.repo, REL4, name)) for name in ("reader_fvu.json", "MODEL_CARD.md"))
     if has_4b and args.weights_4b:
         write("layers-4b.json", four_b(facts, args.repo, args.weights_4b))
-        write("used-4b.json", used_4b(facts))
-        if args.examples_4b:
-            write("examples-4b.json", examples_4b(facts, args.examples_4b))
-        elif os.path.exists(os.path.join(DATA, "examples-4b.json")):
-            os.remove(os.path.join(DATA, "examples-4b.json"))
+        used_4b(facts)                                                        # the units named in the 4B model card, as facts
+        for name in ("used-4b.json", "examples-4b.json"):                     # files of an earlier form of the page
+            if os.path.exists(os.path.join(DATA, name)):
+                os.remove(os.path.join(DATA, name))
     else:
         for name in ("layers-4b.json", "used-4b.json", "examples-4b.json"):
             if os.path.exists(os.path.join(DATA, name)):
@@ -899,6 +938,16 @@ def main() -> None:
             if os.path.exists(os.path.join(DATA, name)):
                 os.remove(os.path.join(DATA, name))
         print("no count-curve figure: --count-curve was not given")
+    for name in ("trace.json", "geom-4b.json"):
+        if not args.geom and os.path.exists(os.path.join(DATA, name)):
+            os.remove(os.path.join(DATA, name))
+    if args.geom:
+        import geom_data
+        write("trace.json", geom_data.line_count(facts, os.path.join(args.geom, "line_count"), demo))
+        if has_4b and args.weights_4b:
+            write("geom-4b.json", geom_data.four_b_geometry(facts, args.geom))
+    else:
+        print("no trace and no geometry figures: --geom was not given")
     write("facts.json", {"sources": sorted({v["source"] for v in facts.items.values()}), "source_commit": source_commit(args.repo, args.source_commit),
                          "facts": facts.items})
 

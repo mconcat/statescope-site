@@ -7,9 +7,11 @@ Checks: no console error, no failed request, no request to another host, no hori
 width, light and dark; the first figure (built without a browser) holds the tokens, gates and character counts of the item file and
 its text sits on the scale of one character; every cell x swap x set of items shows the share of data/demo.json; the chain, the
 items, the pair viewer, the link comparison, the tables, the layer panels (by keyboard and by pointer) and the 4B panels show the
-values of the data files; the dose figure shows the share, interval, mean margin and item margins of data/steer.json at every unit,
-cell and dose; the two count figures show the values of data/count-curve.json and data/count-readout.json; the bars of the 4B
-examples show the values of data/used-4b.json; no "NaN" or "undefined" anywhere; every number that the page shows after these interactions is traceable
+values of the data files; the animated path shows at every stop the site, the group, the two shares and the threshold crossings of
+data/trace.json, plays and pauses, and the trace table and the causal figure hold its values; the three planes of the 4B examples hold
+the marks of data/geom-4b.json; the dose figure shows the share, interval, mean margin and item margins of data/steer.json at every unit,
+cell and dose; the two count figures show the values of data/count-curve.json and data/count-readout.json; no "NaN" or "undefined"
+anywhere; every number that the page shows after these interactions is traceable
 (the rule of tools/lint_page.py, with the data files added); without JavaScript the text, the first figure and the tables are there.
 """
 from __future__ import annotations
@@ -29,7 +31,8 @@ from playwright.async_api import async_playwright  # noqa: E402
 
 HERE = lint_page.HERE
 problems: list[str] = []
-counts = {"shares": 0, "chain rows": 0, "items": 0, "layers": 0, "link": 0, "tables": 0, "lead tokens": 0, "doses": 0, "count readouts": 0, "bars": 0}
+counts = {"shares": 0, "chain rows": 0, "items": 0, "layers": 0, "link": 0, "tables": 0, "lead tokens": 0, "doses": 0, "count readouts": 0, "bars": 0,
+          "stops": 0, "trace cells": 0, "plane marks": 0}
 VIEWS = (("desktop-light", 1280, 900, "light"), ("desktop-dark", 1280, 900, "dark"), ("tablet-light", 820, 1100, "light"),
          ("tablet-dark", 820, 1100, "dark"), ("phone-light", 375, 800, "light"), ("phone-dark", 375, 800, "dark"))
 TAIL_LINES = 6          # lines of a text that the pair viewer shows before "whole text" is chosen (assets/js/demo.js)
@@ -56,7 +59,7 @@ def lines_of(pieces: list[str]) -> list[list[int]]:
 
 # the text a reader sees, without the item texts, the axis ticks and the code blocks (those are data or code, not claims)
 VISIBLE_TEXT = """() => {
-  const skip = (n) => n.closest('[data-axis], [data-items], .ttext, .tip .t, script, style, noscript');
+  const skip = (n) => n.closest('[data-axis], [data-items], .ttext, .tip .t, .path-strip, script, style, noscript');
   const out = [];
   const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
   for (let n = walker.nextNode(); n; n = walker.nextNode()) if (!skip(n.parentElement)) out.push(n.textContent);
@@ -80,21 +83,23 @@ async def open_page(browser, url: str, width: int, height: int, scheme: str, log
     page.on("response", lambda r: log.append(f"status {r.status}: {r.url}") if r.status >= 400 else None)
     await page.goto(url + "index.html", wait_until="networkidle")
     await page.wait_for_selector("#chain .chain-row .value")
-    await page.wait_for_selector("#clean-box .tok")
-    await page.wait_for_selector("#items-plot svg")
-    for sel, name in (("#steer-items-plot svg", "steer.json"), ("#curve-plot svg", "count-curve.json"), ("#read-lines svg", "count-readout.json")):
+    for sel, name in (("#steer-items-plot svg", "steer.json"), ("#curve-plot svg", "count-curve.json"), ("#read-lines svg", "count-readout.json"),
+                      ("#path-plot svg", "trace.json"), ("#causal-plot svg", "trace.json"), ("#cmp-plot svg", "geom-4b.json")):
         if os.path.exists(os.path.join(HERE, "data", name)):
             await page.wait_for_selector(sel)
     return ctx, page
 
 
 async def open_folds(page) -> None:
-    """the blocks that stay closed until asked for (training details, numbers per layer, what was checked) are opened by their summaries"""
+    """the blocks that stay closed until asked for (more on the swaps, training details, numbers per layer, what was checked) are opened
+    by their summaries"""
     for i in range(await page.locator("details.fold").count()):
         d = page.locator("details.fold").nth(i)
         if await d.get_attribute("open") is None:
             await d.locator("> summary").click()
     await page.wait_for_selector("#layer-panels svg")
+    await page.wait_for_selector("#clean-box .tok")
+    await page.wait_for_selector("#items-plot svg")
 
 
 async def basic(page, name: str, width: int) -> None:
@@ -434,31 +439,75 @@ async def new_figures(page, demo: dict) -> list[str]:
                     counts["count readouts"] += 1
             seen.append(await page.evaluate(VISIBLE_TEXT))
         expect(await page.locator("#read-plane .read-arrow").count() == 2, "count readout: the read direction is not drawn")
-    if os.path.exists(os.path.join(HERE, "data", "used-4b.json")):
-        used = data("used-4b.json")
-        bars = {fig: await page.eval_on_selector_all(f"#{fig} .hbar", """n => n.map(x => [x.querySelector('b').textContent,
-            [...x.querySelectorAll('.hbar-track i')].map(i => ['--v', '--lo', '--hi'].map(k => i.style.getPropertyValue(k)))])""") for fig in ("fig-u1", "fig-u2", "fig-u3")}
-        want1 = [b["value"] for b in used["rule"]["bars"]]
-        expect([b[0] for b in bars["fig-u1"]] == want1 and [b[1][0][0] for b in bars["fig-u1"]] == want1, f"bars of the first 4B example: {bars['fig-u1']}")
-        want2 = [f"{r['lo']} to {r['hi']}" for r in used["aba"]["ranges"]] + [v for f in used["aba"]["flips"] for v in (f["value"], f["twice"])]
-        expect([b[0] for b in bars["fig-u2"]] == want2, f"bars of the second 4B example: {[b[0] for b in bars['fig-u2']]}")
-        expect([b[1][0][1:] for b in bars["fig-u2"][:5]] == [[r["lo"], r["hi"]] for r in used["aba"]["ranges"]], "range bars of the second 4B example")
-        js = used["js"]["bars"]
-        expect([b[0] for b in bars["fig-u3"]] == [f"{js[0]['value']} ({js[0]['lo']} to {js[0]['hi']})"], f"bar of the third 4B example: {bars['fig-u3']}")
-        counts["bars"] += sum(len(v) for v in bars.values())
-        for fig in bars:                                                      # a bar is as long as its value on the track from 0 to 1
-            sizes = await page.eval_on_selector_all(f"#{fig} .hbar-track", "n => n.map(t => [t.getBoundingClientRect().width, ...[...t.children].map(i => i.getBoundingClientRect().width)])")
-            for (text, styles), size in zip(bars[fig], sizes):
-                v, lo, hi = styles[0]
-                length = float(v) if v else float(hi) - float(lo)
-                expect(abs(size[1] - length * size[0]) < 1.5, f"{fig}: bar {text!r} is not as long as its value")
-    if os.path.exists(os.path.join(HERE, "data", "examples-4b.json")):
-        ex = data("examples-4b.json")
-        shown = await page.eval_on_selector_all(".contexts li", "n => n.map(x => [x.textContent, x.querySelector('mark').textContent])")
-        want = [[c.replace("[[", "").replace("]]", ""), c[c.index("[[") + 2:c.index("]]")]] for c in ex["contexts"]["aba"] + ex["contexts"]["less"]]
-        expect(shown == want, f"natural-text contexts: {shown}")
-        code = await page.eval_on_selector_all(".exp .codeblock code", "n => n.map(x => x.textContent)")
-        expect(code == [ex["rule_sample"]], "the generated function of the first 4B example")
+    if os.path.exists(os.path.join(HERE, "data", "trace.json")):
+        trace = data("trace.json")
+        stops = trace["stops"]
+        expect(await page.locator("#path-labels li").count() == len(stops), "path figure: one label per stop")
+        cells = sum(len(v["x"]) for v in stops[0]["curves"].values())
+        for i, st in enumerate(stops):
+            await page.fill("#path-step", str(i))
+            got = await page.eval_on_selector_all("#path-readout b", "n => n.map(x => x.textContent)")
+            want = [f"{i + 1} / {len(stops)}", st["id"]] + ([str(st["group"])] if st["group"] else []) + [st["geometry"]["by_count"], st["geometry"]["by_remaining"]]
+            expect(got == want, f"path figure, stop {i}: {got} != {want}")
+            current = await page.eval_on_selector_all("#path-labels li.current", "n => n.map(x => x.dataset.stop)")
+            expect(current == [str(i)], f"path figure, stop {i}: label shown {current}")
+            levels = await page.eval_on_selector_all("#path-plot .level", "n => n.map(x => [x.dataset.transform, x.dataset.kind, x.querySelectorAll('.level-pt').length])")
+            want_levels = [[str(r["transform"]), kind, len(per)] for r in st["readouts"] for kind, per in r["crossings"].items() if per]
+            expect(levels == want_levels, f"path figure, stop {i}: threshold crossings {levels} != {want_levels}")
+            dots = await page.locator("#path-plot .curve-pt").count()
+            expect(dots == sum((len(v["x"]) + 1) // 2 for v in st["curves"].values()) and cells == sum(len(v["x"]) for v in st["curves"].values()), f"path figure, stop {i}: {dots} points")
+            counts["stops"] += 1
+        expect(await page.locator("#path-plot .path-line").count() == len(trace["widths"]), "path figure: one curve per width")
+        await page.fill("#path-step", "0")
+        await page.click("#path-play")
+        expect(await page.get_attribute("#path-play", "aria-pressed") == "true", "path figure: the play button does not start")
+        await page.wait_for_function("document.getElementById('fig-path').dataset.at === '1'", timeout=8000)
+        await page.click("#path-play")
+        expect(await page.get_attribute("#path-play", "aria-pressed") == "false", "path figure: the play button does not pause")
+        shown = await page.eval_on_selector_all(".trace-table tbody tr", "rows => rows.map(r => [...r.querySelectorAll('td')].map(c => c.textContent))")
+        want = [e["shares"] for row in trace["table"] for e in row["entries"]]
+        expect(shown == want, f"trace table: {shown[:3]} ...")
+        counts["trace cells"] += sum(len(r) for r in shown)
+        box = await page.locator("#causal-plot svg").bounding_box()
+        c = trace["causal"]
+        for i in (0, len(c["counts"]) // 2, len(c["counts"]) - 1):
+            await page.locator("#causal-plot svg").hover(position={"x": 44 + i / (len(c["counts"]) - 1) * (box["width"] - 56), "y": box["height"] / 2})
+            got = await page.eval_on_selector_all("#causal-readout b", "n => n.map(x => x.textContent)")
+            expect(got == [c["counts"][i]] + [c["arms"][k][i] for k in ("clean", "shift40", "shift60", "perm40")], f"causal figure at {c['counts'][i]}: {got}")
+        expect(await page.locator("#causal-plot path[data-arm]").count() == 4, "causal figure: four lines")
+        seen.append(await page.evaluate(VISIBLE_TEXT))
+    if os.path.exists(os.path.join(HERE, "data", "geom-4b.json")):
+        geom = data("geom-4b.json")
+        marks = await page.eval_on_selector_all("#aba-plot .cond", "n => n.map(x => x.dataset.condition)")
+        expect(marks == [c["name"] for c in geom["aba"]["conditions"]], f"plane of the repetition rule: {len(marks)} condition marks")
+        expect(await page.locator("#aba-plot .read-arrow").count() == 2 * len(geom["aba"]["reads"]), "plane of the repetition rule: read directions")
+        words = await page.eval_on_selector_all("#leth-plot .word-pt", "n => n.map(x => x.dataset.word)")
+        expect(sorted(words) == sorted(w["word"] for w in geom["lethality"]["words"]), f"word plane: {len(words)} words")
+        cells = await page.eval_on_selector_all("#cmp-plot .cell", "n => n.map(x => [x.dataset.cell, x.getAttribute('class')])")
+        kinds = {-1: "cell less", 0: "cell equal", 1: "cell greater"}
+        expect(cells == [[f"{c['cur']}/{c['prev']}", kinds[c["outcome"]]] for c in geom["compare"]["cells"]], f"comparison plane: {len(cells)} cells")
+        expect(await page.locator("#cmp-plot .read-arrow").count() == 4, "comparison plane: read directions")
+        await page.locator("#leth-plot .word-pt").first.hover()
+        tip = await page.inner_text("#tip")
+        expect(any(w["word"] in tip and w["c4"] in tip for w in geom["lethality"]["words"]), f"word plane: hint {tip!r}")
+        bars = await page.eval_on_selector_all("#fig-st .hbar", """n => n.map(x => [x.querySelector('b').textContent, x.querySelector('.hbar-track i').style.getPropertyValue('--v'),
+            x.querySelector('.hbar-track').getBoundingClientRect().width, x.querySelector('.hbar-track i').getBoundingClientRect().width])""")
+        want = [[f"{b['value']} ({b['lo']} to {b['hi']})", b["value"]] for b in geom["steer"]["bars"]]
+        expect([b[:2] for b in bars] == want, f"bars of the last 4B example: {bars}")
+        expect(all(abs(b[3] - float(b[1]) * b[2]) < 1.5 for b in bars), "bars of the last 4B example: a bar is not as long as its value")
+        counts["bars"] += len(bars)
+        if "average" in geom:
+            av = geom["average"]
+            dots = await page.eval_on_selector_all("#avg-plot .hist", "n => n.map(x => x.dataset.types)")
+            expect(dots == [x["types"] for x in av["histories"]], f"plane of the histories: {len(dots)} points")
+            shown = await page.eval_on_selector_all("#fig-avg .hbar", """n => n.map(x => [x.querySelector('b').textContent, x.querySelector('i').style.getPropertyValue('--v'),
+                x.querySelector('.hbar-track').getBoundingClientRect().width, x.querySelector('i').getBoundingClientRect().width])""")
+            expect([b[0] for b in shown] == av["attention"] and [b[1] for b in shown] == av["attention"], f"attention by line: {shown}")
+            expect(all(abs(b[3] - 4 * float(b[1]) * b[2]) < 1.5 for b in shown), "attention by line: a bar is not as long as its value on the axis from 0 to 0.25")
+            counts["bars"] += len(shown)
+            counts["plane marks"] += len(dots)
+        counts["plane marks"] += len(marks) + len(words) + len(cells)
+        seen.append(await page.evaluate(VISIBLE_TEXT))
     return seen
 
 
@@ -504,7 +553,11 @@ async def run(args) -> None:
         for i in range(await page.locator("details.more:visible").count()):
             await page.locator("details.more:visible").nth(i).locator("summary").click()
         tables = await page.locator("table:visible").count()
-        want = 6 + 2 * os.path.exists(os.path.join(HERE, "data", "layers-4b.json"))   # shares, rates, link, layers, spliced-in loss, details; 4B: layers, details
+        # shares, rates, link, layers, spliced-in loss, details; 4B: layers, details; the trace table
+        want = 6 + 2 * os.path.exists(os.path.join(HERE, "data", "layers-4b.json")) + os.path.exists(os.path.join(HERE, "data", "trace.json"))
+        if os.path.exists(os.path.join(HERE, "data", "trace.json")):
+            expect(await page.locator(".path-strip svg:visible").count() == len(data("trace.json")["stops"]), "without JavaScript: the strip of stops is not there")
+            expect(await page.locator("#path-labels li:visible").count() == len(data("trace.json")["stops"]), "without JavaScript: the labels of the stops are not there")
         expect(tables == want, f"without JavaScript: {tables} tables visible, {want} expected")
         expect(await page.locator(".needs-js:visible").count() == 0, "without JavaScript: an empty interactive block is visible")
         expect(await page.locator("#fig-lead .tok:visible").count() > 100, "without JavaScript: the first figure is not there")

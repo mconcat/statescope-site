@@ -5,10 +5,10 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>statescope: Reading language model computation as circuits of state groups and transforms</title>
-<meta name="description" content="statescope is a method and a reader for reading language model computation as a circuit of state groups and transforms through per-layer dictionaries. We provide dictionary weights for Qwen3.5-4B and Qwen3.5-0.8B so far.">
+<meta name="description" content="statescope is a method and a reader for reading a language model's computation as a circuit of multi-dimensional state groups and transforms. We provide dictionary weights for Qwen3.5-4B and Qwen3.5-0.8B.">
 <meta property="og:type" content="website">
 <meta property="og:title" content="statescope: Reading language model computation as circuits of state groups and transforms">
-<meta property="og:description" content="statescope is a method and a reader for reading language model computation as a circuit of state groups and transforms through per-layer dictionaries. We provide dictionary weights for Qwen3.5-4B and Qwen3.5-0.8B so far.">
+<meta property="og:description" content="statescope is a method and a reader for reading a language model's computation as a circuit of multi-dimensional state groups and transforms. We provide dictionary weights for Qwen3.5-4B and Qwen3.5-0.8B.">
 <meta property="og:site_name" content="statescope">
 <meta property="og:url" content="https://statescope.ai/">
 <meta property="og:image" content="https://statescope.ai/assets/og-card.png">
@@ -18,7 +18,7 @@
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:image" content="https://statescope.ai/assets/og-card.png">
 <meta name="twitter:title" content="statescope: Reading language model computation as circuits of state groups and transforms">
-<meta name="twitter:description" content="statescope is a method and a reader for reading language model computation as a circuit of state groups and transforms through per-layer dictionaries. We provide dictionary weights for Qwen3.5-4B and Qwen3.5-0.8B so far.">
+<meta name="twitter:description" content="statescope is a method and a reader for reading a language model's computation as a circuit of multi-dimensional state groups and transforms. We provide dictionary weights for Qwen3.5-4B and Qwen3.5-0.8B.">
 <meta name="color-scheme" content="light dark">
 <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
 <link rel="preload" href="assets/fonts/site-sans-var.woff2" as="font" type="font/woff2" crossorigin>
@@ -101,10 +101,10 @@
 <section class="band abstract" aria-labelledby="abstract">
   <div class="wrap narrow">
     <h2 id="abstract"><a href="#abstract">Abstract</a></h2>
-    <p>We introduce statescope, a method and a reader for reading language model computation through per-layer dictionaries as a circuit of state groups and transforms. Each layer has two dictionaries: a state dictionary that writes the residual stream as a few active groups of directions, and an MLP dictionary that writes the layer’s MLP as a sum of small gated linear operations. The reader is one Python file. We provide sets of dictionary weights for <span class="nw">Qwen3.5-4B</span> and <span class="nw">Qwen3.5-0.8B</span> so far, and more models will follow.</p>
-    <p>We follow a line-break decision in <span class="nw">Qwen3.5-0.8B</span> through named units. A layer-8 transform fires on the first token of each line, and a head of the layer-9 mixer carries the count of characters since then. Two layer-9 transforms turn that count into the line-break decision. In text wrapped at 60 characters, swapping only the first transform's write through the mixer carries 0.328 of the change in the model's preference for a line break, and swapping the whole layer-8 MLP output the same way carries 0.353.</p>
+    <p>statescope is a method and a reader for reading a language model's computation as a circuit of multi-dimensional state groups and transforms. Each layer has two dictionaries: a state dictionary that writes the residual stream as a few active groups, and an MLP dictionary that writes the MLP as small gated linear transforms. We read mixers directly at the level of the model's own heads, and our reader is one Python file. We provide dictionary weights for <span class="nw">Qwen3.5-4B</span> and <span class="nw">Qwen3.5-0.8B</span> so far, with more models to follow.</p>
+    <p>In <span class="nw">Qwen3.5-0.8B</span>, we follow how the model decides to break a line in text wrapped to a fixed width, reading the trace as a sequence of geometric operations. One mixer head acts as a clock that is exactly linear in the number of characters since the line start. The count forms a curve in a plane inside one state group's frame, which MLP transforms read along directions with thresholds. Inside one mixer head in a later layer, a memory read that depends on the wrapping width is multiplied by a gate that depends on the count. Transforms then read a code for the remaining characters at a fixed distance before the line end.</p>
 
-    <p>We steered <span class="nw">Qwen3.5-4B</span> with single state groups. In a Python rule-completion task, moving the residual stream inside one group's frame raised the rate of correct rules from 0.516 to 0.773.</p>
+    <p>In <span class="nw">Qwen3.5-4B</span>, we find a rule variable that represents which of two repetition rules a list follows as a plane inside one group's frame: one axis represents whether an item repeats an earlier item, and the other represents which item. We also examine a unit drawn at random that orders adjectives along a signed coordinate, from fatal through neutral words to vital.</p>
 
   </div>
 </section>
@@ -189,6 +189,7 @@
           <p>A transform reads one direction of the MLP input, opens its gate when that reading passes a learned threshold, and writes a low-rank linear map of the input scaled by the gate value. Each <span class="nw">Qwen3.5-0.8B</span> layer has 3,968 transforms, with only a few gates open per token, and their writes sum to reconstruct the MLP output.</p>
       <p>In Figure 1, L8 transform 189 marks the first token of each line: its gate opens on 1.000 of first tokens, 0.001 of line-break tokens and 0.010 of other tokens. L9 transform 410 fires on 0.84 to 0.89 of tokens at line lengths of 20 to 49 characters, falling to 0.03 at 70 to 79 characters. L9 transform 1749 fires on 0.00 of tokens below 70 characters and 0.60 at 90 to 99 characters, as the bars in Figure 1 show.</p>
       <p>We can read where a transform's gate opens and what it adds to the MLP output, or change its gate and recompute the output.</p>
+          <p>A transform is one gate times a low-rank linear write; the gate has a single read direction and a threshold. Rank belongs only to the write and carries how it varies with context; separate outcomes use separate transforms, such as one for “less” and another for “greater” when comparing two digits. For one rank-64 transform in <span class="nw">Qwen3.5-4B</span>, we measured that a unit with one fixed write direction would hold 0.72 of its write.</p>
         </article>
       </div>
     </div>
@@ -204,9 +205,208 @@
     <div class="lead-block">
       <p class="lead">The demonstration uses the 0.8B set on texts wrapped to a fixed width. At the last word of a line, the model must predict a line break, so it must know how many characters the line already holds. Figure 1 shows three dictionary units that follow this count on one text.</p>
       <p class="lead">Our worked example follows the line-counting task studied by <a href="https://arxiv.org/abs/2601.04480">Gurnee et al.</a>, which asks how a model decides where to break a line in text wrapped to a fixed width. We follow the same task in a different model, <span class="nw">Qwen3.5-0.8B</span>. In this model, head 10 of the layer-9 GatedDeltaNet carries the count, and the layer-9 MLP reads it through one state group's frame.</p>
+      <p class="lead">We follow the computation from the line start to the decision. We read mixers directly through the model’s own heads and MLPs through transforms.</p>
     </div>
 
-    <h3 id="pairs"><a href="#pairs">Pairs of texts and the margin</a></h3>
+
+    <h3 id="path"><a href="#path">From the line start to the decision</a></h3>
+    <p class="lead">Figure 3 follows the mean states for each count and width through successive layers. Watch the sheet change with one write at layer 12. After that write, the curves coincide when their line ends are aligned.</p>
+    <figure id="fig-path" data-aria="The curves form a sheet before a mixer write brings them into alignment by the characters remaining before the line end." data-play="Play" data-pause="Pause" data-stop="Stop" data-count-share="Share explained by count" data-remaining-share="Share explained by remaining characters">
+      <div class="needs-js">
+        <div class="figure-head">
+          <div class="controls">
+            <div class="control"><button type="button" class="quiet play" id="path-play" aria-pressed="false">Play</button></div>
+            <div class="control"><label for="path-step">Trace position</label><input type="range" id="path-step" min="0" max="0" step="1" value="0"></div>
+          </div>
+        </div>
+        <div class="layer-readout" id="path-readout" aria-live="polite"></div>
+        <ul class="keys" aria-hidden="true">
+          <li><span class="ramp"></span>Characters in the line</li>
+          <li>Wrapping widths: 40, 60, 80, 100 and 120</li>
+          <li><svg width="26" height="12"><path d="M2 6H24" class="level-line"/><circle cx="13" cy="6" r="4" class="level-pt"/></svg>Transform threshold crossings</li>
+        </ul>
+        <div class="plot" id="path-plot"></div>
+      </div>
+      <p class="sample-note nojs-only">The static sequence below shows the measured stops along the trace.</p>
+      <div class="path-strip nojs-only" aria-hidden="true">
+        <figure class="strip-stop"><svg viewBox="0 0 150 104" width="150" height="104"><path d="M31.3 19.5L50.9 14.3L75.4 11.4L93.8 10.1L107.5 10.1L118.0 10.2L125.6 10.6L130.6 10.9L133.9 11.4L135.5 12.3L137.2 12.0L140.1 11.2" class="path-line" stroke-dasharray="1 3"/><path d="M21.7 29.9L37.3 26.9L58.8 24.9L77.3 24.0L91.8 23.4L104.7 23.1L113.7 23.8L121.2 22.9L125.9 22.3L130.0 23.2L132.4 23.8L134.1 24.0L136.3 24.1L137.9 24.4L138.6 24.6L138.6 25.4L140.3 24.9L140.8 24.7L143.6 24.5" class="path-line" stroke-dasharray="5 3"/><path d="M14.1 34.3L28.3 32.3L47.3 32.4L62.5 32.1L76.9 32.6L89.0 32.6L98.2 33.0L106.2 33.0L112.4 33.4L116.4 33.0L119.7 33.9L123.4 33.7L125.7 34.0L128.6 34.4L129.7 34.2L131.3 34.9L133.2 34.3L133.4 35.3L135.2 35.3L135.7 35.1L135.6 35.4L136.5 35.3L136.6 35.6L137.3 36.1L138.3 35.8" class="path-line"/><path d="M10.8 39.2L22.9 39.4L39.3 39.9L52.4 40.8L63.5 41.4L74.8 42.5L83.3 42.5L90.0 43.7L96.2 43.9L100.6 44.3L104.1 44.6L106.9 45.2L110.7 45.2L112.7 45.3L114.5 46.9L116.4 46.9L117.7 46.2L118.4 46.5L120.2 46.2L121.4 47.4L122.0 47.3L121.9 47.5L123.2 47.9L124.1 48.1L123.8 49.0L124.9 48.0L124.0 49.1L125.0 48.3L124.2 49.0L125.0 49.0L125.2 49.1L126.6 48.2" class="path-line" stroke-dasharray="9 3 2 3"/><path d="M6.0 41.1L17.6 41.6L33.2 43.4L45.6 44.4L55.6 45.3L64.7 46.2L73.6 46.6L80.3 48.0L87.1 48.0L91.7 48.6L95.8 50.7L98.7 49.9L102.6 51.1L105.2 51.7L106.4 51.7L107.8 52.1L110.8 52.1L111.2 53.5L113.6 53.3L113.9 53.4L114.2 54.0L116.2 53.5L117.9 54.4L117.0 54.5L117.4 54.2L118.7 55.1L119.2 54.7L118.8 55.1L118.8 55.0L117.9 55.2L120.7 54.6L118.7 55.1L120.2 56.4L119.9 55.5L120.1 55.8L119.4 55.8L119.4 56.5L120.9 55.4L122.9 55.5" class="path-line" stroke-dasharray="12 4"/></svg><figcaption>1. resid_post.8</figcaption></figure>
+        <figure class="strip-stop"><svg viewBox="0 0 150 104" width="150" height="104"><path d="M80.7 47.7L80.5 49.7L81.4 52.3L83.1 53.6L84.5 54.7L85.8 55.4L86.8 55.9L87.5 56.1L88.0 56.3L88.5 56.4L88.6 56.3L88.7 56.3" class="path-line" stroke-dasharray="1 3"/><path d="M82.1 48.5L81.5 51.1L81.8 54.2L83.1 56.3L84.1 57.8L85.4 58.9L86.5 60.0L87.1 60.5L87.5 60.7L88.2 61.0L88.6 61.2L88.9 61.5L89.1 61.7L89.5 61.7L89.4 61.7L89.7 61.9L89.8 61.8L89.8 61.7L90.2 61.9" class="path-line" stroke-dasharray="5 3"/><path d="M82.9 48.0L82.1 50.9L82.5 54.3L83.2 56.7L84.4 58.5L85.4 59.9L86.2 61.1L87.0 62.0L87.7 62.8L88.0 63.1L88.7 63.4L88.9 64.0L89.1 64.1L89.6 64.6L89.6 64.4L90.1 64.7L90.0 64.8L90.2 64.9L90.6 65.1L90.4 65.0L90.7 65.0L90.7 65.0L90.6 65.1L91.1 65.2L91.0 65.2" class="path-line"/><path d="M84.6 47.7L84.0 50.7L84.3 53.9L84.9 56.3L85.7 57.9L86.9 59.8L87.4 61.0L88.3 61.9L88.8 62.8L89.3 63.3L89.6 63.7L90.2 64.3L90.4 64.7L90.7 64.8L91.3 65.2L91.6 65.5L91.5 65.6L91.5 65.5L91.7 65.8L92.2 65.7L92.1 66.1L92.1 65.9L92.3 66.2L92.6 66.3L92.9 66.4L92.7 66.4L92.8 66.4L92.7 66.4L92.9 66.5L92.8 66.3L92.9 66.4L92.8 66.2" class="path-line" stroke-dasharray="9 3 2 3"/><path d="M85.5 46.8L85.0 49.5L85.1 53.3L85.9 55.4L86.6 57.4L87.2 58.9L87.7 60.5L88.7 61.4L89.2 62.4L89.5 63.1L90.4 64.1L90.3 64.4L91.0 65.0L91.5 65.5L91.5 65.4L91.7 65.6L92.0 66.1L92.4 66.4L92.6 66.6L92.8 66.5L93.0 66.8L92.9 66.8L93.3 67.1L93.2 67.1L93.1 67.0L93.4 67.4L93.5 67.3L93.7 67.2L93.7 67.3L93.6 67.1L93.7 67.4L93.6 67.2L94.0 67.7L93.8 67.3L94.0 67.4L93.8 67.3L94.1 67.4L93.9 67.5L93.9 67.7" class="path-line" stroke-dasharray="12 4"/></svg><figcaption>2. resid_post.8</figcaption></figure>
+        <figure class="strip-stop"><svg viewBox="0 0 150 104" width="150" height="104"><path d="M80.5 31.8L81.8 24.8L84.4 17.1L87.8 11.3L91.3 7.7L95.0 6.0L98.7 6.6L102.3 8.3L105.6 11.5L108.9 15.3L111.9 19.1L115.1 23.0" class="path-line" stroke-dasharray="1 3"/><path d="M82.6 40.3L83.6 36.4L85.2 30.4L87.2 24.4L89.3 19.0L91.8 15.0L94.5 13.7L97.1 12.8L99.7 13.6L102.6 15.5L105.3 18.1L108.1 21.1L110.8 24.3L113.6 27.7L115.8 31.3L118.3 35.5L120.7 38.9L122.7 42.4L125.4 46.3" class="path-line" stroke-dasharray="5 3"/><path d="M82.7 43.8L83.6 41.3L85.3 37.8L86.7 33.3L88.4 28.5L90.0 24.2L91.7 21.7L93.7 19.8L96.0 19.9L98.0 20.6L100.4 21.8L102.7 23.6L104.9 25.6L107.5 28.0L109.5 30.6L111.8 33.6L114.0 36.2L116.0 39.6L118.5 42.5L120.1 45.5L121.9 48.9L123.9 52.3L125.1 55.1L126.9 58.3L128.4 61.0" class="path-line"/><path d="M83.2 44.3L83.9 43.1L85.6 41.2L86.8 37.7L88.2 34.4L89.6 31.1L90.8 28.1L92.3 26.8L93.9 26.1L95.6 26.1L97.3 26.5L99.3 28.1L101.1 29.0L102.8 30.7L105.0 33.0L106.9 35.2L108.5 37.3L110.1 39.3L112.2 41.9L114.0 44.5L115.7 47.0L116.8 49.8L118.5 52.4L120.1 54.8L121.5 57.7L122.6 59.8L123.4 62.3L124.6 64.5L125.4 66.6L126.3 68.6L127.3 70.7L128.1 72.4" class="path-line" stroke-dasharray="9 3 2 3"/><path d="M82.6 44.2L83.7 43.4L85.4 42.6L86.7 40.5L88.0 37.8L88.9 34.9L90.1 32.3L91.3 30.5L92.7 29.6L94.1 29.2L96.1 29.8L97.3 30.3L99.3 31.5L101.0 32.9L102.5 34.0L104.1 35.9L105.9 37.9L107.3 40.1L109.3 42.1L110.5 44.2L112.1 46.7L113.7 48.7L115.6 51.1L116.3 53.5L117.7 55.8L119.0 58.2L120.4 60.4L121.1 62.4L121.9 64.4L122.8 66.5L124.1 68.2L124.3 70.0L125.5 72.1L125.8 73.2L126.6 75.1L126.7 76.1L127.4 77.5L127.9 78.8L128.8 80.4" class="path-line" stroke-dasharray="12 4"/></svg><figcaption>3. resid_mid.9</figcaption></figure>
+        <figure class="strip-stop"><svg viewBox="0 0 150 104" width="150" height="104"><path d="M87.7 28.4L86.9 28.3L86.2 29.4L85.8 30.6L85.8 31.0L86.2 30.8L88.0 29.9L90.9 28.6L95.5 26.8L101.3 25.3L107.8 24.1L115.1 23.9" class="path-line" stroke-dasharray="1 3"/><path d="M90.1 30.2L89.9 29.5L89.2 29.2L88.7 29.3L87.8 29.4L87.6 29.6L88.3 29.7L89.3 29.1L91.3 28.4L94.5 27.7L98.6 26.9L103.3 26.4L108.5 26.5L114.1 27.3L119.2 28.9L124.0 31.8L128.2 35.4L131.1 39.8L133.7 45.8" class="path-line" stroke-dasharray="5 3"/><path d="M90.5 31.2L91.0 30.5L91.3 30.2L91.0 29.7L90.4 29.4L89.7 29.3L89.7 29.3L90.0 29.1L91.4 28.9L93.2 28.6L95.7 28.3L98.7 28.0L102.2 27.8L106.3 28.4L110.3 29.0L114.7 30.4L118.5 32.3L122.1 35.1L125.5 38.6L127.3 42.6L128.5 47.3L129.1 52.4L128.4 56.7L127.4 61.6L126.0 65.8" class="path-line"/><path d="M91.1 31.3L91.5 31.1L92.5 30.8L92.6 30.2L92.4 30.0L92.1 29.7L91.8 29.2L92.1 29.1L92.8 29.1L94.1 28.9L95.7 28.8L98.0 28.9L100.3 29.0L103.1 29.3L106.4 30.1L109.7 30.9L112.6 32.2L115.4 33.8L118.5 36.1L120.9 39.1L122.5 42.3L123.6 45.7L124.3 49.5L124.3 53.2L123.8 57.0L122.9 60.2L121.4 63.0L120.0 65.9L118.8 67.8L117.4 69.8L116.3 71.0L115.2 72.2" class="path-line" stroke-dasharray="9 3 2 3"/><path d="M90.3 31.3L91.5 31.1L92.8 31.2L93.5 30.9L93.6 30.5L93.3 29.8L93.0 29.6L93.0 29.3L93.6 29.3L94.6 29.1L96.2 29.3L97.5 29.2L99.8 29.7L102.3 29.9L104.5 30.2L107.3 31.0L109.9 32.3L112.3 33.7L115.0 35.6L117.1 37.8L118.9 40.4L120.4 43.3L121.8 46.4L121.7 49.6L122.0 52.9L121.4 56.2L120.6 59.2L119.5 61.6L118.3 63.8L117.4 65.7L116.2 67.8L115.1 68.4L114.5 69.6L113.5 69.7L112.9 69.9L111.9 69.2L111.6 68.8L111.0 68.0L111.0 67.4" class="path-line" stroke-dasharray="12 4"/></svg><figcaption>4. resid_post.9</figcaption></figure>
+        <figure class="strip-stop"><svg viewBox="0 0 150 104" width="150" height="104"><path d="M96.6 27.8L95.3 29.6L94.0 32.5L92.4 35.2L90.6 36.8L89.3 37.6L89.0 36.9L90.2 35.1L93.6 32.0L99.2 28.8L106.8 26.2L116.2 25.1" class="path-line" stroke-dasharray="1 3"/><path d="M96.4 32.5L95.5 32.8L94.0 33.0L92.6 33.0L91.2 33.2L90.2 33.5L89.8 33.5L89.6 33.0L90.3 31.9L92.3 30.4L95.5 28.5L100.0 26.8L105.9 25.7L112.8 25.7L120.2 27.0L127.7 30.5L135.0 35.7L139.9 42.5L144.0 51.7" class="path-line" stroke-dasharray="5 3"/><path d="M92.6 33.0L92.6 32.9L92.7 32.5L92.6 31.9L92.0 31.5L91.4 31.5L90.9 31.4L90.8 31.4L91.3 31.1L92.4 30.4L94.0 29.4L96.3 28.4L99.2 27.2L103.1 26.8L107.6 26.7L112.5 27.3L117.4 28.8L122.2 31.6L127.4 35.7L130.9 40.7L133.1 47.2L134.4 54.9L133.3 62.0L130.9 69.6L127.1 75.8" class="path-line"/><path d="M93.0 31.3L93.2 31.5L94.0 31.4L93.9 31.1L93.9 31.0L93.4 31.3L92.8 30.9L93.0 30.9L93.2 30.8L94.0 30.4L94.9 29.9L96.8 29.4L98.7 28.9L101.3 28.7L104.6 28.7L107.9 28.9L111.1 29.7L114.2 31.0L117.9 32.9L120.9 35.9L122.9 39.0L124.2 42.8L125.2 47.1L124.7 51.7L124.0 56.7L122.3 61.1L119.6 64.7L117.1 68.1L114.6 69.8L112.2 70.9L110.4 70.6L109.6 69.6" class="path-line" stroke-dasharray="9 3 2 3"/><path d="M93.8 30.4L94.8 31.1L95.3 31.6L95.3 31.6L94.7 31.6L94.3 31.1L93.7 31.0L93.7 30.8L94.0 30.8L94.4 30.5L95.6 30.4L96.7 29.9L98.6 29.9L100.8 29.6L103.1 29.5L105.7 29.8L108.7 30.5L111.3 31.7L114.4 33.2L116.6 35.2L118.5 37.6L120.1 40.5L121.3 43.5L120.7 46.6L120.2 50.0L118.8 53.3L117.1 56.2L114.5 58.6L112.5 60.5L110.6 62.0L108.9 63.6L107.3 63.0L106.7 62.8L106.3 61.8L106.9 60.4L107.6 58.4L109.2 56.7L110.9 55.2L113.6 53.5" class="path-line" stroke-dasharray="12 4"/></svg><figcaption>5. resid_post.10</figcaption></figure>
+        <figure class="strip-stop"><svg viewBox="0 0 150 104" width="150" height="104"><path d="M96.7 28.3L95.1 30.3L94.1 33.3L92.4 36.1L90.7 37.7L89.6 38.5L89.6 37.6L90.9 35.4L94.5 32.2L100.1 28.7L107.5 26.0L116.6 24.7" class="path-line" stroke-dasharray="1 3"/><path d="M96.7 32.6L95.7 33.2L94.4 33.7L93.1 33.7L91.6 33.9L90.8 34.2L90.6 34.2L90.4 33.4L91.2 32.3L93.3 30.6L96.5 28.7L100.9 27.0L106.6 25.7L113.2 25.5L120.1 26.8L127.0 30.2L133.7 35.4L138.2 42.1L142.0 51.3" class="path-line" stroke-dasharray="5 3"/><path d="M93.5 33.0L93.2 33.1L93.3 33.0L93.1 32.6L92.7 32.2L92.0 32.2L91.7 32.0L91.6 31.9L92.3 31.5L93.2 30.8L94.9 29.8L97.1 28.6L100.0 27.4L103.8 27.0L107.8 26.8L112.5 27.4L117.0 28.8L121.4 31.7L126.0 35.7L129.0 40.7L131.0 47.1L132.1 54.6L131.2 61.4L129.1 68.6L125.7 74.5" class="path-line"/><path d="M93.9 31.2L93.9 31.7L94.6 31.9L94.4 31.7L94.4 31.6L93.9 31.9L93.4 31.5L93.6 31.4L93.8 31.2L94.7 30.9L95.6 30.3L97.4 29.8L99.3 29.2L101.8 28.9L104.8 28.9L107.9 29.1L110.9 29.8L113.7 31.2L116.8 33.2L119.6 36.1L121.4 39.2L122.5 43.1L123.2 47.2L122.8 51.7L122.1 56.4L120.5 60.6L118.3 63.9L116.1 67.1L114.2 68.6L112.4 69.5L111.2 68.9L111.0 67.6" class="path-line" stroke-dasharray="9 3 2 3"/><path d="M94.8 30.4L95.1 31.4L95.9 32.0L95.8 32.0L95.3 32.0L94.7 31.8L94.2 31.7L94.1 31.4L94.6 31.3L95.0 31.0L96.2 30.8L97.3 30.3L99.1 30.2L101.1 29.9L103.2 29.9L105.6 30.2L108.6 30.8L110.9 32.0L113.7 33.4L115.6 35.3L117.3 37.8L118.6 40.7L119.6 43.7L118.9 46.7L118.4 50.0L117.1 53.1L115.5 55.9L113.3 58.2L111.5 59.9L109.9 61.3L108.6 62.8L107.4 62.0L107.2 61.6L107.4 60.3L108.2 58.5L109.3 56.4L111.1 54.4L113.0 52.6L116.0 50.6" class="path-line" stroke-dasharray="12 4"/></svg><figcaption>6. resid_post.11</figcaption></figure>
+        <figure class="strip-stop"><svg viewBox="0 0 150 104" width="150" height="104"><path d="M97.6 32.4L98.5 31.2L99.9 30.1L101.4 28.9L102.6 27.9L103.8 27.5L104.4 28.0L104.6 29.4L104.4 32.2L104.2 36.0L104.4 40.6L105.1 45.5" class="path-line" stroke-dasharray="1 3"/><path d="M100.1 31.7L100.6 31.1L100.8 30.4L100.9 29.8L101.1 29.1L101.5 28.8L101.9 28.8L102.1 29.0L102.2 29.9L102.2 31.5L102.2 33.7L102.2 36.3L102.5 39.6L103.3 43.0L104.7 46.2L107.0 48.9L110.2 51.2L113.7 52.1L118.4 52.0" class="path-line" stroke-dasharray="5 3"/><path d="M100.3 30.1L100.7 30.0L100.9 30.1L100.7 30.2L100.6 30.1L100.7 29.9L100.8 29.8L101.0 29.9L101.3 30.5L101.4 31.2L101.4 32.3L101.4 33.7L101.4 35.6L101.8 37.5L102.1 39.7L102.9 41.9L103.9 43.7L105.6 45.4L107.9 46.8L110.5 47.3L113.7 47.0L117.5 46.0L121.1 44.3L124.9 41.9L128.4 39.2" class="path-line"/><path d="M99.7 30.7L100.4 30.8L100.7 31.1L100.7 31.1L100.7 31.1L100.9 30.9L100.7 30.8L101.0 30.9L101.1 31.2L101.3 31.7L101.4 32.5L101.5 33.4L101.7 34.7L101.9 36.0L102.3 37.6L102.7 39.1L103.4 40.4L104.1 41.5L105.3 42.6L106.8 43.4L108.2 43.6L110.2 43.3L112.1 42.8L114.3 41.7L116.7 40.4L118.9 38.9L121.0 37.3L123.0 35.7L124.4 34.7L125.8 33.9L126.4 33.6L126.9 34.0" class="path-line" stroke-dasharray="9 3 2 3"/><path d="M99.2 31.3L100.3 31.4L100.9 31.7L101.0 31.7L101.0 31.5L101.0 31.3L100.8 31.2L100.9 31.2L101.1 31.6L101.2 31.9L101.4 32.6L101.5 33.3L101.8 34.3L102.0 35.3L102.3 36.6L102.7 37.7L103.3 38.9L104.0 39.8L104.9 40.9L105.8 41.5L107.0 41.8L108.4 41.8L109.9 41.6L111.1 40.6L112.7 39.8L114.1 38.5L115.6 37.2L116.8 35.7L117.8 34.6L119.0 33.7L120.4 32.9L120.6 32.6L121.2 32.9L121.4 33.4L121.4 34.4L121.1 35.5L120.9 36.9L120.7 38.3L120.7 40.2" class="path-line" stroke-dasharray="12 4"/></svg><figcaption>7. resid_post.11</figcaption></figure>
+        <figure class="strip-stop"><svg viewBox="0 0 150 104" width="150" height="104"><path d="M100.6 34.0L100.7 35.4L101.0 37.5L101.1 39.8L101.4 42.3L102.3 45.0L104.0 47.1L106.7 48.5L110.8 48.4L115.8 46.5L121.1 42.8L126.4 37.8" class="path-line" stroke-dasharray="1 3"/><path d="M101.5 32.0L101.9 32.2L102.0 32.5L101.7 33.1L101.4 33.4L101.4 33.9L101.3 34.8L101.3 35.8L101.1 37.3L101.3 39.2L101.6 41.3L102.3 43.7L103.9 46.1L106.4 48.3L110.2 49.1L115.2 48.5L121.4 46.5L127.2 42.5L133.1 37.2" class="path-line" stroke-dasharray="5 3"/><path d="M100.3 31.8L100.8 31.9L101.3 32.2L101.3 32.3L101.4 32.3L101.5 32.1L101.6 32.1L102.0 32.0L102.3 32.3L102.6 32.4L102.9 32.8L102.9 33.2L102.8 34.0L102.9 35.1L102.6 36.7L102.4 38.9L102.2 41.4L102.5 44.4L103.5 47.8L105.3 50.5L108.5 52.4L112.9 52.9L117.8 51.5L123.3 48.4L128.1 44.0" class="path-line"/><path d="M99.7 32.3L100.2 32.5L100.7 32.8L100.7 32.8L100.8 32.9L101.0 32.9L101.0 32.8L101.4 32.8L101.7 32.8L102.2 32.8L102.5 32.8L102.8 32.8L103.1 32.9L103.3 33.0L103.5 33.5L103.5 33.9L103.4 34.4L103.1 35.3L102.8 36.5L102.5 38.3L102.0 40.0L102.0 42.2L102.2 44.6L102.7 47.1L104.0 49.6L105.6 51.7L108.1 52.9L110.8 53.9L114.0 53.2L117.7 51.8L121.0 49.2L124.0 46.9" class="path-line" stroke-dasharray="9 3 2 3"/><path d="M99.3 32.0L99.8 32.3L100.3 32.6L100.5 33.0L100.5 33.0L100.4 33.0L100.4 33.1L100.6 33.2L100.8 33.5L101.0 33.5L101.5 33.6L101.8 33.6L102.2 33.7L102.7 33.4L103.1 33.5L103.4 33.3L103.8 33.1L104.2 33.1L104.5 33.0L104.6 33.2L104.7 33.3L104.7 33.8L105.0 34.4L104.8 34.8L104.9 35.8L105.1 37.0L105.2 38.1L105.3 39.9L105.6 41.5L106.0 43.6L107.0 45.7L107.6 47.4L109.3 48.7L111.2 49.4L113.3 49.4L115.2 48.7L117.3 47.6L119.0 46.4L121.2 44.9" class="path-line" stroke-dasharray="12 4"/></svg><figcaption>8. resid_mid.12</figcaption></figure>
+        <figure class="strip-stop"><svg viewBox="0 0 150 104" width="150" height="104"><path d="M100.6 34.2L100.8 35.6L101.0 37.5L101.1 39.6L101.4 42.0L102.4 44.6L104.1 46.7L106.9 48.2L111.1 48.4L116.3 46.8L121.9 43.5L127.0 38.7" class="path-line" stroke-dasharray="1 3"/><path d="M101.6 32.4L102.0 32.5L102.0 32.8L101.7 33.3L101.3 33.6L101.3 34.1L101.3 34.8L101.2 35.8L101.1 37.1L101.3 38.9L101.6 41.0L102.4 43.4L104.0 45.8L106.5 48.0L110.4 49.0L115.7 48.7L122.1 47.1L128.1 43.6L133.9 38.7" class="path-line" stroke-dasharray="5 3"/><path d="M100.4 32.1L100.9 32.2L101.3 32.5L101.3 32.5L101.4 32.5L101.5 32.4L101.5 32.3L101.9 32.3L102.1 32.5L102.4 32.6L102.7 32.9L102.7 33.4L102.6 34.1L102.7 35.1L102.4 36.6L102.4 38.7L102.3 41.0L102.5 44.0L103.5 47.3L105.3 50.0L108.5 51.8L113.0 52.6L118.1 51.5L123.8 48.8L128.9 44.7" class="path-line"/><path d="M99.8 32.5L100.3 32.8L100.7 33.0L100.8 33.0L100.9 33.2L101.1 33.1L101.1 33.0L101.4 33.0L101.7 33.0L102.2 33.1L102.5 33.0L102.8 33.0L103.0 33.0L103.2 33.3L103.3 33.6L103.3 34.0L103.1 34.6L102.9 35.4L102.6 36.5L102.3 38.2L101.9 39.7L101.8 41.8L102.0 44.0L102.5 46.3L103.8 48.6L105.3 50.6L107.8 51.8L110.5 52.8L114.0 52.4L117.7 51.3L121.2 49.1L124.4 47.1" class="path-line" stroke-dasharray="9 3 2 3"/><path d="M99.5 32.3L99.9 32.6L100.3 32.9L100.5 33.2L100.6 33.3L100.5 33.3L100.4 33.3L100.7 33.4L100.9 33.6L101.1 33.7L101.6 33.8L101.9 33.8L102.3 33.8L102.7 33.7L103.1 33.7L103.3 33.5L103.7 33.4L104.0 33.4L104.2 33.3L104.2 33.5L104.3 33.6L104.4 34.1L104.6 34.7L104.3 35.1L104.5 36.0L104.7 37.0L104.9 38.0L105.0 39.6L105.3 41.1L105.7 43.0L106.7 44.9L107.4 46.6L109.2 47.9L111.0 48.7L113.2 48.7L115.2 48.3L117.4 47.4L119.4 46.4L121.5 45.2" class="path-line" stroke-dasharray="12 4"/></svg><figcaption>9. resid_post.12</figcaption></figure>
+        <figure class="strip-stop"><svg viewBox="0 0 150 104" width="150" height="104"><path d="M100.7 35.0L100.9 35.9L101.2 37.4L101.2 39.1L101.4 41.3L102.3 43.7L104.0 46.1L106.9 48.4L111.5 49.7L117.4 49.2L124.0 46.3L130.3 40.7" class="path-line" stroke-dasharray="1 3"/><path d="M102.0 32.7L102.1 32.6L102.0 32.9L101.7 33.5L101.4 33.8L101.3 34.2L101.1 34.9L101.0 35.7L100.9 36.8L101.0 38.4L101.3 40.3L101.9 42.5L103.4 45.0L105.8 47.7L109.8 49.6L115.5 50.4L122.4 49.5L129.2 45.7L135.7 39.0" class="path-line" stroke-dasharray="5 3"/><path d="M101.4 32.9L101.8 32.8L102.0 33.1L101.8 33.3L101.8 33.3L101.7 33.4L101.7 33.5L102.0 33.5L102.0 33.6L102.1 33.7L102.3 33.9L102.1 34.2L102.0 34.7L102.0 35.5L101.6 36.6L101.5 38.3L101.4 40.3L101.7 42.8L102.6 45.9L104.4 48.6L107.7 51.0L112.7 52.7L118.4 52.2L125.4 49.7L131.4 44.8" class="path-line"/><path d="M101.6 33.5L101.7 33.4L101.9 33.8L101.8 33.9L101.9 34.0L101.8 34.1L101.7 34.2L101.8 34.1L102.0 34.1L102.4 34.2L102.5 34.0L102.7 34.0L102.8 33.9L102.8 34.0L102.8 34.2L102.8 34.4L102.5 34.7L102.2 35.2L101.9 36.0L101.6 37.2L101.2 38.4L101.1 40.0L101.4 41.9L101.8 43.8L103.1 45.9L104.8 47.9L107.3 49.3L110.3 50.5L114.2 50.5L118.5 49.6L122.9 47.6L126.8 45.0" class="path-line" stroke-dasharray="9 3 2 3"/><path d="M101.1 33.4L101.3 33.5L101.5 33.9L101.4 34.2L101.4 34.3L101.2 34.4L101.2 34.5L101.3 34.6L101.4 34.8L101.6 34.7L101.9 34.8L102.1 34.8L102.4 34.7L102.7 34.6L102.9 34.5L103.2 34.2L103.3 33.9L103.6 33.8L103.6 33.6L103.6 33.6L103.7 33.7L103.3 34.0L103.5 34.3L103.3 34.8L103.2 35.5L103.4 36.3L103.4 37.2L103.5 38.5L103.8 39.7L104.2 41.4L105.3 43.2L106.0 44.7L107.9 45.9L110.0 46.8L112.5 47.2L115.0 46.8L117.7 46.0L120.1 44.5L122.8 42.7" class="path-line" stroke-dasharray="12 4"/></svg><figcaption>10. resid_mid.13</figcaption></figure>
+        <figure class="strip-stop"><svg viewBox="0 0 150 104" width="150" height="104"><path d="M100.7 35.3L101.0 36.0L101.4 37.4L101.5 39.1L101.6 41.1L102.4 43.5L104.0 45.9L106.7 48.3L111.2 49.7L117.5 49.1L124.9 46.0L131.8 40.4" class="path-line" stroke-dasharray="1 3"/><path d="M101.7 33.1L102.0 32.9L102.0 33.2L101.8 33.7L101.5 33.9L101.4 34.4L101.3 35.0L101.2 35.7L101.1 36.8L101.3 38.3L101.5 40.1L102.1 42.4L103.5 44.9L105.8 47.6L109.6 49.6L115.4 50.3L123.1 49.3L131.0 45.2L137.7 38.7" class="path-line" stroke-dasharray="5 3"/><path d="M101.2 33.3L101.6 33.1L101.9 33.4L101.9 33.5L101.8 33.6L101.8 33.6L101.8 33.6L102.0 33.6L102.1 33.7L102.1 33.8L102.3 34.0L102.2 34.3L102.1 34.8L102.0 35.5L101.8 36.6L101.7 38.2L101.6 40.0L101.8 42.6L102.6 45.6L104.0 48.4L107.1 50.9L111.8 52.6L117.8 52.0L125.5 49.3L132.5 44.4" class="path-line"/><path d="M101.3 33.9L101.7 33.7L102.0 34.0L101.9 34.1L101.9 34.2L101.9 34.2L101.9 34.3L101.9 34.2L102.1 34.3L102.5 34.3L102.6 34.2L102.7 34.1L102.8 34.0L102.8 34.1L102.8 34.3L102.7 34.4L102.5 34.8L102.2 35.3L102.0 36.0L101.7 37.1L101.4 38.2L101.3 39.7L101.4 41.5L101.7 43.4L102.8 45.6L104.1 47.5L106.4 49.1L109.2 50.4L113.0 50.4L117.7 49.6L122.7 47.4L127.1 44.7" class="path-line" stroke-dasharray="9 3 2 3"/><path d="M100.9 33.8L101.2 33.8L101.6 34.1L101.6 34.4L101.5 34.5L101.4 34.6L101.4 34.7L101.5 34.8L101.6 34.9L101.8 34.9L102.1 35.0L102.2 34.9L102.6 34.8L102.8 34.7L102.9 34.6L103.2 34.3L103.3 34.0L103.4 33.9L103.5 33.7L103.5 33.7L103.5 33.8L103.2 34.1L103.4 34.3L103.2 34.7L103.2 35.4L103.3 36.2L103.3 37.0L103.3 38.2L103.6 39.5L103.9 41.1L104.9 42.9L105.5 44.4L107.1 45.8L109.2 46.7L111.6 47.1L114.2 46.8L117.2 46.0L120.0 44.5L123.1 42.7" class="path-line" stroke-dasharray="12 4"/></svg><figcaption>11. resid_post.13</figcaption></figure>
+        <figure class="strip-stop"><svg viewBox="0 0 150 104" width="150" height="104"><path d="M97.4 32.9L100.6 35.1L101.7 36.4L102.1 37.3L102.7 38.4L103.4 40.0L104.7 42.1L106.7 44.9L110.4 47.7L116.8 49.2L126.5 47.2L136.7 42.9" class="path-line" stroke-dasharray="1 3"/><path d="M97.3 32.3L100.0 33.9L101.0 34.8L101.2 35.1L101.3 35.3L101.7 35.7L101.5 35.8L101.7 36.3L102.2 36.8L102.5 37.4L102.5 38.2L103.0 39.3L104.0 41.3L105.6 43.8L108.2 46.7L113.1 49.1L121.3 49.2L131.8 45.6L140.4 41.3" class="path-line" stroke-dasharray="5 3"/><path d="M97.2 32.1L100.0 33.8L101.0 34.7L101.3 34.9L101.4 35.1L101.5 35.3L101.6 35.5L102.0 35.6L101.9 35.7L102.1 35.9L102.1 36.0L102.2 36.2L102.3 36.5L102.3 36.6L102.4 36.9L102.6 37.6L102.8 38.2L103.0 39.1L103.8 40.9L104.6 42.9L106.6 45.6L110.3 48.6L115.9 49.9L124.8 48.6L134.1 44.7" class="path-line"/><path d="M97.3 32.0L100.1 33.8L101.1 34.6L101.3 34.8L101.6 35.1L101.6 35.3L101.7 35.4L101.9 35.7L102.2 35.9L102.2 36.0L102.4 36.0L102.5 36.2L102.4 36.4L102.7 36.4L102.7 36.3L102.9 36.5L102.6 36.6L102.5 36.6L102.8 37.0L102.7 37.1L102.7 37.3L102.8 37.8L103.1 38.5L103.3 39.3L103.8 40.5L104.9 42.2L106.4 44.0L108.3 46.0L112.0 47.8L116.5 48.4L123.0 47.7L129.6 46.1" class="path-line" stroke-dasharray="9 3 2 3"/><path d="M97.1 31.9L100.2 33.8L101.1 34.6L101.4 35.0L101.5 35.1L101.7 35.4L101.6 35.4L102.1 35.7L102.2 36.0L102.3 36.1L102.1 36.1L102.5 36.5L102.6 36.5L103.1 36.8L102.9 36.7L103.1 36.7L103.0 36.8L103.2 36.6L103.5 36.8L103.2 36.8L103.1 36.7L103.2 36.9L103.2 37.0L103.3 37.1L103.5 37.2L103.1 37.5L103.5 37.8L103.5 38.2L103.8 38.8L104.1 39.5L105.2 40.6L105.8 41.7L106.7 43.0L108.6 44.6L110.7 45.9L113.3 46.7L116.6 47.0L121.2 46.9L125.3 46.8" class="path-line" stroke-dasharray="12 4"/></svg><figcaption>12. resid_post.21</figcaption></figure>
+      </div>
+      <ol class="path-labels" id="path-labels">
+        <li data-stop="0">Head 12 of the layer-8 mixer has written a count curve displaced by width, forming a sheet in group 13334’s frame.</li>
+        <li data-stop="1">We now view the same state through group 4885’s frame, before the layer-9 mixer writes.</li>
+        <li data-stop="2">Head 10 of the layer-9 mixer has written count along the curve in group 4885’s plane, with width across it.</li>
+        <li data-stop="3">Layer-9 transforms 410, 1749 and 706 have read group 4885’s plane and written mostly back into the same frame.</li>
+        <li data-stop="4">Layer 10 has changed the sheet little, carrying it into group 1253’s frame, which no layer-10 MLP transform reads strongly.</li>
+        <li data-stop="5">Layer 11 has changed the sheet little, carrying it into group 3857’s frame, which no layer-11 MLP transform reads.</li>
+        <li data-stop="6">We now view the same state through group 15458’s frame, before the layer-12 mixer writes.</li>
+        <li data-stop="7">Head 13 of the layer-12 mixer has multiplied its width-dependent memory read by its count-dependent gate; the curves now align by remaining characters.</li>
+        <li data-stop="8">Layer-12 transform 2069 has read group 15458’s frame near the line end, while the state has changed little.</li>
+        <li data-stop="9">The layer-13 mixer has carried the remaining-characters curve into group 11047’s frame, in mostly the same plane.</li>
+        <li data-stop="10">Layer-13 transform 2490 has read group 11047’s frame and fired near the line end.</li>
+        <li data-stop="11">Head 15 of the layer-21 mixer has written the decision, and the width curves coincide by remaining characters in the residual stream’s own best plane.</li>
+      </ol>
+      <figcaption><b>Figure 3.</b> Each point is the mean state of tokens with the same count and width, shown in the plane of the two largest components of the site’s main state group frame, using its code without the top-24 selection. We use 640 documents, each wrapped at five widths (40, 60, 80, 100 and 120 characters), with 512 tokens per text. The 12 stops are measured, while the interpolation between them is a visual device. We align successive stops by changing their orientation and scale so their shapes can be compared. The mixer steps into <code>resid_mid.9</code> and <code>resid_mid.12</code> show each cell moving by the mixer’s measured additive write. The sequence shows a sheet through <code>resid_post.11</code>, then one write at layer 12, followed by curves that coincide when aligned by remaining characters, with no earlier stage of one shared count curve. The level-set lines join points across widths where a transform’s mean gate input crosses its threshold.</figcaption>
+    </figure>
+
+    <div class="stepgrid">
+      <article class="stepcard">
+        <h3 id="line-start"><a href="#line-start">The line start resets the count</a></h3>
+        <p>Head 12 of the layer-8 mixer acts on the first token of a line. Transform 189 then fires on that token and writes into the frame of group 11586 at <code>resid_post.8</code>. The trace table gives their shares of the line-break preference difference.</p>
+      </article>
+      <article class="stepcard">
+        <h3 id="counter"><a href="#counter">A head counts characters</a></h3>
+        <p>Head 10 of the layer-9 mixer is a clock: the logarithm of its decay since the line start falls by 0.027 to 0.033 per character, with R² 1.000 at every width. Its write strength on the first token is 0.996, overwriting the state under that key and restarting the clock. The head carries 0.97 of the mixer’s count curve. We read this head directly because our design reads mixers through the model’s own heads and MLPs through transforms.</p>
+      </article>
+    </div>
+
+
+    <h3 id="count-curve"><a href="#count-curve">The character count as a curve inside one state group's frame</a></h3>
+    <div class="split curve">
+      <div>
+        <p>The chain reached state group 4885 at <code>resid_mid.9</code>. It showed that the part of the layer-9 mixer's write inside this group's frame moves the layer-9 MLP transforms about as much as the whole write. Figure 4 shows that the count is a position along a curve in a plane inside the group's 4-dimensional frame.</p>
+        <p>Group 4885 is a dense group with 4-dimensional coordinates that are active on most tokens and carry information in those coordinates.</p>
+      </div>
+      <figure class="needs-js" id="fig-curve" data-first="Start of a new line" data-x="First component" data-y="Second component" data-aria="Mean codes trace a curve as the character count grows, with the start of a new line apart and texts with a wider wrapping width continuing along the same path." data-count="Character count" data-tokens="Contributing tokens">
+        <div class="figure-head">
+          <div class="controls"><div class="control"><label for="curve-count">Character count</label><input type="range" id="curve-count" min="0" max="0" step="1" value="0"></div></div>
+        </div>
+        <div class="layer-readout" id="curve-readout" aria-live="polite"></div>
+        <ul class="keys" aria-hidden="true">
+          <li><svg width="12" height="12"><circle cx="6" cy="6" r="4" class="curve-key"/></svg>Texts wrapped at 60 characters</li>
+          <li><svg width="12" height="12"><rect x="2" y="2" width="8" height="8" class="curve-key"/></svg>Texts wrapped at 100 characters</li>
+          <li><span class="ramp"></span>Characters in the line</li>
+        </ul>
+        <div class="plot" id="curve-plot"></div>
+        <figcaption><b>Figure 4.</b> Each point is the mean code of tokens with one character count and one wrapping width for which the group is active, shown only when at least 20 tokens contribute. We measured 48,960 tokens after dropping the first position from each text. The plane spans the two largest components of the mean curves and holds 0.984 of their variance. The point for count 0 sits apart, and the curve moves smoothly from about ten characters onward. Texts wrapped at 100 characters continue along the same path beyond 60 characters. Curves computed separately from even-numbered and odd-numbered items correlate 0.9945 for texts wrapped at 60 characters and 0.9963 for texts wrapped at 100 characters.</figcaption>
+      </figure>
+    </div>
+    <h3 id="count-read"><a href="#count-read">How the transforms read the count</a></h3>
+    <div class="lead-block">
+      <p class="lead">The state dictionary and the transform’s gate use the residual stream divided by the same size. The frame part of the gate input is therefore exactly linear in the group’s code: we multiply the code by a direction derived from the dictionary weights, which we call the read direction. Figure 5 shows that the two read directions differ but lie almost entirely in the plane of the count curve from Figure 4.</p>
+      <p class="lead">Along the read direction of transform 410, the middle of the curve sticks out. Along the read direction of transform 1749, only the far end sticks out.</p>
+      <p class="lead">The step from the count to the line-break decision can be read as a geometric operation: each transform reads the position on the curve along its own direction and compares that reading with a threshold.</p>
+    </div>
+    <p class="lead">One read direction makes transform 1749 switch on at a fixed count of 96 to 103 characters. The other makes transform 410 switch on at about 0.20 times the width and switch off at a fixed count of 54 to 58 characters.</p>
+    <figure class="needs-js" id="fig-read" data-arrow="Read direction" data-aria-plane="The count curve lies in a plane, with an arrow showing the chosen transform’s read direction, shading showing its firing rate and a marker showing the chosen count." data-aria-lines="The chart shows the mean gate input and mean frame part by character count, with a horizontal threshold line and a marker at the chosen count." data-aria-rate="The chart shows the chosen transform’s firing rate by character count, with a marker at the chosen count." data-line-threshold="Threshold" data-axis-x="Characters in the line" data-count="Characters in the line" data-readout-gate="Mean gate input" data-readout-frame="Mean frame part" data-readout-threshold="Threshold" data-readout-rate="Firing rate">
+      <div class="figure-head">
+        <div class="controls">
+          <div class="control"><span class="label" id="read-transform-label">Transform</span><div class="seg" role="group" aria-labelledby="read-transform-label" id="read-transform"></div></div>
+          <div class="control"><span class="label" id="read-width-label">Wrapping width</span><div class="seg code" role="group" aria-labelledby="read-width-label" id="read-width"></div></div>
+          <div class="control"><label for="read-count">Characters in the line</label><input type="range" id="read-count" min="0" max="0" step="1" value="0"></div>
+        </div>
+      </div>
+      <div class="layer-readout" id="read-readout" aria-live="polite"></div>
+      <div class="read-grid">
+        <div class="panel">
+          <ul class="keys" aria-hidden="true">
+            <li><svg width="12" height="12"><circle cx="6" cy="6" r="4" class="curve-key"/></svg>Texts wrapped at 60 characters</li>
+            <li><svg width="12" height="12"><rect x="2" y="2" width="8" height="8" class="curve-key"/></svg>Texts wrapped at 100 characters</li>
+            <li><span class="ramp by-rate"></span>Firing rate</li>
+          </ul>
+          <div class="plot" id="read-plane"></div>
+        </div>
+        <div class="read-charts">
+          <div class="panel">
+            <h4>Gate input, frame part and threshold</h4>
+            <ul class="keys" aria-hidden="true">
+              <li><svg width="26" height="12"><path d="M1 6H25" class="series s-unit"/></svg>Mean gate input</li>
+              <li><svg width="26" height="12"><path d="M1 6H25" class="series s-r"/></svg>Mean frame part</li>
+              <li><svg width="26" height="12"><path d="M1 6H25" class="mean-line target"/></svg>Threshold</li>
+            </ul>
+            <div class="plot" id="read-lines"></div>
+          </div>
+          <div class="panel">
+            <h4>Firing rate by count</h4>
+            <div class="plot" id="read-rate"></div>
+          </div>
+        </div>
+      </div>
+      <figcaption><b>Figure 5.</b> The arrow shows the chosen transform’s read direction, and the shading shows its firing rate at each count.
+The three lines show the mean gate input, the mean frame part and the threshold for the chosen transform and wrapping width.
+The chart below shows the firing rate at each count.
+The R² values for how the mean frame part follows the mean gate input at wrapping widths of 60 and 100 are 0.973 and 0.982 for transform 410, and 0.958 and 0.981 for transform 1749.
+These are means by count, and individual tokens scatter around them.
+The frame part gives most, but not all, of the movement of the gate input; the rest comes from other parts of the residual stream.</figcaption>
+    </figure>
+
+
+
+    <h3 id="sheet"><a href="#sheet">Count and width form a sheet</a></h3>
+    <p class="lead">From layer 8 through layer 11, count runs along each curve and width separates the curves at equal count, forming a sheet. The widths are separate from layer 8 onward, with no earlier stage of one shared count curve.</p>
+      <p class="lead">Per character, the across-width direction is 0.19 to 0.25 as large as the along-line direction, and 0.76 to 0.86 of it is orthogonal to that direction. At residual sites in layers 8 through 13, the mean count curve needs 2 to 4 components, and one state group’s frame holds 0.61 to 0.82 of the curve. Layers 10 and 11 carry the sheet without an MLP read-out; no transform in MLPs 9 through 13 reads width alone, and the layer-12 mixer uses the width.</p>
+
+    <h3 id="layer-12"><a href="#layer-12">A memory read meets a count gate</a></h3>
+    <div class="split even causal">
+      <div>
+        <p>Head 13 of the layer-12 mixer has no decay and carries 0.97 of the mixer’s count curve. Its write multiplies a width-dependent memory read, written by earlier lines and nearly constant within a line, by a count-dependent gate computed from the current token. Holding the gate at its mean shrinks the head’s curve to 0.12 of its size.</p>
+      <p>Across 31,564 word-final tokens in texts wrapped at 100 characters, adding the difference between the mean memory reads at widths 40 and 100 produces a mean line-break margin peak at 50 characters of -2.4, compared with -6.6 in the clean run, -6.0 with permuted channels and +0.5 at a clean line end. The first count where the mean margin exceeds -3 moves from 87 to 40 with the width-40 read and to 55 with the width-60 read; with permuted channels it is 86.</p>
+      <p>This test shows that the memory read carries width information used by the decision. We infer that the product turns the count code into a remaining-characters code, which first appears immediately after this head’s write.</p>
+      </div>
+      <figure class="needs-js" id="fig-causal" data-aria="Mean line-break preference across the line for the clean run, memory reads shifted to narrower widths, and a shift with permuted channels." data-line-clean="Clean run" data-line-40="Memory read shifted to width 40" data-line-60="Memory read shifted to width 60" data-line-perm="Width-40 shift with permuted channels" data-axis-x="Characters in the line" data-axis-y="Mean line-break margin in logits">
+        <ul class="keys" aria-hidden="true">
+          <li><svg width="26" height="12"><path d="M1 6H25" class="series s-n"/></svg>Clean run</li>
+          <li class="c-c"><svg width="26" height="12"><path d="M1 6H25" class="series s-unit"/></svg>Memory read shifted to width 40</li>
+          <li class="c-b"><svg width="26" height="12"><path d="M1 6H25" class="series s-unit"/></svg>Memory read shifted to width 60</li>
+          <li><svg width="26" height="12"><path d="M1 6H25" class="series s-r recorded"/></svg>Width-40 shift with permuted channels</li>
+        </ul>
+        <div class="plot" id="causal-plot"></div>
+        <div class="layer-readout" id="causal-readout" aria-live="polite"></div>
+        <figcaption><b>Figure 6.</b> We plot the mean margin by characters in the line for texts wrapped at 100 characters. The margin is the model’s preference for a line break over a space, in logits. The curves show the clean run, shifts of the head’s memory read by the mean differences for widths 40 and 60, and the width-40 shift with permuted channels.</figcaption>
+      </figure>
+    </div>
+
+    <h3 id="remaining"><a href="#remaining">Remaining characters lead to the decision</a></h3>
+    <p class="lead">From layer 12 onward, the first component crosses a fixed level 10 to 15 characters before the line end at every width; at <code>resid_mid.12</code>, <code>resid_post.12</code> and <code>resid_post.13</code>, remaining characters alone explain 0.80 to 0.87 of the residual state table over count and width. Layer-12 transform 2069 reads group 15458 and fires 2 to 6 characters before the end, while layer-13 transform 2490 reads group 11047 and fires 2 to 8 characters before the end. Their gate inputs follow the frame contributions with R² 0.98 and 0.99, respectively, but they carry almost none of the decision difference shown in the trace table.</p>
+      <p class="lead">Layer-20 transform 130 reads group 12603, fires at 9.9 to 11.0 remaining characters at every width, and writes part of the margin difference directly.</p>
+      <p class="lead">Head 15 of the layer-21 mixer writes the decision by matching its query to the key written by earlier line-break tokens and returning their stored content; 0.97 of its write is a function of remaining characters. Its direct shares are 0.71, 0.76 and 0.81 in <code>count:60</code>, <code>count:100</code> and <code>width:100</code>, respectively. Later components, mostly the layer-23 MLP, take back about half of its write, leaving total shares of 0.16, 0.20 and 0.19 in the same cells.</p>
+
+    <h3 id="trace-table"><a href="#trace-table">Shares along the trace</a></h3>
+    <div class="table-wrap trace-table">
+      <table>
+        <caption>The table gives each piece’s share of the line-break preference difference across the demonstration items in <code>count:60</code>, <code>count:100</code> and <code>width:100</code>: total includes everything downstream after a swap, while direct counts only the piece’s own write at the last token. Totals along a chain overlap and do not add up.</caption>
+        <thead><tr><th scope="col">Step</th><th scope="col">Piece</th><th scope="col"><code>count:60</code></th><th scope="col"><code>count:100</code></th><th scope="col"><code>width:100</code></th></tr></thead>
+        <tbody>
+          <tr class=first><th scope="rowgroup" rowspan="3" class="step"><b>1</b> The line start</th><th scope="row">layer-8 head 12, read and gate, total</th><td>0.42</td><td>0.42</td><td>0.50</td></tr>
+          <tr><th scope="row">head 12 through transform 189’s write</th><td>0.30</td><td>0.30</td><td>0.34</td></tr>
+          <tr><th scope="row">group 11586 at <code>resid_post.8</code>, total</th><td>0.34</td><td>0.34</td><td>0.34</td></tr>
+          <tr class=first><th scope="rowgroup" rowspan="1" class="step"><b>2</b> Count within the line</th><th scope="row">group 13334 at <code>resid_post.8</code>, total</th><td>0.13</td><td>0.19</td><td>0.23</td></tr>
+          <tr class=first><th scope="rowgroup" rowspan="2" class="step"><b>3</b> The character clock</th><th scope="row">layer-9 head 10, memory read, total</th><td>0.64</td><td>0.69</td><td>0.80</td></tr>
+          <tr><th scope="row">group 4885 at <code>resid_mid.9</code>, total</th><td>0.53</td><td>0.58</td><td>0.87</td></tr>
+          <tr class=first><th scope="rowgroup" rowspan="3" class="step"><b>4</b> First reads of the sheet</th><th scope="row">layer-9 transform 410, total</th><td>0.36</td><td>0.03</td><td>0.02</td></tr>
+          <tr><th scope="row">layer-9 transform 1749, total</th><td>0.00</td><td>0.14</td><td>0.52</td></tr>
+          <tr><th scope="row">whole layer-9 MLP, total</th><td>0.37</td><td>0.51</td><td>0.52</td></tr>
+          <tr class=first><th scope="rowgroup" rowspan="2" class="step"><b>5</b> The sheet reaches layer 12</th><th scope="row">group 1253 at <code>resid_post.10</code>, total</th><td>0.29</td><td>0.29</td><td>0.56</td></tr>
+          <tr><th scope="row">group 3857 at <code>resid_post.11</code>, total</th><td>0.30</td><td>0.36</td><td>0.58</td></tr>
+          <tr class=first><th scope="rowgroup" rowspan="4" class="step"><b>6</b> Count meets width</th><th scope="row">layer-12 head 13, read and gate, total</th><td>0.41</td><td>0.35</td><td>0.60</td></tr>
+          <tr><th scope="row">head 13 through its count gate</th><td>0.43</td><td>0.37</td><td>0.37</td></tr>
+          <tr><th scope="row">head 13 through its width memory</th><td>-0.01</td><td>0.00</td><td>0.67</td></tr>
+          <tr><th scope="row">group 15458 at <code>resid_mid.12</code>, total</th><td>0.52</td><td>0.48</td><td>0.69</td></tr>
+          <tr class=first><th scope="rowgroup" rowspan="2" class="step"><b>7</b> Reads carrying little decision share</th><th scope="row">layer-12 transform 2069, total</th><td>0.00</td><td>0.00</td><td>0.00</td></tr>
+          <tr><th scope="row">layer-13 transform 2490, total</th><td>0.04</td><td>0.02</td><td>0.03</td></tr>
+          <tr class=first><th scope="rowgroup" rowspan="1" class="step"><b>8</b> Remaining characters carried onward</th><th scope="row">group 11047 at <code>resid_post.13</code>, total</th><td>0.52</td><td>0.53</td><td>0.76</td></tr>
+          <tr class=first><th scope="rowgroup" rowspan="2" class="step"><b>9</b> The decision write</th><th scope="row">layer-21 head 15, direct</th><td>0.71</td><td>0.76</td><td>0.81</td></tr>
+          <tr><th scope="row">head 15, read and gate, total</th><td>0.16</td><td>0.20</td><td>0.19</td></tr>
+          <tr class=first><th scope="rowgroup" rowspan="3" class="step"><b>10</b> Late writes and the take-back</th><th scope="row">layer-20 transform 130, direct</th><td>0.10</td><td>0.09</td><td>0.12</td></tr>
+          <tr><th scope="row">layer-23 transform 2369, direct</th><td>-0.59</td><td>-0.61</td><td>-0.75</td></tr>
+          <tr><th scope="row">whole layer-23 MLP, total</th><td>-0.45</td><td>-0.47</td><td>-0.57</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+
+    <h3 id="confirm"><a href="#confirm">Swaps and doses confirm the first links</a></h3>
+    <p class="lead">We use the swaps in Figure 7 and the dose slider in Figure 8 to causally confirm the first links of the trace.</p>
     <div class="split even">
       <div>
         <p>Each item pairs 256-token texts ending on the same words. In every cell, the <dfn>clean</dfn> text's last line is full, at most 6 characters short of the width, so a line break is due. In the <dfn>corrupt</dfn> text a line break is not due.</p>
@@ -228,48 +428,8 @@
       </div>
     </div>
 
-    <figure class="needs-js" id="fig-pair">
-    <div class="figure-head">
-      <div class="controls">
-        <div class="control"><span class="label" id="cell-label-pair">Cell</span><div class="seg code" role="group" aria-labelledby="cell-label-pair" data-scope="cell"></div></div>
-        <div class="control">
-          <span class="label" id="item-label">Item</span>
-          <span class="stepper" role="group" aria-labelledby="item-label">
-            <button type="button" class="quiet" id="item-prev" aria-label="Previous item">&#8249;</button>
-            <label class="visually-hidden" for="item-number">Item number</label>
-            <input type="number" id="item-number" min="0" max="0" step="1" value="0" inputmode="numeric">
-            <button type="button" class="quiet" id="item-next" aria-label="Next item">&#8250;</button>
-          </span>
-        </div>
-        <div class="control"><div class="seg" role="group" aria-label="Lines shown" id="lines-seg">
-          <button type="button" data-value="tail" aria-pressed="true">last lines</button>
-          <button type="button" data-value="all" aria-pressed="false">whole text</button>
-        </div></div>
-      </div>
-      <span class="figure-sub" id="viewer-title"></span>
-    </div>
-    <div id="load-error-demo" class="load-error" hidden></div>
-    <div class="viewer-texts" id="viewer">
-      <div>
-        <div class="text-head"><span><b>Clean text.</b> The last line is full, so a line break is due.</span><span class="m" id="clean-margins"></span></div>
-        <div class="tscroll" id="clean-box" tabindex="0" role="region" aria-label="Clean text of the selected item"></div>
-      </div>
-      <div>
-        <div class="text-head"><span><b>Corrupt text.</b> It ends on the same words, and a line break is not due.</span><span class="m" id="corrupt-margins"></span></div>
-        <div class="tscroll" id="corrupt-box" tabindex="0" role="region" aria-label="Corrupt text of the selected item"></div>
-      </div>
-    </div>
-      <figcaption><b>Figure 3.</b> The two texts of one item. Both end on the same words; the outlined token is the last one, where the margin is read. On the clean text, the marks are those of Figure 1: the script recorded the three gates on the clean texts only. The number after each line is the number of characters it holds, and a token before the first line break of a text has no known count. Texts: re-wrapped excerpts from <code>HuggingFaceFW/fineweb-edu</code>, licensed under ODC-By 1.0.</figcaption>
-    </figure>
-
-    <h3 id="steps"><a href="#steps">The chain, step by step</a></h3>
-    <ol class="steps">
-      <li>Transform 189 of the L8 MLP dictionary fires on the first token of a line. Its write lies mostly inside the frame of state group 11586 of <code>resid_post.8</code>, the first-token-of-a-line group.</li>
-      <li>The model's L9 mixer reads that write. Swapping only transform 189's write or only group 11586 moves the answer about as much as swapping the whole L8 MLP output in the count cells. GatedDeltaNet head 10 carries the count inside the mixer.</li>
-      <li>Transforms 410 and 1749 of the L9 MLP dictionary turn the count into the line-break decision. Transform 410 is on while the line is short, and transform 1749 is on once it is long. What the L9 transforms read of the mixer's write lies mostly inside the 4-dimensional frame of state group 4885 of <code>resid_mid.9</code>.</li>
-    </ol>
     <div class="cols">
-      <p>Figure 4 ties each step to its swaps. In every step, the swap of one named unit stands next to the swap of the whole tensor it belongs to, measured by the same route. We read shares on the 32 even-numbered items of each cell and chose the units on the odd-numbered items.</p>
+      <p>Figure 7 ties each step to its swaps. In every step, the swap of one named unit stands next to the swap of the whole tensor it belongs to, measured by the same route. We read shares on the 32 even-numbered items of each cell and chose the units on the odd-numbered items.</p>
       <p>In the count cells, transform 189 or group 11586 carries about as much as the whole L8 MLP output through the L9 mixer. Head 10's read alone gives a larger share than the whole mixer output. Transform 410 carries the L9 MLP's effect in <code>count:60</code>, and transform 1749 carries it in <code>width:100</code>. The same computation is also visible in individual MLP neurons.</p>
     </div>
 
@@ -281,7 +441,7 @@
       </div>
     </div>
     <div class="chain" id="chain" role="group" aria-label="The traced chain from the L8 MLP to the L9 MLP, with the share of each swap"></div>
-      <figcaption><b>Figure 4.</b> Each row shows a separate swap, which replaces one unit's clean-run value with its value on the corrupt text. The dot shows the share of the mean clean-to-corrupt margin change carried by that swap, and the bar shows its bootstrap interval from 2.5% to 97.5%. Filled dots mark named units, while open dots mark whole tensors or whole dictionaries measured through the same route. The rows do not add up, and GatedDeltaNet head 10 is read directly as the model head that carries the count inside the layer-9 mixer. Selecting a row shows its items in Figure 7.</figcaption>
+      <figcaption><b>Figure 7.</b> Each row shows a separate swap, which replaces one unit's clean-run value with its value on the corrupt text. The dot shows the share of the mean clean-to-corrupt margin change carried by that swap, and the bar shows its bootstrap interval from 2.5% to 97.5%. Filled dots mark named units, while open dots mark whole tensors or whole dictionaries measured through the same route. The rows do not add up, and GatedDeltaNet head 10 is read directly as the model head that carries the count inside the layer-9 mixer. Selecting a row shows its items in Figure 10.</figcaption>
     </figure>
     <div class="toggles">
       <details class="more"><summary>Table: the eleven main swaps in the three cells</summary>
@@ -333,154 +493,8 @@
     </div>
 
 
-    <h3 id="count-curve"><a href="#count-curve">The character count as a curve inside one state group's frame</a></h3>
-    <div class="split curve">
-      <div>
-        <p>The chain reached state group 4885 at <code>resid_mid.9</code>. It showed that the part of the layer-9 mixer's write inside this group's frame moves the layer-9 MLP transforms about as much as the whole write. Figure 5 shows that the count is a position along a curve in a plane inside the group's 4-dimensional frame.</p>
-        <p>Group 4885 is a dense group with 4-dimensional coordinates that are active on most tokens and carry information in those coordinates.</p>
-      </div>
-      <figure class="needs-js" id="fig-curve" data-first="Start of a new line" data-x="First component" data-y="Second component" data-aria="Mean codes trace a curve as the character count grows, with the start of a new line apart and texts with a wider wrapping width continuing along the same path." data-count="Character count" data-tokens="Contributing tokens">
-        <div class="figure-head">
-          <div class="controls"><div class="control"><label for="curve-count">Character count</label><input type="range" id="curve-count" min="0" max="0" step="1" value="0"></div></div>
-        </div>
-        <div class="layer-readout" id="curve-readout" aria-live="polite"></div>
-        <ul class="keys" aria-hidden="true">
-          <li><svg width="12" height="12"><circle cx="6" cy="6" r="4" class="curve-key"/></svg>Texts wrapped at 60 characters</li>
-          <li><svg width="12" height="12"><rect x="2" y="2" width="8" height="8" class="curve-key"/></svg>Texts wrapped at 100 characters</li>
-          <li><span class="ramp"></span>Characters in the line</li>
-        </ul>
-        <div class="plot" id="curve-plot"></div>
-        <figcaption><b>Figure 5.</b> Each point is the mean code of tokens with one character count and one wrapping width for which the group is active, shown only when at least 20 tokens contribute. We measured 48,960 tokens after dropping the first position from each text. The plane spans the two largest components of the mean curves and holds 0.984 of their variance. The point for count 0 sits apart, and the curve moves smoothly from about ten characters onward. Texts wrapped at 100 characters continue along the same path beyond 60 characters. Curves computed separately from even-numbered and odd-numbered items correlate 0.9945 for texts wrapped at 60 characters and 0.9963 for texts wrapped at 100 characters.</figcaption>
-      </figure>
-    </div>
-    <h3 id="count-read"><a href="#count-read">How the transforms read the count</a></h3>
-    <div class="lead-block">
-      <p class="lead">The state dictionary and the transform’s gate use the residual stream divided by the same size. The frame part of the gate input is therefore exactly linear in the group’s code: we multiply the code by a direction derived from the dictionary weights, which we call the read direction. Figure 6 shows that the two read directions differ but lie almost entirely in the plane of the count curve from Figure 5.</p>
-      <p class="lead">Along the read direction of transform 410, the middle of the curve sticks out. Along the read direction of transform 1749, only the far end sticks out.</p>
-      <p class="lead">The step from the count to the line-break decision can be read as a geometric operation: each transform reads the position on the curve along its own direction and compares that reading with a threshold.</p>
-    </div>
-    <figure class="needs-js" id="fig-read" data-arrow="Read direction" data-aria-plane="The count curve lies in a plane, with an arrow showing the chosen transform’s read direction, shading showing its firing rate and a marker showing the chosen count." data-aria-lines="The chart shows the mean gate input and mean frame part by character count, with a horizontal threshold line and a marker at the chosen count." data-aria-rate="The chart shows the chosen transform’s firing rate by character count, with a marker at the chosen count." data-line-threshold="Threshold" data-axis-x="Characters in the line" data-count="Characters in the line" data-readout-gate="Mean gate input" data-readout-frame="Mean frame part" data-readout-threshold="Threshold" data-readout-rate="Firing rate">
-      <div class="figure-head">
-        <div class="controls">
-          <div class="control"><span class="label" id="read-transform-label">Transform</span><div class="seg" role="group" aria-labelledby="read-transform-label" id="read-transform"></div></div>
-          <div class="control"><span class="label" id="read-width-label">Wrapping width</span><div class="seg code" role="group" aria-labelledby="read-width-label" id="read-width"></div></div>
-          <div class="control"><label for="read-count">Characters in the line</label><input type="range" id="read-count" min="0" max="0" step="1" value="0"></div>
-        </div>
-      </div>
-      <div class="layer-readout" id="read-readout" aria-live="polite"></div>
-      <div class="read-grid">
-        <div class="panel">
-          <ul class="keys" aria-hidden="true">
-            <li><svg width="12" height="12"><circle cx="6" cy="6" r="4" class="curve-key"/></svg>Texts wrapped at 60 characters</li>
-            <li><svg width="12" height="12"><rect x="2" y="2" width="8" height="8" class="curve-key"/></svg>Texts wrapped at 100 characters</li>
-            <li><span class="ramp by-rate"></span>Firing rate</li>
-          </ul>
-          <div class="plot" id="read-plane"></div>
-        </div>
-        <div class="read-charts">
-          <div class="panel">
-            <h4>Gate input, frame part and threshold</h4>
-            <ul class="keys" aria-hidden="true">
-              <li><svg width="26" height="12"><path d="M1 6H25" class="series s-unit"/></svg>Mean gate input</li>
-              <li><svg width="26" height="12"><path d="M1 6H25" class="series s-r"/></svg>Mean frame part</li>
-              <li><svg width="26" height="12"><path d="M1 6H25" class="mean-line target"/></svg>Threshold</li>
-            </ul>
-            <div class="plot" id="read-lines"></div>
-          </div>
-          <div class="panel">
-            <h4>Firing rate by count</h4>
-            <div class="plot" id="read-rate"></div>
-          </div>
-        </div>
-      </div>
-      <figcaption><b>Figure 6.</b> The arrow shows the chosen transform’s read direction, and the shading shows its firing rate at each count.
-The three lines show the mean gate input, the mean frame part and the threshold for the chosen transform and wrapping width.
-The chart below shows the firing rate at each count.
-The R² values for how the mean frame part follows the mean gate input at wrapping widths of 60 and 100 are 0.973 and 0.982 for transform 410, and 0.958 and 0.981 for transform 1749.
-These are means by count, and individual tokens scatter around them.
-The frame part gives most, but not all, of the movement of the gate input; the rest comes from other parts of the residual stream.</figcaption>
-    </figure>
-
-
-    <h3 id="by-item"><a href="#by-item">One swap, item by item</a></h3>
-    <p class="lead">We next test the chain shown in these two figures causally by replacing one unit’s value with its value on a second text and measuring how far the line-break decision moves. A share is a ratio of two means over items. Figure 7 shows what is behind one share: for each of the 64 items of a cell, the margin of the clean run, of the corrupt run, and of the clean run with one swap.</p>
-
-    <figure class="needs-js" id="fig-items">
-      <div class="figure-head">
-        <div class="controls">
-          <div class="control"><label for="arm-select">Swap</label><select id="arm-select"></select></div>
-          <div class="control"><span class="label" id="cell-label-items">Cell</span><div class="seg code" role="group" aria-labelledby="cell-label-items" data-scope="cell"></div></div>
-          <div class="control"><span class="label" id="half-label-items">Items</span><div class="seg" role="group" aria-labelledby="half-label-items" data-scope="half"></div></div>
-          <div class="control"><div class="seg" role="group" aria-label="Order of the items" id="sort-seg">
-            <button type="button" data-value="clean" aria-pressed="true">by clean margin</button>
-            <button type="button" data-value="index" aria-pressed="false">by item number</button>
-          </div></div>
-        </div>
-      </div>
-      <div class="readout" aria-live="polite">
-        <span><span class="visually-hidden">Share </span><span class="big" id="share-big"></span></span>
-        <span id="share-interval"></span>
-        <span class="mono" id="share-means"></span>
-      </div>
-      <p class="swap-what" id="share-what"></p>
-      <ul class="keys" aria-hidden="true">
-        <li><svg width="14" height="18"><path d="M7 2V13" class="arrow-item"/><path d="M3.5 10.5 7 15.5 10.5 10.5z" class="arrow-head"/></svg>One item's swap</li>
-        <li><svg width="16" height="12"><path d="M2 6H14" class="pt-target"/></svg>Corrupt margin</li>
-        <li><svg width="14" height="18"><path d="M7 2V12" class="arrow-mean"/><path d="M2.5 9.5 7 16 11.5 9.5z" class="arrow-mean-head"/></svg>Mean swap</li>
-        <li>faded: items outside the selected set</li>
-      </ul>
-      <div class="plot" id="items-plot" data-zero="above: the model prefers a line break" data-mean="Mean swap" data-target="Corrupt mean" data-start="Clean mean" data-y="Preference for a line break over a space" data-x="Items ordered by clean margin" data-aria="Thin arrows show each item's margin before and after the swap, faint marks show corrupt margins, and a bold arrow shows the mean change."></div>
-      <p class="look">Look at how swapping one unit moves the model from preferring a line break toward preferring a space, and how far the bold arrow moves on average.</p>
-      <figcaption><b>Figure 7.</b> Each thin arrow shows one item, from its clean-run margin to its margin after the swap. A faint mark shows its corrupt-run margin, and items are ordered by their clean margin. The bold arrow at the right runs from the mean clean margin to the mean margin after the swap, with the mean corrupt margin as its target. The share is the bold arrow's length divided by the distance from the clean mean to the corrupt mean. Selecting an item shows its two texts in Figure 3.</figcaption>
-      <details class="more" id="items-details"><summary>Table: the margins of the items for the selected swap</summary>
-        <div id="items-table"></div>
-      </details>
-    </figure>
-
-    <h3 id="mixer-to-mlp"><a href="#mixer-to-mlp">From the L9 mixer to the L9 transforms</a></h3>
-    <p class="lead">The last link asks how the mixer's write reaches the L9 transforms. The whole mixer swap and head 10's swap are each applied in full, only inside the 4-dimensional frame of state group 4885 of <code>resid_mid.9</code>, or as the rest. The share is then read by three routes. For the first two, the changed <code>resid_mid.9</code> enters the L9 MLP dictionary, and only the change in the selected transforms' writes is patched at the MLP output: once for the six L9 transforms we selected (410, 1749, 6, 3720, 1394 and 2275), and once for transforms 410 and 1749 alone. The third route is the same change with everything downstream.</p>
-
-    <figure class="needs-js" id="fig-link">
-    <div class="figure-head">
-      <div class="controls">
-        <div class="control"><span class="label" id="base-label">Change at the L9 mixer output</span><div class="seg" role="group" aria-labelledby="base-label" id="base-seg"></div></div>
-        <div class="control"><span class="label" id="cell-label-link">Cell</span><div class="seg code" role="group" aria-labelledby="cell-label-link" data-scope="cell"></div></div>
-        <div class="control"><span class="label" id="half-label-link">Items</span><div class="seg" role="group" aria-labelledby="half-label-link" data-scope="half"></div></div>
-      </div>
-    </div>
-    <div class="link-panels" id="link-panels"></div>
-      <figcaption><b>Figure 8.</b> The share carried by three parts of one change at the L9 mixer output, read by three routes. The part inside group 4885's frame moves the transforms about as much as the whole change, and the rest moves them little. With everything downstream, the rest still carries a share, so the frame is not the only route to the answer. The last bar of the first two panels is a control: the largest absolute share among 5 random 4-dimensional frames, measured for the whole mixer swap and through the transforms only. Bars are drawn from 0 to 1.</figcaption>
-    </figure>
-    <div class="toggles">
-      <details class="more"><summary>Table: the link comparison in the three cells</summary>
-<div class="table-wrap"><table>
-<caption>Shares on even-numbered items, written A / B (C). A: through the six selected L9 transforms. B: through transforms 410 and 1749 alone. C: with everything downstream. The last row has no C.</caption>
-<thead><tr>
-<th scope="col">Change at the L9 mixer output</th>
-<th scope="col">count:60</th>
-<th scope="col">count:100</th>
-<th scope="col">width:100</th>
-</tr></thead><tbody>
-<tr><th scope="row">whole mixer swap, all of it</th><td>0.320 / 0.268 (0.474)</td><td>0.396 / 0.202 (0.590)</td><td>0.392 / 0.425 (0.704)</td></tr>
-<tr><th scope="row">whole mixer swap, only the part inside group 4885&#x27;s frame</th><td>0.300 / 0.283 (0.459)</td><td>0.329 / 0.164 (0.594)</td><td>0.374 / 0.414 (0.721)</td></tr>
-<tr><th scope="row">whole mixer swap, the rest</th><td>0.016 / 0.013 (0.156)</td><td>0.032 / 0.052 (0.168)</td><td>0.042 / 0.031 (0.177)</td></tr>
-<tr><th scope="row">head 10 swap, all of it</th><td>0.293 / 0.380 (0.633)</td><td>0.373 / 0.179 (0.678)</td><td>0.398 / 0.467 (0.784)</td></tr>
-<tr><th scope="row">head 10 swap, only the part inside group 4885&#x27;s frame</th><td>0.314 / 0.374 (0.585)</td><td>0.309 / 0.169 (0.650)</td><td>0.395 / 0.476 (0.860)</td></tr>
-<tr><th scope="row">head 10 swap, the rest</th><td>0.026 / 0.025 (0.153)</td><td>0.041 / 0.066 (0.185)</td><td>0.044 / 0.037 (0.204)</td></tr>
-<tr><th scope="row">whole mixer swap, only the part inside a random 4-dimensional frame (largest of 5, absolute)</th><td>0.003 / 0.004</td><td>0.003 / 0.005</td><td>0.005 / 0.007</td></tr>
-</tbody></table></div>
-      </details>
-    </div>
-    <div class="cols">
-      <p>The part inside group 4885's frame moves the transforms about as much as the whole swap. The rest moves them little. On even-numbered items, for the whole mixer swap, the rest carries 0.016 in <code>count:60</code>, 0.032 in <code>count:100</code> and 0.042 in <code>width:100</code> through the six transforms. Through the two transforms alone, the rest carries 0.013, 0.052 and 0.031. A random 4-dimensional frame carries at most 0.005 through the six transforms and 0.007 through the two.</p>
-      <p>With everything downstream, the rest carries 0.156 in <code>count:60</code>, 0.168 in <code>count:100</code> and 0.177 in <code>width:100</code>. The frame is therefore not the only route to the answer. The downstream shares of the two parts do not add up to the whole.</p>
-      <p>We registered a pass rule for the mixer-to-MLP link. The rule requires at least 0.75 of the whole share inside the frame, at most 0.25 of it and at most 0.05 in the rest, and at most 0.01 in random frames, in both count cells. Our verdict was that the rule holds for the route through the six transforms and holds only in part for the route through 410 and 1749 alone, because we recorded a share of 0.051 for the rest in <code>count:100</code> through those two transforms.</p>
-    </div>
-
-
-
     <h3 id="steer"><a href="#steer">Steering one unit by a dose</a></h3>
-    <p class="lead">A dose α scales the change from a unit’s clean value toward its corrupt value, aligned to the clean text’s token positions, and we varied the dose across 10 values from -1 to 2 for 5 units. The shares in Figure 9 are over all 64 items of a cell, while we read shares elsewhere on the page on the 32 even-numbered items, so the numbers differ. For L8 transform 189 in <code>count:60</code>, over all 64 items, we observed a share of 0.348 at the full swap and 0.349 at α = 2, so going past the full swap adds nothing there, while the share of 0.073 at α = -1 shows that a negative dose is not the mirror image of a positive one.</p>
+    <p class="lead">A dose α scales the change from a unit’s clean value toward its corrupt value, aligned to the clean text’s token positions, and we varied the dose across 10 values from -1 to 2 for 5 units. The shares in Figure 8 are over all 64 items of a cell, while we read shares elsewhere on the page on the 32 even-numbered items, so the numbers differ. For L8 transform 189 in <code>count:60</code>, over all 64 items, we observed a share of 0.348 at the full swap and 0.349 at α = 2, so going past the full swap adds nothing there, while the share of 0.073 at α = -1 shows that a negative dose is not the mirror image of a positive one.</p>
     <figure class="needs-js" id="fig-steer" data-zone="Extrapolated values" data-aria-share="The curve shows how the share changes with dose, with a bootstrap interval band and the chosen dose marked." data-aria-mean="The curve shows how the mean margin changes with dose against horizontal clean and corrupt means, with the chosen dose marked." data-aria-items="The plot compares each item's clean, corrupt and dosed margins at the chosen dose." data-key-clean="Clean margin" data-key-corrupt="Corrupt margin" data-key-dosed="Dosed margin" data-readout-interval="Bootstrap interval">
       <div class="figure-head">
         <div class="controls">
@@ -520,9 +534,126 @@ The frame part gives most, but not all, of the movement of the gate input; the r
           <div class="plot" id="steer-items-plot"></div>
         </div>
       </div>
-      <figcaption><b>Figure 9.</b> A dose α replaces a unit's clean value with that value plus α times the difference from its corrupt value, aligned to the clean text's token positions. At α = 0 and α = 1, the margins exactly equal the demonstration's tested clean-run and full-swap values. Values outside [0, 1] extrapolate beyond the corrupt text. The first part shows the share over α, its bootstrap interval from 2.5% to 97.5% and the chosen dose; for layer-8 units and layer-9 transforms, a dashed line shows the whole component measured through the same route. The second part shows the mean margin over α against the clean and corrupt means, and the third shows each item's clean, corrupt and dosed margins at the chosen dose. Shares here use all 64 items of the chosen cell. We measured this for this page with the published reader and weights, and it is not part of our repository's tests.</figcaption>
+      <figcaption><b>Figure 8.</b> A dose α replaces a unit's clean value with that value plus α times the difference from its corrupt value, aligned to the clean text's token positions. At α = 0 and α = 1, the margins exactly equal the demonstration's tested clean-run and full-swap values. Values outside [0, 1] extrapolate beyond the corrupt text. The first part shows the share over α, its bootstrap interval from 2.5% to 97.5% and the chosen dose; for layer-8 units and layer-9 transforms, a dashed line shows the whole component measured through the same route. The second part shows the mean margin over α against the clean and corrupt means, and the third shows each item's clean, corrupt and dosed margins at the chosen dose. Shares here use all 64 items of the chosen cell. We measured this for this page with the published reader and weights, and it is not part of our repository's tests.</figcaption>
     </figure>
 
+
+    <details class="fold" id="more-swaps">
+      <summary>Paired texts, individual swaps, and the layer-9 mixer-to-transform link</summary>
+      <div class="fold-body">
+        <h3 id="pairs"><a href="#pairs">Pairs of texts and the margin</a></h3>
+    <figure class="needs-js" id="fig-pair">
+    <div class="figure-head">
+      <div class="controls">
+        <div class="control"><span class="label" id="cell-label-pair">Cell</span><div class="seg code" role="group" aria-labelledby="cell-label-pair" data-scope="cell"></div></div>
+        <div class="control">
+          <span class="label" id="item-label">Item</span>
+          <span class="stepper" role="group" aria-labelledby="item-label">
+            <button type="button" class="quiet" id="item-prev" aria-label="Previous item">&#8249;</button>
+            <label class="visually-hidden" for="item-number">Item number</label>
+            <input type="number" id="item-number" min="0" max="0" step="1" value="0" inputmode="numeric">
+            <button type="button" class="quiet" id="item-next" aria-label="Next item">&#8250;</button>
+          </span>
+        </div>
+        <div class="control"><div class="seg" role="group" aria-label="Lines shown" id="lines-seg">
+          <button type="button" data-value="tail" aria-pressed="true">last lines</button>
+          <button type="button" data-value="all" aria-pressed="false">whole text</button>
+        </div></div>
+      </div>
+      <span class="figure-sub" id="viewer-title"></span>
+    </div>
+    <div id="load-error-demo" class="load-error" hidden></div>
+    <div class="viewer-texts" id="viewer">
+      <div>
+        <div class="text-head"><span><b>Clean text.</b> The last line is full, so a line break is due.</span><span class="m" id="clean-margins"></span></div>
+        <div class="tscroll" id="clean-box" tabindex="0" role="region" aria-label="Clean text of the selected item"></div>
+      </div>
+      <div>
+        <div class="text-head"><span><b>Corrupt text.</b> It ends on the same words, and a line break is not due.</span><span class="m" id="corrupt-margins"></span></div>
+        <div class="tscroll" id="corrupt-box" tabindex="0" role="region" aria-label="Corrupt text of the selected item"></div>
+      </div>
+    </div>
+      <figcaption><b>Figure 9.</b> The two texts of one item. Both end on the same words; the outlined token is the last one, where the margin is read. On the clean text, the marks are those of Figure 1: the script recorded the three gates on the clean texts only. The number after each line is the number of characters it holds, and a token before the first line break of a text has no known count. Texts: re-wrapped excerpts from <code>HuggingFaceFW/fineweb-edu</code>, licensed under ODC-By 1.0.</figcaption>
+    </figure>
+
+    <h3 id="by-item"><a href="#by-item">One swap, item by item</a></h3>
+    <p class="lead">A share is a ratio of two means over items. Figure 10 shows what is behind one share: for each of the 64 items of a cell, the margin of the clean run, of the corrupt run, and of the clean run with one swap.</p>
+
+    <figure class="needs-js" id="fig-items">
+      <div class="figure-head">
+        <div class="controls">
+          <div class="control"><label for="arm-select">Swap</label><select id="arm-select"></select></div>
+          <div class="control"><span class="label" id="cell-label-items">Cell</span><div class="seg code" role="group" aria-labelledby="cell-label-items" data-scope="cell"></div></div>
+          <div class="control"><span class="label" id="half-label-items">Items</span><div class="seg" role="group" aria-labelledby="half-label-items" data-scope="half"></div></div>
+          <div class="control"><div class="seg" role="group" aria-label="Order of the items" id="sort-seg">
+            <button type="button" data-value="clean" aria-pressed="true">by clean margin</button>
+            <button type="button" data-value="index" aria-pressed="false">by item number</button>
+          </div></div>
+        </div>
+      </div>
+      <div class="readout" aria-live="polite">
+        <span><span class="visually-hidden">Share </span><span class="big" id="share-big"></span></span>
+        <span id="share-interval"></span>
+        <span class="mono" id="share-means"></span>
+      </div>
+      <p class="swap-what" id="share-what"></p>
+      <ul class="keys" aria-hidden="true">
+        <li><svg width="14" height="18"><path d="M7 2V13" class="arrow-item"/><path d="M3.5 10.5 7 15.5 10.5 10.5z" class="arrow-head"/></svg>One item's swap</li>
+        <li><svg width="16" height="12"><path d="M2 6H14" class="pt-target"/></svg>Corrupt margin</li>
+        <li><svg width="14" height="18"><path d="M7 2V12" class="arrow-mean"/><path d="M2.5 9.5 7 16 11.5 9.5z" class="arrow-mean-head"/></svg>Mean swap</li>
+        <li>faded: items outside the selected set</li>
+      </ul>
+      <div class="plot" id="items-plot" data-zero="above: the model prefers a line break" data-mean="Mean swap" data-target="Corrupt mean" data-start="Clean mean" data-y="Preference for a line break over a space" data-x="Items ordered by clean margin" data-aria="Thin arrows show each item's margin before and after the swap, faint marks show corrupt margins, and a bold arrow shows the mean change."></div>
+      <p class="look">Look at how swapping one unit moves the model from preferring a line break toward preferring a space, and how far the bold arrow moves on average.</p>
+      <figcaption><b>Figure 10.</b> Each thin arrow shows one item, from its clean-run margin to its margin after the swap. A faint mark shows its corrupt-run margin, and items are ordered by their clean margin. The bold arrow at the right runs from the mean clean margin to the mean margin after the swap, with the mean corrupt margin as its target. The share is the bold arrow's length divided by the distance from the clean mean to the corrupt mean. Selecting an item shows its two texts in Figure 9.</figcaption>
+      <details class="more" id="items-details"><summary>Table: the margins of the items for the selected swap</summary>
+        <div id="items-table"></div>
+      </details>
+    </figure>
+
+    <h3 id="mixer-to-mlp"><a href="#mixer-to-mlp">From the L9 mixer to the L9 transforms</a></h3>
+    <p class="lead">The last link asks how the mixer's write reaches the L9 transforms. The whole mixer swap and head 10's swap are each applied in full, only inside the 4-dimensional frame of state group 4885 of <code>resid_mid.9</code>, or as the rest. The share is then read by three routes. For the first two, the changed <code>resid_mid.9</code> enters the L9 MLP dictionary, and only the change in the selected transforms' writes is patched at the MLP output: once for the six L9 transforms we selected (410, 1749, 6, 3720, 1394 and 2275), and once for transforms 410 and 1749 alone. The third route is the same change with everything downstream.</p>
+
+    <figure class="needs-js" id="fig-link">
+    <div class="figure-head">
+      <div class="controls">
+        <div class="control"><span class="label" id="base-label">Change at the L9 mixer output</span><div class="seg" role="group" aria-labelledby="base-label" id="base-seg"></div></div>
+        <div class="control"><span class="label" id="cell-label-link">Cell</span><div class="seg code" role="group" aria-labelledby="cell-label-link" data-scope="cell"></div></div>
+        <div class="control"><span class="label" id="half-label-link">Items</span><div class="seg" role="group" aria-labelledby="half-label-link" data-scope="half"></div></div>
+      </div>
+    </div>
+    <div class="link-panels" id="link-panels"></div>
+      <figcaption><b>Figure 11.</b> The share carried by three parts of one change at the L9 mixer output, read by three routes. The part inside group 4885's frame moves the transforms about as much as the whole change, and the rest moves them little. With everything downstream, the rest still carries a share, so the frame is not the only route to the answer. The last bar of the first two panels is a control: the largest absolute share among 5 random 4-dimensional frames, measured for the whole mixer swap and through the transforms only. Bars are drawn from 0 to 1.</figcaption>
+    </figure>
+    <div class="toggles">
+      <details class="more"><summary>Table: the link comparison in the three cells</summary>
+<div class="table-wrap"><table>
+<caption>Shares on even-numbered items, written A / B (C). A: through the six selected L9 transforms. B: through transforms 410 and 1749 alone. C: with everything downstream. The last row has no C.</caption>
+<thead><tr>
+<th scope="col">Change at the L9 mixer output</th>
+<th scope="col">count:60</th>
+<th scope="col">count:100</th>
+<th scope="col">width:100</th>
+</tr></thead><tbody>
+<tr><th scope="row">whole mixer swap, all of it</th><td>0.320 / 0.268 (0.474)</td><td>0.396 / 0.202 (0.590)</td><td>0.392 / 0.425 (0.704)</td></tr>
+<tr><th scope="row">whole mixer swap, only the part inside group 4885&#x27;s frame</th><td>0.300 / 0.283 (0.459)</td><td>0.329 / 0.164 (0.594)</td><td>0.374 / 0.414 (0.721)</td></tr>
+<tr><th scope="row">whole mixer swap, the rest</th><td>0.016 / 0.013 (0.156)</td><td>0.032 / 0.052 (0.168)</td><td>0.042 / 0.031 (0.177)</td></tr>
+<tr><th scope="row">head 10 swap, all of it</th><td>0.293 / 0.380 (0.633)</td><td>0.373 / 0.179 (0.678)</td><td>0.398 / 0.467 (0.784)</td></tr>
+<tr><th scope="row">head 10 swap, only the part inside group 4885&#x27;s frame</th><td>0.314 / 0.374 (0.585)</td><td>0.309 / 0.169 (0.650)</td><td>0.395 / 0.476 (0.860)</td></tr>
+<tr><th scope="row">head 10 swap, the rest</th><td>0.026 / 0.025 (0.153)</td><td>0.041 / 0.066 (0.185)</td><td>0.044 / 0.037 (0.204)</td></tr>
+<tr><th scope="row">whole mixer swap, only the part inside a random 4-dimensional frame (largest of 5, absolute)</th><td>0.003 / 0.004</td><td>0.003 / 0.005</td><td>0.005 / 0.007</td></tr>
+</tbody></table></div>
+      </details>
+    </div>
+    <div class="cols">
+      <p>The part inside group 4885's frame moves the transforms about as much as the whole swap. The rest moves them little. On even-numbered items, for the whole mixer swap, the rest carries 0.016 in <code>count:60</code>, 0.032 in <code>count:100</code> and 0.042 in <code>width:100</code> through the six transforms. Through the two transforms alone, the rest carries 0.013, 0.052 and 0.031. A random 4-dimensional frame carries at most 0.005 through the six transforms and 0.007 through the two.</p>
+      <p>With everything downstream, the rest carries 0.156 in <code>count:60</code>, 0.168 in <code>count:100</code> and 0.177 in <code>width:100</code>. The frame is therefore not the only route to the answer. The downstream shares of the two parts do not add up to the whole.</p>
+      <p>We registered a pass rule for the mixer-to-MLP link. The rule requires at least 0.75 of the whole share inside the frame, at most 0.25 of it and at most 0.05 in the rest, and at most 0.01 in random frames, in both count cells. Our verdict was that the rule holds for the route through the six transforms and holds only in part for the route through 410 and 1749 alone, because we recorded a share of 0.051 for the rest in <code>count:100</code> through those two transforms.</p>
+    </div>
+
+
+      </div>
+    </details>
   </div>
 </section>
 
@@ -530,106 +661,114 @@ The frame part gives most, but not all, of the movement of the gate input; the r
 
 <section class="band tint" aria-labelledby="qwen35-4b">
   <div class="wrap">
-    <h2 id="qwen35-4b"><a href="#qwen35-4b">What we did with <span class="nw">Qwen3.5-4B</span> units</a></h2>
-    <p class="lead">Our set for <code>Qwen/Qwen3.5-4B</code> covers 32 layers of width 2,560. Each layer has a state dictionary with 16,384 groups of 4 directions and an MLP dictionary with 9,920 transforms, read with the same reader as the <span class="nw">Qwen3.5-0.8B</span> set. This section shows three experiments we did with these units.</p>
+    <h2 id="qwen35-4b"><a href="#qwen35-4b">Four examples from <span class="nw">Qwen3.5-4B</span></a></h2>
+    <p class="lead">We studied <code>Qwen/Qwen3.5-4B</code> across 32 layers of width 2,560, using the same reader as the 0.8B set. Each state dictionary has 16,384 groups of 4 directions, and each MLP dictionary has 9,920 transforms. These four examples show what its units hold.</p>
 
     <article class="exp">
       <div class="exp-text">
-        <h3 id="rule-completion"><a href="#rule-completion">Changing how the model completes Python rules</a></h3>
-        <p>We asked the model to infer a rule from input-output examples and complete a Python function across 24 rule families it had not been tuned on. At the token before the function body, we shifted the residual stream within the frame of group 9167 at <code>resid_mid.27</code>. The model then reasoned in comments before writing the rule, and the rate of correct rules rose from 0.516 to 0.773 over 1,536 generations.</p>
-      <p>In a separate comparison, forcing the first body token to <code>#</code> gave a correct-rule rate of 0.65, compared with 0.72 for the group shift, with the difference inside the interval.</p>
-      <p>Such groups can also be combined: on held-out tasks, applying one group per behaviour throughout generation changed comment density from 0.19 to 0.66, non-Latin comments from 0.00 to 0.71, and input validation from 0.38 to 0.56.</p>
+        <h3 id="aba-abb"><a href="#aba-abb">Two axes hold a repetition rule</a></h3>
+        <p>We followed the repetition task from <a href="https://arxiv.org/abs/2502.20332">Yang et al. (2025)</a>, using word lists with two examples of a rule: ABA repeats the first item, as in “sun, tree, sun”, and ABB repeats the preceding item, as in “sun, tree, tree”. At the third item, group 12487 at <code>resid_post.14</code> holds a plane with a repeat axis, where ABA is 12.6, ABB is 12.6 and a new word is -0.1, and a which-item axis, where ABA is +5.5 and ABB is -7.2.</p>
+      <p>At <code>resid_post.13</code>, group 12112 is selected on 1.00 of ABA third items, 1.00 of ABB third items and 0.005 of new-word third items, so selection marks repetition while the coordinates distinguish the rules.</p>
+      <p>Attention head 14 of layer 15 carries the variable to the last position through two read directions, with gains of 0.138 for the repeat axis and 0.115 for the which-item axis, against a random-direction median of 0.042 and maximum of 0.052. Moving between the rules inside this frame, only in what the layer-15 mixer reads, moves the last position by 0.24 to 0.39 of the natural difference in the destination frames; an equally sized move in a random frame gives 0.03 to 0.12.</p>
+      <p>A related later study is <a href="https://arxiv.org/abs/2611.13270">Li and Webb</a>.</p>
       </div>
       <div class="exp-show">
-
-        <div>
-          <p class="sample-note">With the shift applied during generation, this sample starts with <code>if n == 2: return 5</code> and <code>elif n == 8: return 65</code>, works out the pattern in comments, and then writes <code>return n * n + 1</code>. Without the shift, the model continues listing cases up to a fourth branch.</p>
-          <div class="codeblock"><span class="lang">python</span><pre><code>def f(n):
-    if n == 2:
-        return 5
-    elif n == 8:
-        return 65
-    # 10 -&gt; 101, 12 -&gt; 145
-    # Pattern: f(n) = n^2 + 1 for n=10 (100+1=101), n=12 (144+1=145)
-    # But 2^2+1=5 matches, 8^2+1=65 matches.
-    # So the rule is simply n^2 + 1.
-    return n * n + 1</code></pre></div>
-        </div>
-
-        <figure id="fig-u1">
-          <div class="bars">
-            <h4>Across 24 rule families</h4>
-            <div class="hbar ref"><span class="hbar-label">Without the group shift</span><b>0.516</b><div class="hbar-track"><i style="--v:0.516"></i></div></div>
-            <div class="hbar inside"><span class="hbar-label">With the group shift</span><b>0.773</b><div class="hbar-track"><i style="--v:0.773"></i></div></div>
-            <h4>Comparison with forced comment sign</h4>
-            <div class="hbar inside"><span class="hbar-label">With the group shift</span><b>0.72</b><div class="hbar-track"><i style="--v:0.72"></i></div></div>
-            <div class="hbar ref"><span class="hbar-label">First body token forced to <code>#</code></span><b>0.65</b><div class="hbar-track"><i style="--v:0.65"></i></div></div>
-            <div class="hbar-axis" aria-hidden="true"><span>0</span><span>Rate of correct rules</span><span>1</span></div>
-          </div>
-          <figcaption><b>Figure 10.</b> The first pair of bars shows the rate of correct rules without and with the group shift across 24 rule families. The second pair compares the group shift with forcing the first body token to <code>#</code>.</figcaption>
-        </figure>
-      </div>
-    </article>
-
-    <article class="exp">
-      <div class="exp-text">
-        <h3 id="aba-abb"><a href="#aba-abb">Changing which repetition rule the model follows</a></h3>
-        <p>The ABA / ABB task and the three-stage picture of how a model solves it come from <a href="https://arxiv.org/abs/2502.20332">Yang et al. (2025)</a>, and we followed this task in <span class="nw">Qwen3.5-4B</span>.</p>
-        <p>We gave the model comma-separated words with two examples of a repetition rule: ABA repeats the first item, as in “sun, tree, sun”, while ABB repeats the second, as in “sun, tree, tree”. At layers 11 to 14, one group carried 0.18 to 0.42 of the effect of swapping the full residual difference between the rules, four groups carried 0.50 to 0.56, and sixteen groups carried 0.67 to 0.78.</p>
-      <p>We shifted the residual stream within the frame of group 12112 at <code>resid_post.13</code> by the mean difference between the rules. This changed ABA to ABB in 0.45 of prompts, or 0.98 at twice the shift. The share changing from ABB to ABA was 0.03, or 0.67 at twice the shift.</p>
-      <p>A related study is <a href="https://arxiv.org/abs/2611.13270">Li and Webb</a>, “What drives the emergence of symbolic mechanisms in large language models?”</p>
-
-        <p class="sample-note">These natural-text contexts show the groups active where an earlier word is repeated. The highlighted words are “cost” and “vote”.</p>
-        <ul class="contexts">
-          <li>The cost of losing … exceeds the<mark> cost</mark></li>
-          <li>the House will have to vote … If the House does not<mark> vote</mark></li>
-        </ul>
-
-      </div>
-      <div class="exp-show">
-        <figure id="fig-u2">
-          <div class="bars">
-            <h4>Share of the swap effect</h4>
-            <div class="hbar ref"><span class="hbar-label">One state group</span><b>0.18 to 0.42</b><div class="hbar-track"><i class="range" style="--lo:0.18;--hi:0.42"></i></div></div>
-            <div class="hbar ref"><span class="hbar-label">Four state groups</span><b>0.50 to 0.56</b><div class="hbar-track"><i class="range" style="--lo:0.50;--hi:0.56"></i></div></div>
-            <div class="hbar inside"><span class="hbar-label">Sixteen state groups</span><b>0.67 to 0.78</b><div class="hbar-track"><i class="range" style="--lo:0.67;--hi:0.78"></i></div></div>
-            <div class="hbar ref"><span class="hbar-label">Direction found with supervision</span><b>0.78 to 0.89</b><div class="hbar-track"><i class="range" style="--lo:0.78;--hi:0.89"></i></div></div>
-            <div class="hbar ref"><span class="hbar-label">Random 64-dimensional subspace</span><b>0.01 to 0.02</b><div class="hbar-track"><i class="range" style="--lo:0.01;--hi:0.02"></i></div></div>
-            <div class="hbar-axis" aria-hidden="true"><span>0</span><span>Share of the swap effect</span><span>1</span></div>
-            <h4>Share of prompts that flipped</h4>
-            <div class="hbar inside"><span class="hbar-label">ABA to ABB, mean difference shift</span><b>0.45</b><div class="hbar-track"><i style="--v:0.45"></i></div></div>
-            <div class="hbar ref"><span class="hbar-label">ABA to ABB, twice the shift</span><b>0.98</b><div class="hbar-track"><i style="--v:0.98"></i></div></div>
-            <div class="hbar inside"><span class="hbar-label">ABB to ABA, mean difference shift</span><b>0.03</b><div class="hbar-track"><i style="--v:0.03"></i></div></div>
-            <div class="hbar ref"><span class="hbar-label">ABB to ABA, twice the shift</span><b>0.67</b><div class="hbar-track"><i style="--v:0.67"></i></div></div>
-            <div class="hbar-axis" aria-hidden="true"><span>0</span><span>Share of prompts that flipped</span><span>1</span></div>
-          </div>
-          <figcaption><b>Figure 11.</b> The left bars show the lowest and highest shares of the full residual-swap effect across layers 11 to 14 for one, four, and sixteen groups, a direction found with supervision, and a random 64-dimensional subspace. The right bars show the share of prompts that changed rules in each direction at the shift and at twice the shift.</figcaption>
-        </figure>
-      </div>
-    </article>
-
-    <article class="exp">
-      <div class="exp-text">
-        <h3 id="comparing-transform"><a href="#comparing-transform">Reading a transform that compares symbols</a></h3>
-        <p>Transform 357 in the layer-7 MLP dictionary fires when the current symbol is smaller than the symbol in the same slot of earlier lines. Transform 472 fires when the current symbol is greater than the symbol in the same slot of earlier lines, reliably in the JavaScript comparison and less reliably in plain lists. Transform 186 detects repeated tokens, including digits and other tokens, and does not fire on equal operands in the JavaScript comparison.</p>
-      <p>We traced a circuit by hand for a JavaScript ternary expression, which chooses between two values according to a condition, and the same transform ranked first. At layer 7, the MLP dictionary’s reconstruction carried 0.89 of the MLP’s contribution, with an interval of 0.78 to 1.00. Two MLP neurons carried 0.80 of the same contribution.</p>
-      </div>
-      <div class="exp-show">
-
-        <div>
-          <p class="sample-note">These natural-text contexts show the transform firing on the highlighted digit in a list of dates and a list of weights.</p>
-          <ul class="contexts">
-            <li>11/09/2014 … 11/04/2014 … 11/03/2014 … 1<mark>0</mark>/29/2014</li>
-            <li>(425 lbs) (438 lbs) (<mark>2</mark>83 lbs)</li>
+        <figure class="needs-js" id="fig-aba" data-aria="The plane separates repetition from which item repeats, with arrows showing the head’s read directions." data-x="Repeat axis" data-y="Which-item axis" data-arrow1="Reads repetition" data-arrow2="Reads which item" data-label-aba="Repeats first item" data-label-abb="Repeats preceding item" data-label-new="New word" data-label-earlier="Repeats earlier items" data-label-noun="Repeated nouns">
+          <ul class="keys" aria-hidden="true">
+            <li><svg width="14" height="14"><circle cx="7" cy="7" r="5" class="cond task"/></svg>Third items in the repetition task</li>
+            <li><svg width="14" height="14"><path d="M7 2L12 7L7 12L2 7z" class="cond line"/></svg>List conditions</li>
+            <li><svg width="14" height="14"><rect x="2.5" y="2.5" width="9" height="9" class="cond natural"/></svg>Nouns in sentences</li>
+            <li><svg width="26" height="12"><path d="M2 6H17" class="arrow-mean read-arrow c-a"/><path d="M24 6L15 1.5V10.5z" class="arrow-mean-head read-arrow c-a"/></svg>Reads repetition</li>
+            <li><svg width="26" height="12"><path d="M2 6H17" class="arrow-mean read-arrow c-b"/><path d="M24 6L15 1.5V10.5z" class="arrow-mean-head read-arrow c-b"/></svg>Reads which item</li>
           </ul>
-        </div>
+          <div class="plot" id="aba-plot"></div>
+          <figcaption><b>Figure 12.</b> Each mark represents a condition: a task third item, one of 12 list conditions, or repeated or new nouns in sentences. On the repeat axis, repeated nouns sit at 13.5, against 0.8 for new nouns. On the which-item axis, repeats of the preceding item range from -7.2 to -6.9, while repeats of earlier items range from +0.6 to +7.2. The arrows show head 14’s read directions: the repeat direction writes mostly into group 858, and the which-item direction writes into groups 680 and 14020 at the last position.</figcaption>
+        </figure>
+      </div>
+    </article>
 
-        <figure id="fig-u3">
-          <div class="bars">
-            <div class="hbar inside"><span class="hbar-label">MLP dictionary reconstruction</span><b>0.89 (0.78 to 1.00)</b><div class="hbar-track"><i style="--v:0.89"></i><i class="ci" style="--lo:0.78;--hi:1.00"></i></div></div>
-            <div class="hbar-axis" aria-hidden="true"><span>0</span><span>Share of the MLP’s contribution</span><span>1</span></div>
+    <article class="exp stack">
+      <div class="exp-text">
+        <h3 id="running-average"><a href="#running-average">The state holds a running average</a></h3>
+        <p>We measured the mean state at the answer position, <code>resid_mid.15</code>, for prompts with six example lines of mixed types in all 729 orders, followed by a query. The states lie close to a plane with corners for prompts containing only ABA, only ABB or only lines without repetition; differences in type counts explain 0.69 of the variance in distances between histories, while shared ending length explains 0.05.</p>
+      <p>Each added line moves the state toward its type in a running average, with measured shrink factors of 0.64, 0.69, 0.71 and 0.79 for two through five lines, compared with 0.67, 0.75, 0.80 and 0.83 for an exact running average. Head 14 in layer 15 gives 0.88 of its attention to the example lines’ third items and writes an attention-weighted sum of one vector per type, with R² 0.84 compared with 0.41 for equal weights.</p>
+      <p>The answer follows the same quantity: the plane’s two coordinates predict the difference in answer logits between the two rules with R² 0.97. The frames we found with two examples also hold this structure: among 16,384 frames, groups 858, 14020 and 680 rank 1, 2 and 4 for variation between histories, although we did not choose them using these data.</p>
+      </div>
+      <div class="exp-show">
+        <figure id="fig-avg" data-aria="Histories form a plane ordered by line type counts, alongside attention by line position showing how the head weights the running average." data-x="Plane coordinate x" data-y="Plane coordinate y" data-corner-a="six ABA lines" data-corner-b="six ABB lines" data-corner-c="six lines without repetition">
+          <div class="avg-grid">
+          <div class="needs-js">
+            <ul class="keys" aria-hidden="true">
+              <li>More ABB lines<span class="ramp diverging"></span>More ABA lines</li>
+              <li>ABA line count minus ABB line count</li>
+            </ul>
+            <div class="plot" id="avg-plot"></div>
           </div>
-          <figcaption><b>Figure 12.</b> In the JavaScript circuit we traced by hand, the bar shows that the MLP dictionary’s reconstruction carried 0.89 of the layer-7 MLP’s contribution, with a mark showing the interval from 0.78 to 1.00.</figcaption>
+          <div class="bars quarter">
+            <h4>Head 14’s attention by line position</h4>
+            <div class="hbar ref"><span class="hbar-label">Line 1</span><b>0.03</b><div class="hbar-track"><i style="--v:0.03"></i></div></div><div class="hbar ref"><span class="hbar-label">Line 2</span><b>0.11</b><div class="hbar-track"><i style="--v:0.11"></i></div></div><div class="hbar ref"><span class="hbar-label">Line 3</span><b>0.15</b><div class="hbar-track"><i style="--v:0.15"></i></div></div><div class="hbar ref"><span class="hbar-label">Line 4</span><b>0.20</b><div class="hbar-track"><i style="--v:0.20"></i></div></div><div class="hbar ref"><span class="hbar-label">Line 5</span><b>0.21</b><div class="hbar-track"><i style="--v:0.21"></i></div></div><div class="hbar ref"><span class="hbar-label">Line 6</span><b>0.18</b><div class="hbar-track"><i style="--v:0.18"></i></div></div>
+            <div class="hbar-axis" aria-hidden="true"><span>0</span><span>Share of the head’s attention</span><span>0.25</span></div>
+          </div>
+          </div>
+          <figcaption><b>Figure 13.</b> Each point on the left represents one of the 729 histories, coloured by the number of ABA lines minus the number of ABB lines. The right panel shows head 14’s attention to each example line’s third item, in line order. The first line receives 0.03 of the head’s attention and contributes least to the running average.</figcaption>
+        </figure>
+      </div>
+    </article>
+
+    <article class="exp">
+      <div class="exp-text">
+        <h3 id="random-unit"><a href="#random-unit">A signed coordinate orders words by lethality</a></h3>
+        <p>We drew units at random with a fixed seed and traced them by hand, including group 15417 at <code>resid_post.27</code>. For 41 adjectives completing “It was a W”, its fourth coordinate orders words by lethality: fatal +9.3, lethal +7.4, deadly +6.4, crucial +0.7, safe +0.3, alive -0.8 and vital -3.5.</p>
+      <p>The second coordinate is negative for vital -7.8, fatal -7.2 and pivotal -5.5; our reading is that the word says something is decisive.</p>
+      <p>Moving “vital” along the fourth coordinate to the value of a death word shifts the next-word predictions toward nouns such as “mistake”, “error” and “accident”, away from “role”, “part” and “component”. The margin moves by +1.41 nats toward the death word in 24 of 24 pairs, covering 0.24 of the gap; equally sized moves along random directions inside and outside the frame change it by -0.28 to +0.07 nats.</p>
+        <p>From the same draw, group 15613 at <code>resid_post.15</code> has a coordinate for whether another column follows in a Markdown table’s separator row: 4.8 to 7.6 when one follows, against 1.7 to 2.9 in the last column. Attention head 4 of layer 15 finds the header cell by its cell index, and replacing a separator cell’s residual stream with another cell’s redirects the head in 68 of 68 cases. Moving within the group’s frame changes that choice by at most 0.01 of the gap.</p>
+      <p>In group 87 at <code>resid_mid.13</code>, “such as”, “like” and “e.g.” occupy one corner of the frame, and the listed examples occupy another. Moving a sentence where “like” is a verb to the coordinates of its twin where “like” introduces examples raises preference for the example continuation by +1.14 nats on average over 10 pairs.</p>
+      </div>
+      <div class="exp-show">
+        <figure class="needs-js" id="fig-leth" data-aria="Labelled words show how the lethality coordinate separates death words from words such as alive and vital." data-x="Fourth coordinate: lethality" data-y="Second coordinate: decisiveness, our reading">
+          <div class="plot" id="leth-plot"></div>
+          <figcaption><b>Figure 14.</b> Each point labels one of 41 adjectives by its fourth and second coordinates. The horizontal coordinate orders the words by lethality. The vertical axis’s meaning, that the word says something is decisive, is our reading.</figcaption>
+        </figure>
+      </div>
+    </article>
+
+    <article class="exp">
+      <div class="exp-text">
+        <h3 id="comparison"><a href="#comparison">Two transforms read opposite comparison outcomes</a></h3>
+        <p>We used lists with a digit in the same slot on each line, such as dates or weights, and compared the current digit with the digit in earlier lines. At <code>resid_mid.7</code>, group 9719 already separates less and greater along one axis, while repeated values lie apart along a second axis; this plane holds 0.92 of the variance of 100 cell means.</p>
+      <p>Transform 357 reads the less direction and transform 472 reads the greater direction, with cosine -0.90 between their read directions inside the frame and shares of 0.98 and 0.99 lying in the plane. The layer-7 MLP then pushes the state further along the same axis.</p>
+        <p>A transform has one read direction and a threshold, so separate outcomes use separate transforms, here 357 and 472; rank belongs to the linear write and carries how that write varies with context. Transform 357 has rank 64, and one fixed write direction would hold 0.72 of its write on lists and 0.67 on JavaScript comparisons, against 0.62 and 0.58 for transform 472. The write that a fixed direction would miss varies with the surrounding text, the operator and the distance between the digits.</p>
+      </div>
+      <div class="exp-show">
+        <figure class="needs-js" id="fig-cmp" data-aria="Digit pairs separate by comparison outcome, with arrows showing opposite read directions for less and greater." data-x="First component of the plane" data-y="Second component of the plane" data-key-less="Current digit is less" data-key-equal="Current digit is equal" data-key-greater="Current digit is greater" data-arrow357="Reads less" data-arrow472="Reads greater">
+          <ul class="keys" aria-hidden="true">
+            <li><svg width="14" height="14"><circle cx="7" cy="7" r="4.6" class="cell less"/></svg>Current digit is less</li>
+            <li><svg width="14" height="14"><rect x="3" y="3" width="8" height="8" class="cell equal"/></svg>Current digit is equal</li>
+            <li><svg width="14" height="14"><path d="M7 1.5L12.5 7L7 12.5L1.5 7z" class="cell greater"/></svg>Current digit is greater</li>
+            <li><svg width="26" height="12"><path d="M2 6H17" class="arrow-mean read-arrow c-b"/><path d="M24 6L15 1.5V10.5z" class="arrow-mean-head read-arrow c-b"/></svg>Reads less</li>
+            <li><svg width="26" height="12"><path d="M2 6H17" class="arrow-mean read-arrow c-c"/><path d="M24 6L15 1.5V10.5z" class="arrow-mean-head read-arrow c-c"/></svg>Reads greater</li>
+          </ul>
+          <div class="plot" id="cmp-plot"></div>
+          <figcaption><b>Figure 15.</b> The plane shows 100 pairs of current and earlier digits, marked by whether the current digit is less, equal or greater. The arrows show the two transforms reading opposite directions along the comparison axis.</figcaption>
+        </figure>
+      </div>
+    </article>
+
+    <article class="exp">
+      <div class="exp-text">
+        <h3 id="function-body"><a href="#function-body">One group sets how a function body opens</a></h3>
+        <p>We asked the model to infer a rule from input-output cases and complete a Python function, examining group 9167 at <code>resid_mid.27</code> before the function body. Moving along one direction in its frame makes the first body token <code>#</code> in 1.00 of prompts, and the output layer reads this direction almost directly as opening the line with a comment sign. The model’s own continuation then writes reasoning in comments followed by the rule.</p>
+      <p>In one run on 192 prompts, correct-rule rates were 0.339 without the move, 0.792 with the move and 0.755 with the first body token forced to <code>#</code> and no move. We selected the unit by contrasting prompts with and without “Reply with code only.”.</p>
+      </div>
+      <div class="exp-show">
+        <figure id="fig-st">
+          <div class="bars">
+            <div class="hbar ref"><span class="hbar-label">No move</span><b>0.339 (0.22 to 0.47)</b><div class="hbar-track"><i style="--v:0.339"></i><i class="ci" style="--lo:0.22;--hi:0.47"></i></div></div>
+            <div class="hbar inside"><span class="hbar-label">Move inside the frame</span><b>0.792 (0.70 to 0.88)</b><div class="hbar-track"><i style="--v:0.792"></i><i class="ci" style="--lo:0.70;--hi:0.88"></i></div></div>
+            <div class="hbar ref"><span class="hbar-label">First token forced to <code>#</code></span><b>0.755 (0.66 to 0.84)</b><div class="hbar-track"><i style="--v:0.755"></i><i class="ci" style="--lo:0.66;--hi:0.84"></i></div></div>
+            <div class="hbar-axis" aria-hidden="true"><span>0</span><span>Correct-rule rate</span><span>1</span></div>
+          </div>
+          <figcaption><b>Figure 16.</b> The bars show correct-rule rates without a move, with a move inside the group’s frame, and with the first body token forced to <code>#</code>. The model generates the continuation after that first token.</figcaption>
         </figure>
       </div>
     </article>
@@ -761,7 +900,7 @@ python demo/line_count.py --release &lt;folder&gt; --device cuda:0 --out &lt;fol
     </div>
     <div class="layer-readout" id="b4-readout" aria-live="polite"></div>
     <div class="panel-grid" id="b4-panels"></div>
-          <figcaption><b>Figure 13.</b> The panels show state FVU, MLP FVU, transforms alive, and transforms that fire on at least 90% of tokens across the 32 layers of <span class="nw">Qwen3.5-4B</span>. The last panel also shows the share of summed write energy those transforms carry on web text. Solid lines with filled marks show re-measured values, while dashed lines, open marks, and bars show values recorded at training.</figcaption>
+          <figcaption><b>Figure 17.</b> The panels show state FVU, MLP FVU, transforms alive, and transforms that fire on at least 90% of tokens across the 32 layers of <span class="nw">Qwen3.5-4B</span>. The last panel also shows the share of summed write energy those transforms carry on web text. Solid lines with filled marks show re-measured values, while dashed lines, open marks, and bars show values recorded at training.</figcaption>
         </figure>
         <details class="more"><summary>Table: all 32 layers of the <span class="nw">Qwen3.5-4B</span> set</summary>
 <div class="table-wrap"><table>
@@ -829,7 +968,7 @@ python demo/line_count.py --release &lt;folder&gt; --device cuda:0 --out &lt;fol
     <div class="layer-readout" id="layer-readout" aria-live="polite"></div>
     <div class="panel-grid" id="layer-panels"></div>
     <div id="load-error-layers" class="load-error" hidden></div>
-          <figcaption><b>Figure 14.</b> The panels show state FVU at both sites, MLP FVU, transforms on per token, and transforms alive across the 24 layers of <span class="nw">Qwen3.5-0.8B</span>. Solid MLP FVU lines show re-measured values, and dashed lines show values recorded at training. The switch includes or drops position 0 in the re-measured series. Use the slider or pointer to read one layer.</figcaption>
+          <figcaption><b>Figure 18.</b> The panels show state FVU at both sites, MLP FVU, transforms on per token, and transforms alive across the 24 layers of <span class="nw">Qwen3.5-0.8B</span>. Solid MLP FVU lines show re-measured values, and dashed lines show values recorded at training. The switch includes or drops position 0 in the re-measured series. Use the slider or pointer to read one layer.</figcaption>
         </figure>
         <details class="more"><summary>Table: all 24 layers</summary>
 <div class="table-wrap"><table>
@@ -874,7 +1013,7 @@ python demo/line_count.py --release &lt;folder&gt; --device cuda:0 --out &lt;fol
         <figure class="needs-js" id="fig-splice">
     <div class="layer-readout" id="splice-readout" aria-live="polite"></div>
     <div class="panel-grid" id="splice-panels"></div>
-          <figcaption><b>Figure 15.</b> The panels show spliced-in loss recorded at training for the <span class="nw">Qwen3.5-0.8B</span> state dictionary at <code>resid_post</code> and the MLP dictionary. The panels use different vertical scales.</figcaption>
+          <figcaption><b>Figure 19.</b> The panels show spliced-in loss recorded at training for the <span class="nw">Qwen3.5-0.8B</span> state dictionary at <code>resid_post</code> and the MLP dictionary. The panels use different vertical scales.</figcaption>
         </figure>
         <details class="more"><summary>Table: spliced-in loss at all 24 layers</summary>
 <div class="table-wrap"><table>

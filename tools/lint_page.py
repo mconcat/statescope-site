@@ -24,7 +24,7 @@ SOURCES = ["README.md", f"{REL}/MODEL_CARD.md", "demo/line_count.py", f"{REL}/la
            f"{REL}/line_count_link_table.md"]
 SOURCES_4B = ["release/qwen35-4b/layers_table.md", "release/qwen35-4b/MODEL_CARD.md"]                            # read when the page has the Qwen3.5-4B section
 PAGE_DATA = ["facts.json", "layers.json", "splice.json", "demo.json"]          # the item texts are data, not claims of the page
-OPTIONAL_DATA = ["layers-4b.json", "steer.json", "used-4b.json", "examples-4b.json", "count-curve.json"]
+OPTIONAL_DATA = ["layers-4b.json", "steer.json", "count-curve.json", "count-readout.json", "trace.json", "geom-4b.json"]
 REFERENCES = os.path.join("tools", "references.json")                          # bibliographic data of the works the page refers to
 ALLOWED_LINKS = ("https://github.com/mconcat/statescope", "https://huggingface.co/mconcat/statescope-qwen3.5-0.8b",
                  "https://huggingface.co/mconcat/statescope-qwen3.5-4b", "https://arxiv.org/abs/2601.04480", "https://arxiv.org/abs/2502.20332",
@@ -95,14 +95,17 @@ def words_with_digits(text: str) -> list[str]:
 
 def occurs(word: str, corpus: str) -> bool:
     """the word stands in the corpus as a whole number or name, not as a piece of a longer one.
-    "layer-7" is the sources' "layer 7", and "2.5%" their "2.5 %"."""
+    "layer-7" is the sources' "layer 7", "2.5%" their "2.5 %"; "width-40", "rank-64", "resid_post.15" name a width, a rank, a site by a number."""
     def whole(w: str) -> bool:
         return re.search(r"(?<![A-Za-z0-9])(?<!\d[.,])" + re.escape(w) + r"(?![A-Za-z0-9]|[.,]\d)", corpus) is not None
     if whole(word):
         return True
     m = re.fullmatch(r"(layer)-(\d+)", word)
+    if m and whole(f"{m.group(1)} {m.group(2)}"):
+        return True
+    m = re.fullmatch(r"(?:[Ll]ayer|[Ww]idth|rank|top|resid_mid|resid_post)[-.](\d+)", word)   # a name made of a word and a number that is traceable
     if m:
-        return whole(f"{m.group(1)} {m.group(2)}")
+        return whole(m.group(1))
     m = re.fullmatch(r"([\d.]+)%", word)
     return bool(m) and whole(f"{m.group(1)} %")
 

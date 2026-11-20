@@ -59,7 +59,7 @@ def main() -> None:
     ap.add_argument("--hf-home", required=True)
     ap.add_argument("--weights-4b", help="needed when the site has data/layers-4b.json")
     ap.add_argument("--steer", help="folder with steer.json, steer_margins.safetensors, count_curve.json and count_readout.json; needed when the site has those figures")
-    ap.add_argument("--examples-4b", help="the project's notes of selected results; needed when the site has data/examples-4b.json")
+    ap.add_argument("--geom", help="folder with the analyses (line_count, aba_abb, compare_357, random_units, steer_9167); needed when the site has data/trace.json")
     args = ap.parse_args()
     torch.set_num_threads(4)
     repo = lambda rel: os.path.join(args.repo, rel)
@@ -286,23 +286,52 @@ def main() -> None:
               (f3(cr["threshold"]["1749"]), f2(cr["widths"]["100"]["1749"]["mean_gate_input"][95]), f2(cr["widths"]["100"]["1749"]["firing_rate"][95]),
                f3(cr["widths"]["60"]["410"]["r2_gate_input_on_frame_part"])),
               (heldr["threshold"]["1749"], heldr["widths"]["100"]["1749"]["gate"][95], heldr["widths"]["100"]["1749"]["rate"][95], facts["read.t410_r2_w60"]["display"]))
-    # 31-32: the 4B examples: numbers from the 4B model card, samples from the notes
-    if os.path.exists(os.path.join(HERE, "data", "used-4b.json")):
-        with open(repo("release/qwen35-4b/MODEL_CARD.md")) as f:
-            card4 = f.read()
-        used = site("used-4b.json")
-        sentences = (f"The rate of correct rules rose from {used['rule']['bars'][0]['value']} to {used['rule']['bars'][1]['value']}.",
-                     f"It flipped from ABA to ABB in {used['aba']['flips'][0]['value']} of prompts.",
-                     f"sixteen {used['aba']['ranges'][2]['lo']} to {used['aba']['ranges'][2]['hi']}.",
-                     f"the MLP reconstruction carried {used['js']['bars'][0]['value']} of the MLP's contribution, with an interval of {used['js']['bars'][0]['lo']} to {used['js']['bars'][0]['hi']}.")
-        check("31. 4B examples: the 4B model card holds the sentences with the page's values", [True] * len(sentences), [x in card4 for x in sentences])
-    if os.path.exists(os.path.join(HERE, "data", "examples-4b.json")):
-        assert args.examples_4b, "--examples-4b is needed to check the samples"
-        with open(args.examples_4b) as f:
-            notes = f.read()
-        ex = site("examples-4b.json")
-        check("32. 4B examples: the generated function and the four natural-text contexts stand in the notes, character for character",
-              [True] * 5, [ex["rule_sample"] in notes] + [c in notes for c in ex["contexts"]["aba"] + ex["contexts"]["less"]])
+    # 31-35: the trace and the geometry figures, from the files of the analyses
+    if os.path.exists(os.path.join(HERE, "data", "trace.json")):
+        assert args.geom, "--geom is needed to check the trace"
+        g = lambda *rel: json.load(open(os.path.join(args.geom, *rel)))
+        held = site("trace.json")
+        kf, tr, m3 = g("line_count", "f_animation_keyframes.json"), g("line_count", "f_trace.json"), g("line_count", "m3_causal.json")
+        frame = next(k for k in kf["keyframes"] if k["id"] == "resid_mid.12")
+        cell = frame["cells"]["80"]
+        i = cell["counts"].index(40)
+        stop = next(x for x in held["stops"] if x["id"] == "resid_mid.12" and x["kind"] == "state")
+        j = 40 - int(held["counts"]["80"][0])
+        check("31. trace: position of the cell (40 characters, width 80) at resid_mid.12, and that key frame's share by remaining characters",
+              (f3(cell["xyz_aligned"][i][0]), f3(cell["xyz_aligned"][i][1]), f2(frame["geometry"]["by_remaining"])),
+              (stop["curves"]["80"]["x"][j], stop["curves"]["80"]["y"][j], stop["geometry"]["by_remaining"]))
+        row = tr["rows"][5]["numbers"]
+        check("32. trace table: step 6, the head's share through its gate and through its memory in the three cells",
+              ([f2(v) for v in row["through its gate (count)"]], [f2(v) for v in row["through its memory (width)"]]),
+              (held["table"][5]["entries"][1]["shares"], held["table"][5]["entries"][2]["shares"]))
+        arm = m3["targets"]["100"]["arms"]["shift:40"]
+        k = held["causal"]["counts"].index("50")
+        check("33. causal test: mean margin at 50 characters with the read of width 40, and the count of the bump",
+              (f2(arm["mean_margin_by_count_every5"]["50"]), str(arm["bump_count"])), (held["causal"]["arms"]["shift40"][k], facts["lc.cz_bump_count"]["display"]))
+    if os.path.exists(os.path.join(HERE, "data", "geom-4b.json")):
+        assert args.geom, "--geom is needed to check the geometry figures"
+        g = lambda *rel: json.load(open(os.path.join(args.geom, *rel)))
+        held = site("geom-4b.json")
+        second = g("aba_abb", "figure_frame_plane.json")["second_frame_read_by_layer15_head14"]
+        aba = next(c for c in second["conditions"] if c["name"] == "task ABB")
+        mine = next(c for c in held["aba"]["conditions"] if c["name"] == "task ABB")
+        word = next(w for w in g("random_units", "data", "story_lethality.json")["word_map"] if w["word"] == "lethal")
+        plane = g("compare_357", "figure_g9719_plane.json")["list_cells"]
+        check("34. planes: the ABB cluster and a read direction of head 14; the code of 'lethal'; one cell of the comparison plane",
+              ((f"{aba['mean'][0]:.1f}", f"{aba['mean'][1]:.1f}"), f3(second["head14_value_path_in_this_frame"][1]["read_direction_on_rule_axis"]),
+               (f"{word['code_it_was_a'][3]:.1f}", f"{word['code_it_was_a'][1]:.1f}"), (plane["cur"][37], plane["prev"][37], f2(plane["xy"][37][0]), f2(plane["xy"][37][1]))),
+              ((mine["common"], mine["rule"]), held["aba"]["reads"][1]["rule"], next((w["c4"], w["c2"]) for w in held["lethality"]["words"] if w["word"] == "lethal"),
+               (held["compare"]["cells"][37]["cur"], held["compare"]["cells"][37]["prev"], held["compare"]["cells"][37]["x"], held["compare"]["cells"][37]["y"])))
+        if "average" in held:
+            bel = g("aba_abb", "b_belief_figure.json")
+            one = next(x for x in bel["histories"] if x["types"] == "AAAABC")
+            mine = next(x for x in held["average"]["histories"] if x["types"] == "AAAABC")
+            check("36. histories of six lines: the place of AAAABC, its count difference, head 14's attention on the first line, the mixture R²",
+                  (f2(one["plane_heldout"][0]), f2(one["plane_heldout"][1]), str(one["counts"][0] - one["counts"][1]), f2(bel["head14"]["attention_by_line_from_last_back"]["all"][-1]),
+                   f2(bel["head14"]["mixture_r2_for_head14_third_item_write_heldout"])),
+                  (mine["x"], mine["y"], mine["d"], held["average"]["attention"][0], facts["avg.mixture_r2"]["display"]))
+        ctl = g("steer_9167", "s2_hash_control.json")["conditions"]
+        check("35. the three rates of correct rules of one run", [f3(ctl[k]["correct_rule"][0]) for k in ("base", "move", "hash")], [b["value"] for b in held["steer"]["bars"]])
 
     print(f"\n{sum(results)} of {len(results)} checks passed")
     sys.exit(0 if all(results) else 1)

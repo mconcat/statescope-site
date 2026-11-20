@@ -64,3 +64,18 @@ if (document.getElementById("fig-curve")) {
     .then(([module, curve, readout]) => module.initCurve(curve, readout))
     .catch((error) => console.error(error));
 }
+if (document.getElementById("fig-path")) {
+  // the path of the count through the layers (animated) and the causal test at layer 12: data/trace.json
+  Promise.all([import("./path.js"), load("trace.json")])
+    .then(([module, trace]) => {
+      module.initPath(trace);
+      module.initCausal(trace);
+    })
+    .catch((error) => console.error(error));
+}
+if (document.getElementById("fig-aba")) {
+  // three planes inside state-group frames of the 4B set: data/geom-4b.json
+  Promise.all([import("./geom4b.js"), load("geom-4b.json")])
+    .then(([module, geom]) => module.initGeom(geom))
+    .catch((error) => console.error(error));
+}
