@@ -303,7 +303,7 @@ def main() -> None:
         wr = frame["write"]["cells"]["80"]["write_xyz_common"][i]
         prior = next(x for x in path["stops"] if x["kind"] == "before")
         close = lambda a, b: all(abs(float(x) - float(y)) <= 0.0015 for x, y in zip(a, b))      # the stored basis is rounded to four decimals
-        check("31. trace: the cell (40 characters, width 80) in the fixed view after the write of layer 12 head 13, and before it (the state minus the stored write)",
+        check("31. trace: the cell (40 characters, width 80) in the fixed view after the write of the layer-12 mixer, and before it (the state minus the stored write)",
               True, close(place(cell["xyz_common"][i]), [after["curves"]["80"]["x"][j], after["curves"]["80"]["y"][j]]) and
               close(place([cell["xyz_common"][i][k] - wr[k] for k in range(3)]), [prior["curves"]["80"]["x"][j], prior["curves"]["80"]["y"][j]]))
         if os.path.exists(os.path.join(args.geom, "line_count", "f_frames_in_common.json")) and "frame" in after:
@@ -346,6 +346,11 @@ def main() -> None:
                   (mine["x"], mine["y"], mine["d"], held["average"]["attention"][0], facts["avg.mixture_r2"]["display"]))
         ctl = g("steer_9167", "s2_hash_control.json")["conditions"]
         check("35. the three rates of correct rules of one run", [f3(ctl[k]["correct_rule"][0]) for k in ("base", "move", "hash")], [b["value"] for b in held["steer"]["bars"]])
+        dose = g("steer_state", "figure_state.json")["A_dose_on_instruction_tokens"]
+        main = dose["series"]["neutral instruction sentence (the one the unit was found against)"]
+        check("37. one direction on the tokens of a sentence: the share of validated functions by dose, the pooled-control differences and the rate with the instruction",
+              ([f3(p["guard_rate"]) for p in main], [f"{dose['unit_minus_pooled_controls_at_the_same_dose'][f'n_g2879_d{d}']['diff'][0]:+.2f}" for d in (1, 2)], f3(dose["natural_prompts"][0]["guard_rate"])),
+              ([p["rate"] for p in held["state"]["series"][0]["points"]], [facts["su.minus1"]["display"], facts["su.minus2"]["display"]], held["state"]["instructed"]))
 
     print(f"\n{sum(results)} of {len(results)} checks passed")
     sys.exit(0 if all(results) else 1)

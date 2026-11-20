@@ -1,4 +1,4 @@
-"""Data of the geometry figures and of the trace, read from the folders of five analyses (used by tools/build_data.py --geom).
+"""Data of the geometry figures and of the trace, read from the folders of six analyses (used by tools/build_data.py --geom).
 
 Each analysis folder holds JSON files written by its own scripts; nothing is retyped here. Coordinates are kept as strings, and
 every number that the page states in a sentence becomes a fact with the file and the field it was read from.
@@ -10,6 +10,7 @@ every number that the page states in a sentence becomes a fact with the file and
   random_units/ data/story_lethality.json, story_tables.json, story_exemplification.json  -> data/geom-4b.json "lethality"
   compare_357/  figure_g9719_plane.json, rank_own_outcome.json, rank_spectrum.json    -> data/geom-4b.json "compare"
   steer_9167/   s2_hash_control.json, figure_9167.json                                -> data/geom-4b.json "steer"
+  steer_state/  figure_state.json, NOTES.md (sentences read by pattern)               -> data/geom-4b.json "state"
 """
 from __future__ import annotations
 
@@ -302,6 +303,68 @@ def line_count(facts, folder: str, demo: dict) -> dict:
             "counts": {w: [str(counts[w][0]), str(counts[w][-1])] for w in widths}, "path": path, "table": table, "cells": cells, "causal": causal}
 
 
+def state_unit(facts, root: str, source) -> dict:
+    """one direction of a state group's frame, added on the tokens of a sentence in the prompt: the rate of validated functions
+    against the dose (steer_state/figure_state.json) and the sentences its notes add (read by pattern; the build stops if one has
+    changed)"""
+    import re
+    fig = load(root, "steer_state", "figure_state.json")
+    A = fig["A_dose_on_instruction_tokens"]
+    j = "steer_state/figure_state.json"
+    add = lambda key, value, how, name=j: facts.add(key, value, source(name), how)
+    m = re.match(r"state group (\d+) at resid_post\.(\d+);", A["unit"])
+    add("su.group", m.group(1), "A_dose_on_instruction_tokens.unit")
+    add("su.layer", m.group(2), "A_dose_on_instruction_tokens.unit")
+    m = re.match(r"(\d+) tasks \(\d+ held \+ \d+ new\) x \(greedy \+ 2 samples\) = (\d+),", fig["rows_per_cell"])
+    add("su.tasks", m.group(1), "rows_per_cell")
+    add("su.rows", m.group(2), "rows_per_cell")
+    window = next(k for k in fig["B_where_the_instruction_is_held"]["windows"] if k.endswith("tokens of the instruction sentence"))
+    add("su.tokens", re.match(r"the (\d+) tokens", window).group(1), "B_where_the_instruction_is_held.windows: the instruction sentence")
+    names = {"neutral instruction sentence (the one the unit was found against)": "neutral", "plain prompt: last 17 tokens of the task description": "plain",
+             "second neutral sentence (held out)": "second", "third neutral sentence (held out)": "third"}
+    assert set(A["series"]) == set(names), list(A["series"])
+    series, controls = [], []
+    for name, key in names.items():
+        series.append({"key": key, "points": [{"dose": str(p["dose"]), "rate": fixed(p["guard_rate"], 3), "lo": fixed(p["ci"][0], 3), "hi": fixed(p["ci"][1], 3)} for p in A["series"][name]]})
+        for dose, cells in A["controls"].get(name, {}).items():
+            controls += [{"series": key, "dose": dose[1:], "rate": fixed(c["guard_rate"], 3)} for c in cells.values()]
+    main = {p["dose"]: p for p in series[0]["points"]}
+    for dose in ("0", "1", "2", "4"):
+        add(f"su.rate{dose}", main[dose]["rate"], f"A_dose_on_instruction_tokens.series[neutral instruction sentence], dose {dose}: guard_rate")
+        if dose != "0":
+            d = A["unit_minus_pooled_controls_at_the_same_dose"][f"n_g{facts.items['su.group']['display']}_d{dose}"]["diff"][0]
+            add(f"su.minus{dose}", signed(d, 2), f"A_dose_on_instruction_tokens.unit_minus_pooled_controls_at_the_same_dose, dose {dose}: diff[0]")
+    real = next(x for x in A["natural_prompts"] if x["prompt"] == "guard")
+    add("su.instructed", fixed(real["guard_rate"], 3), "A_dose_on_instruction_tokens.natural_prompts[guard].guard_rate")
+    removal = A["removal_from_the_real_instruction"]
+    assert removal["g_g2879_d-1"] == removal["g_g2879_d-2"]
+    add("su.removed", fixed(removal["g_g2879_d-1"], 3), "A_dose_on_instruction_tokens.removal_from_the_real_instruction: the unit's natural amount, or twice that, taken away")
+    pos = A["natural_position_of_sentences"]
+    add("su.s_instruction", fixed(pos["guard"], 1), "natural_position_of_sentences.guard")
+    add("su.s_negated", fixed(pos["noguard"], 1), "natural_position_of_sentences.noguard")
+    add("su.s_neutral", fixed(pos["desc"], 1), "natural_position_of_sentences.desc")
+
+    # sentences of the analysis notes: each pattern must match exactly once
+    notes = open(os.path.join(root, "steer_state", "NOTES.md"), encoding="utf-8").read()
+    n = "steer_state/NOTES.md"
+    def read(pattern: str, keys: tuple, how: str):
+        found = re.findall(pattern, notes)
+        if len(found) != 1:
+            raise SystemExit(f"{n}: the sentence a number is read from has changed ({how}): {len(found)} matches")
+        for key, value in zip(keys, found[0] if isinstance(found[0], tuple) else (found[0],)):
+            add(key, value, how, n)
+    read(r"The move ends (\d+) tokens before the last prompt token", ("su.gap",), "A.1: the move ends so many tokens before the last prompt token")
+    read(r"the first check in the code comes at a median\s+of (\d+) to (\d+) tokens after the prompt", ("su.first_low", "su.first_high"), "A.1: median position of the first check")
+    read(r"giving the unsteered prompt the first (\d+) tokens of the steered answer changes nothing\s+\((0\.\d+)\)", ("su.forced_tokens", "su.forced_rate"), "A.1: the first tokens of the steered answer given, no move")
+    read(r"at cosine (1\.00), (0\.\d+) and (0\.\d+) with the move\s+direction", ("su.cos1", "su.cos2", "su.cos3"), "geometry: three wordings of the instruction against the move direction")
+    read(r"without the layer-15 attention (0\.\d+) of the\s+effect remains, without the layer-11 attention (0\.\d+),", ("su.remain15", "su.remain11"), "who reads it: share of the effect that remains with one attention layer frozen")
+    read(r"without\s+the layer-19 attention (0\.\d+); with all later mixers frozen exactly 0;", ("su.remain19",), "who reads it: layer-19 attention frozen; all later mixers frozen: exactly 0")
+    read(r"the 8 largest \+0\.\d+ \(0\.\d+ … 0\.\d+; guard rate (0\.\d+)\)", ("su.eight_rate",), "geometry: the 8 largest groups of the contrast together, at their natural size")
+    assert facts.items["su.forced_rate"]["display"] == facts.items["su.rate0"]["display"]
+
+    return {"series": series, "controls": controls, "instructed": fixed(real["guard_rate"], 3)}
+
+
 def four_b_geometry(facts, root: str) -> dict:
     out = {"sources": []}
 
@@ -494,4 +557,5 @@ def four_b_geometry(facts, root: str) -> dict:
     for dose in ("1.0", "2.0", "4.0"):
         facts.add(f"st.hash_dose{dose[0]}", fixed(path[dose], 2), source("steer_9167/figure_9167.json"), f"move_path_code_only_prompts, dose {dose}: first_choice_hash")
     out["steer"] = {"bars": bars}
+    out["state"] = state_unit(facts, root, source)
     return out

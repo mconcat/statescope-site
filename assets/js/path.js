@@ -49,7 +49,7 @@ export function initPath(trace) {
 
   function build() {
     if (!width) return;
-    const M = width < 420 ? 14 : 28;
+    const M = width < 420 ? 14 : 22;
     // the read-out keeps the height of its tallest stage, so the plot does not move from stage to stage
     const readout = document.getElementById("path-readout");
     readout.style.minHeight = "";

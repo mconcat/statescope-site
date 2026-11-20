@@ -1334,7 +1334,15 @@ html:not(.js) .path-labels {
   grid-row: 1;
 }
 .story-figure .keys {
-  margin: 0.8rem 0 0;
+  margin: 0.6rem 0 0;
+  gap: 0.25rem 1.2rem;
+  font-size: 0.74rem;
+}
+@media (min-width: 1200px) {
+  .story {
+    grid-template-columns: minmax(0, 4fr) minmax(0, 7.6fr);
+    gap: 2rem 2.6rem;
+  }
 }
 .story-step {
   margin: 0 0 16vh;
@@ -2680,4 +2688,21 @@ details.more > summary:hover {
 .word-pt.small {
   fill: var(--muted);
   opacity: 0.55;
+}
+
+/* the dose figure of one direction added on the tokens of a sentence in the prompt */
+.level-instructed {
+  fill: none;
+  stroke: var(--ink);
+  stroke-width: 1;
+  stroke-dasharray: 5 4;
+}
+.control-mark {
+  fill: var(--muted);
+  opacity: 0.55;
+}
+.interval {
+  fill: none;
+  stroke: var(--u1749);
+  stroke-width: 1.4;
 }

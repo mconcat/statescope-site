@@ -13,7 +13,7 @@ python -m http.server --directory . 8000      # then open http://127.0.0.1:8000/
 - The page: a centred header (title, one line, three buttons), a teaser figure, an abstract, then sections as full-width bands:
   the two dictionaries, the worked example on the 0.8B set as one story (five paragraphs beside one animated figure, the
   reading of two transforms, the causal test, and one closed block "Evidence and numbers" with the trace table, the swaps and
-  the dose slider), the same operations in the 4B set (five short parts), how to use the files, how to cite. Training details, numbers per layer and what was checked are closed blocks near the end.
+  the dose slider), the same operations in the 4B set (five short parts; the last one has a dose chart read from a sixth analysis folder, `steer_state/`), how to use the files, how to cite. Training details, numbers per layer and what was checked are closed blocks near the end.
 - `assets/css/site.css` holds the design tokens (light and dark) and all styles.
 - `assets/js/` holds `main.js` (loading), `demo.js` (the line-count demonstration: pair viewer, chain, one swap item by item, link
   comparison), `curve.js` (the count as a curve in one group's frame, and how two transforms read it), `path.js` (the animated path and

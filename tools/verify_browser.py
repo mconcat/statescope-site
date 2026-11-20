@@ -529,12 +529,17 @@ async def new_figures(page, demo: dict) -> list[str]:
         await page.locator("#leth-plot .word-pt").first.hover()
         tip = await page.inner_text("#tip")
         expect(any(w["word"] in tip and w["c4"] in tip for w in geom["lethality"]["words"]), f"word plane: hint {tip!r}")
-        bars = await page.eval_on_selector_all("#fig-st .hbar", """n => n.map(x => [x.querySelector('b').textContent, x.querySelector('.hbar-track i').style.getPropertyValue('--v'),
-            x.querySelector('.hbar-track').getBoundingClientRect().width, x.querySelector('.hbar-track i').getBoundingClientRect().width])""")
-        want = [[f"{b['value']} ({b['lo']} to {b['hi']})", b["value"]] for b in geom["steer"]["bars"]]
-        expect([b[:2] for b in bars] == want, f"bars of the last 4B example: {bars}")
-        expect(all(abs(b[3] - float(b[1]) * b[2]) < 1.5 for b in bars), "bars of the last 4B example: a bar is not as long as its value")
-        counts["bars"] += len(bars)
+        st = geom["state"]
+        drawn = await page.eval_on_selector_all("#su-plot path[data-series]", "n => n.map(x => x.dataset.series)")
+        expect(drawn == [x["key"] for x in st["series"]], f"dose figure of the last 4B part: lines {drawn}")
+        marks = await page.eval_on_selector_all("#su-plot circle.mark", "n => n.map(x => [x.dataset.series, x.dataset.dose])")
+        expect(marks == [[x["key"], p["dose"]] for x in st["series"] for p in x["points"]], "dose figure of the last 4B part: marks")
+        expect(await page.locator("#su-plot .control-mark").count() == len(st["controls"]), "dose figure of the last 4B part: control marks")
+        dose = await page.get_attribute("#fig-su", "data-at")
+        shown = await page.eval_on_selector_all("#su-readout b", "n => n.map(x => x.textContent)")
+        want = [dose] + [p["rate"] for x in st["series"] for p in x["points"] if p["dose"] == dose]
+        expect(shown == want, f"dose figure of the last 4B part: read-out {shown} != {want}")
+        counts["bars"] += len(marks)
         if "average" in geom:
             av = geom["average"]
             dots = await page.eval_on_selector_all("#avg-plot .hist", "n => n.map(x => x.dataset.types)")

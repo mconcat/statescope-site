@@ -3,7 +3,7 @@
 //   lethality: words[] = { word, c4, c2 }
 //   compare:   cells[] = { cur, prev, outcome: -1 | 0 | 1, x, y }, reads = { "357": [x, y], "472": [x, y] }
 // Each drawing has one scale for both directions. The words on the plots come from the page (data attributes of each figure).
-import { svg, h, clear, onResize, diamond, showTip, hideTip } from "./svg.js";
+import { svg, h, clear, onResize, diamond, showTip, hideTip, linear, niceTicks, tickText } from "./svg.js";
 
 // a plane with equal scales: returns { root, X, Y, width, height } and draws the axis titles and the two zero lines
 function plane(box, pts, words, { height: wanted = 0.74, pad = 30 } = {}, draw) {
@@ -202,4 +202,76 @@ export function initGeom(geom) {
   initAba(geom.aba);
   initLethality(geom.lethality);
   initCompare(geom.compare);
+  initState(geom.state);
+}
+
+// one direction of a group's frame added on the tokens of a sentence in the prompt: the share of generated functions that
+// validate their input, against the dose. state: { series[] = { key, points[] = { dose, rate, lo, hi } },
+// controls[] = { series, dose, rate }, instructed }
+function initState(d) {
+  const figure = document.getElementById("fig-su");
+  if (!figure || !d) return;
+  const w = figure.dataset;
+  const box = document.getElementById("su-plot");
+  const style = { neutral: "series s-unit c-c", plain: "series s-n", second: "series s-unit c-b", third: "series s-r recorded" };
+  const label = { neutral: w.lineNeutral, plain: w.linePlain, second: w.lineSecond, third: w.lineThird };
+  const doses = [...new Set(d.series.flatMap((s) => s.points.map((p) => Number(p.dose))))].sort((a, b) => a - b);
+  let at = doses.indexOf(2) >= 0 ? 2 : doses[0];
+  let width = 0;
+  const M = { l: 40, r: 14, t: 26, b: 40 };
+  function draw() {
+    if (!width) return;
+    const height = Math.round(Math.min(330, Math.max(240, width * 0.62)));
+    const x = linear(doses[0], doses[doses.length - 1], M.l, width - M.r);
+    const yt = niceTicks(0, 1, 4);
+    const y = linear(0, 1, height - M.b, M.t);
+    const root = svg("svg", { width, height, role: "img", "aria-label": w.aria });
+    const axis = svg("g", { "aria-hidden": "true" });
+    for (const tick of yt.ticks) {
+      if (tick < 0 || tick > 1) continue;
+      axis.append(svg("path", { d: `M${M.l} ${y(tick)}H${width - M.r}`, class: tick === 0 ? "zero" : "gridline" }));
+      axis.append(svg("text", { x: M.l - 7, y: y(tick) + 3.5, "text-anchor": "end" }, tickText(tick, yt.step)));
+    }
+    for (const v of doses) axis.append(svg("text", { x: x(v), y: height - M.b + 14, "text-anchor": "middle" }, String(v)));
+    axis.append(svg("text", { x: (M.l + width - M.r) / 2, y: height - 4, "text-anchor": "middle", class: "axis-label" }, w.axisX));
+    axis.append(svg("text", { x: 0, y: 10, class: "axis-label" }, w.axisY));
+    // the rate with the real instruction in the prompt
+    axis.append(svg("path", { d: `M${M.l} ${y(Number(d.instructed))}H${width - M.r}`, class: "level-instructed" }));
+    axis.append(svg("text", { x: width - M.r, y: y(Number(d.instructed)) - 5, "text-anchor": "end", class: "on-plot quiet" }, w.instructed));
+    root.append(axis);
+    root.append(svg("path", { d: `M${x(at)} ${M.t}V${height - M.b}`, class: "chosen-line" }));
+    for (const c of d.controls) root.append(svg("circle", { cx: x(Number(c.dose)), cy: y(Number(c.rate)), r: 2.8, class: "control-mark", "data-series": c.series }));
+    for (const s of d.series) {
+      const pts = s.points.map((p) => [x(Number(p.dose)), y(Number(p.rate))]);
+      root.append(svg("path", { d: "M" + pts.map((p) => `${p[0].toFixed(1)} ${p[1].toFixed(1)}`).join("L"), class: style[s.key], "data-series": s.key }));
+      s.points.forEach((p, i) => {
+        if (s.key === "neutral") root.append(svg("path", { d: `M${pts[i][0]} ${y(Number(p.lo))}V${y(Number(p.hi))}`, class: "interval" }));
+        const mark = svg("circle", { cx: pts[i][0], cy: pts[i][1], r: Number(p.dose) === at ? 4.2 : 3, class: `mark ${style[s.key].replace("series ", "")}`, "data-series": s.key, "data-dose": p.dose });
+        tipOn(mark, [[label[s.key]], [`${w.dose} `, h("b", { text: p.dose })], [h("b", { text: p.rate }), ` (${p.lo} to ${p.hi})`]]);
+        root.append(mark);
+      });
+    }
+    const move = (event) => {
+      const px = event.clientX - root.getBoundingClientRect().left;
+      const best = doses.reduce((a, b) => (Math.abs(x(b) - px) < Math.abs(x(a) - px) ? b : a));
+      if (best !== at) {
+        at = best;
+        draw();
+      }
+    };
+    root.addEventListener("pointermove", move);
+    root.addEventListener("pointerdown", move);
+    clear(box).append(root);
+    const readout = clear(document.getElementById("su-readout"));
+    readout.append(h("span", {}, `${w.dose} `, h("b", { text: String(at) })));
+    for (const s of d.series) {
+      const p = s.points.find((q) => Number(q.dose) === at);
+      if (p) readout.append(h("span", { "data-series": s.key }, `${label[s.key]} `, h("b", { text: p.rate })));
+    }
+    figure.dataset.at = String(at);
+  }
+  onResize(box, (v) => {
+    width = v;
+    draw();
+  });
 }

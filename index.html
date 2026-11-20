@@ -733,20 +733,22 @@ The frame part gives most, but not all, of the movement of the gate input; the r
 
     <article class="exp">
       <div class="exp-text">
-        <h3 id="moving"><a href="#moving">Moving within a frame changes the continuation</a></h3>
-        <p>Moving “vital” along its fourth coordinate to a death word's value shifts predicted nouns toward “mistake” and “accident”, changing the margin by +1.41 nats in 24 of 24 pairs and covering 0.24 of the gap; equally sized random moves change it by -0.28 to +0.07 nats.</p>
-        <p>A move within group 9167 at <code>resid_mid.27</code> changes how a Python function body opens when the model infers a rule from input-output cases. One direction controls whether it opens with a comment sign, making the first token <code>#</code> in 1.00 of prompts. The model then continues with reasoning in comments followed by the rule.</p>
-        <p>In one run on 192 prompts, correct-rule rates were 0.339 without the move, 0.792 with it and 0.755 with only the first token forced to <code>#</code>. We selected the unit by contrasting prompts with and without “Reply with code only.”.</p>
+        <h3 id="moving"><a href="#moving">Moving a state inside a frame changes predictions</a></h3>
+        <p>We drew group 15417 at <code>resid_post.27</code> at random from the dictionary and traced it by hand: its fourth coordinate orders adjectives by lethality, with “fatal” high and “vital” low. In sentences of the form “It was a W ...”, we move the state of “vital” along that coordinate to a death word’s value inside the frame. The predicted nouns shift towards “mistake” and “accident”: the margin changes by +1.41 nats in 24 of 24 pairs and covers 0.24 of the gap; equally sized random moves change it by -0.28 to +0.07 nats.</p>
+        <p>We took the difference between prompts with and without an instruction to validate a function’s arguments, measured on the instruction’s tokens at <code>resid_post.10</code>, split it into groups with the dictionary, and used the largest group alone, group 2879, to move the state on each of a neutral sentence’s 17 tokens along one direction in a four-dimensional frame. At the instruction’s own mean level, the share of generated functions containing a <code>raise</code> statement or an <code>isinstance</code> check rises from 0.319 to 0.486, exceeding pooled controls at the same size by +0.14. At the level of the instruction’s highest tokens, the share reaches 0.727, exceeding pooled controls by +0.38; the real instruction gives 1.000. We infer that this does not simply promote a token: the moved tokens end 11 tokens before the prompt ends, the first check appears a median of 113 to 122 tokens into the answer, and giving the unchanged prompt the first 3 tokens of the answer produced after the move leaves the rate at 0.319. Removing this group from the real instruction’s tokens leaves the rate at 1.000, while the eight largest groups together give 0.954 at their natural size.</p>
       </div>
       <div class="exp-show">
-        <figure id="fig-st">
-          <div class="bars">
-            <div class="hbar ref"><span class="hbar-label">No move</span><b>0.339 (0.22 to 0.47)</b><div class="hbar-track"><i style="--v:0.339"></i><i class="ci" style="--lo:0.22;--hi:0.47"></i></div></div>
-            <div class="hbar inside"><span class="hbar-label">Move inside the frame</span><b>0.792 (0.70 to 0.88)</b><div class="hbar-track"><i style="--v:0.792"></i><i class="ci" style="--lo:0.70;--hi:0.88"></i></div></div>
-            <div class="hbar ref"><span class="hbar-label">First token forced to <code>#</code></span><b>0.755 (0.66 to 0.84)</b><div class="hbar-track"><i style="--v:0.755"></i><i class="ci" style="--lo:0.66;--hi:0.84"></i></div></div>
-            <div class="hbar-axis" aria-hidden="true"><span>0</span><span>Correct-rule rate</span><span>1</span></div>
-          </div>
-          <figcaption><b>Figure 16.</b> The bars show correct-rule rates without a move, with a move inside the frame, and with the first body token forced to <code>#</code>. The model generates the continuation after that token.</figcaption>
+        <figure class="needs-js" id="fig-su" data-aria="The chart compares input validation rates across doses for the main neutral sentence, the plain prompt and two other neutral sentences, with grey control marks and a horizontal line for the real instruction." data-axis-x="Dose relative to the instruction’s mean level" data-axis-y="Share of functions that validate input" data-line-neutral="Main neutral sentence" data-line-plain="Plain prompt" data-line-second="Second neutral sentence" data-line-third="Third neutral sentence" data-instructed="With the real instruction" data-dose="Dose">
+          <ul class="keys" aria-hidden="true">
+            <li class="c-c"><svg width="26" height="12"><path d="M1 6H25" class="series s-unit"/></svg>Main neutral sentence</li>
+            <li><svg width="26" height="12"><path d="M1 6H25" class="series s-n"/></svg>Plain prompt</li>
+            <li class="c-b"><svg width="26" height="12"><path d="M1 6H25" class="series s-unit"/></svg>Second neutral sentence</li>
+            <li><svg width="26" height="12"><path d="M1 6H25" class="series s-r recorded"/></svg>Third neutral sentence</li>
+            <li><svg width="26" height="12"><circle cx="13" cy="6" r="2.8" class="control-mark"/></svg>Control directions</li>
+          </ul>
+          <div class="plot" id="su-plot"></div>
+          <div class="layer-readout" id="su-readout" aria-live="polite"></div>
+          <figcaption><b>Figure 16.</b> The chart shows the share of functions that validate their input as we increase the dose on the sentence tokens. Grey marks show control directions at the same doses, bars show 95% intervals over tasks, and the horizontal line shows the rate with the real instruction.</figcaption>
         </figure>
       </div>
     </article>
