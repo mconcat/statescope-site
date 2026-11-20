@@ -10,7 +10,7 @@ python -m http.server --directory . 8000      # then open http://127.0.0.1:8000/
 ## Layout
 
 - `index.html` is generated. Edit `tools/page.template.html` and run `tools/build_page.py`.
-- The opening figure compares the layer-12 state before and after the mixer write in a common projection. The line-count trace and width intervention lead into the dictionaries, the four-dimensional path comparison, prompt-state editing and other 4B examples. Detailed swaps, training settings and per-layer results remain available in expandable sections.
+- The overview pairs the 0.8B count-to-distance result with the 4B prompt edit. Both experiments and the other 4B examples precede the dictionary methods. The counting section has an expandable trace, token examples and controls.
 - `assets/css/site.css` holds the design tokens (light and dark) and all styles.
 - `assets/js/` holds `main.js` (loading), `demo.js` (the line-count demonstration: pair viewer, chain, one swap item by item, link
   comparison), `curve.js` (the count as a curve in one group's frame, and how two transforms read it), `path.js` (the animated path and
@@ -55,7 +55,7 @@ Optional parts, each left out of the page when its option is not given:
 - `--count-curve`: the two count figures (`data/count-curve.json`, `data/count-readout.json`), from runs of two scripts that use
   the published reader and weights.
 
-To refresh the social preview after building the page, run `python -B tools/build_card.py` with Playwright Chromium installed. The card uses the same two state projections as the opening figure.
+To refresh the social preview after building the page, run `python -B tools/build_card.py` with Playwright Chromium installed. The card uses the two result panels from the overview.
 
 ## Checking
 

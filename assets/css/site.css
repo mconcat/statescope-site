@@ -313,7 +313,7 @@ pre,
 
 /* ------------------------------------------------------------------ header: title, one line, three buttons */
 .hero {
-  padding: clamp(3.2rem, 9vw, 6rem) var(--gutter) clamp(2.2rem, 5vw, 3.2rem);
+  padding: clamp(2.2rem, 5vw, 4rem) var(--gutter) 1.8rem;
   text-align: center;
 }
 .hero h1 {
@@ -367,21 +367,68 @@ pre,
   outline-offset: 3px;
   border-radius: 999px;
 }
-.abstract p {
-  font-size: 1.04rem;
+.research-overview {
+  padding-bottom: 3rem;
 }
-
-/* The two measured stops use identical projection and scale. */
-.overview {
-  max-width: 48rem;
-  margin: 0 auto;
+.research-overview > h2 {
+  font-size: clamp(1.25rem, 3vw, 1.7rem);
+  margin: 0 auto .6rem;
 }
+.research-intro {
+  max-width: 65ch;
+  margin: 0 auto 1.4rem;
+  text-align: center;
+  text-wrap: balance;
+}
+.result-pair {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 24rem), 1fr));
+  gap: 1rem;
+}
+.result-pair .result {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  background: var(--paper);
+}
+.result-model {
+  font: .82rem var(--mono);
+  color: var(--muted);
+  margin: 0;
+}
+.result h3 {
+  font-size: 1.23rem;
+  line-height: 1.25;
+  margin: .5rem 0 1rem;
+  text-align: left;
+}
+.result h3 a { color: inherit; }
+.result figcaption { margin-top: auto; }
+.overview-pair, .rate-preview { padding-bottom: 1rem; }
+.rate-preview h4, .overview-pair h4 {
+  margin: 0 0 .6rem;
+  font-size: .95rem;
+}
+.rate-preview > div {
+  display: grid;
+  grid-template-columns: 7.5em minmax(2rem, 1fr) 4em;
+  align-items: center;
+  gap: .65rem;
+  margin: .65rem 0;
+  font-size: .94rem;
+}
+.rate-preview i { height: .55rem; background: var(--line-soft); }
+.rate-preview i::before { content: ""; display: block; height: 100%; width: var(--rate); background: var(--u410); }
+.rate-preview b { text-align: right; font-variant-numeric: tabular-nums; }
+.measurement { margin: .85rem 0; }
+.measurement > summary { cursor: pointer; text-decoration: underline; }
+.measurement p { margin: .7rem 0; }
 .overview-pair {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 1rem;
 }
-.overview-pair h3, .sample-code h3 {
+.sample-code h3 {
   margin: 0 0 .5rem;
   font-size: 1rem;
 }
@@ -401,9 +448,6 @@ pre,
   overflow-wrap: anywhere;
   padding: 1rem;
   background: var(--paper);
-}
-@media (max-width: 50rem) {
-  .overview { margin-inline: var(--gutter); }
 }
 
 /* ------------------------------------------------------------------ figures */

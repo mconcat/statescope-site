@@ -1,4 +1,4 @@
-"""Render the two plotted states from the built page as its social preview (Playwright Chromium)."""
+"""Render both opening experiments as the social preview using Playwright Chromium."""
 from pathlib import Path
 
 from playwright.sync_api import sync_playwright
@@ -13,27 +13,29 @@ def main():
         page = browser.new_page(viewport={"width": 1200, "height": 630}, color_scheme="light")
         page.goto((ROOT / "index.html").as_uri(), wait_until="load")
         page.evaluate("""() => {
-          const pair = document.querySelector('.overview-pair').cloneNode(true);
-          const title = document.createElement('h1');
-          title.textContent = document.querySelector('.hero h1').textContent;
-          const model = document.createElement('p');
-          model.textContent = 'statescope · Qwen3.5-0.8B';
-          const key = document.createElement('p');
-          key.className = 'legend';
-          key.textContent = 'Each curve is one line width. Gold marks the last ten characters.';
-          document.body.replaceChildren(model, title, pair, key);
+          const name = document.querySelector('.project-name');
+          const title = document.querySelector('.hero h1');
+          const results = document.querySelector('.result-pair');
+          for (const link of results.querySelectorAll('figcaption a')) link.remove();
+          document.body.replaceChildren(name, title, results);
         }""")
         page.add_style_tag(content="""
-          body { box-sizing: border-box; padding: 34px 64px; width: 1200px; height: 630px; }
-          body > p { margin: 0; font-size: 22px; color: var(--muted); }
-          body > h1 { margin: 12px 0 24px; font-size: 52px; line-height: 1.06; letter-spacing: -.035em; }
-          .overview-pair { gap: 36px; }
-          .overview-pair > div { background: var(--paper); border-radius: 12px; padding: 17px 22px; }
-          .overview-pair h3 { font-size: 23px; }
-          .overview-pair svg { width: 100%; height: 216px; }
-          body > .legend { margin-top: 20px; }
+          body { box-sizing: border-box; padding: 38px 48px; width: 1200px; height: 630px; }
+          .project-name { font-size: 24px; text-align: left; }
+          h1 { margin: 10px 0 28px; font-size: 50px; text-align: left; }
+          .result-pair { gap: 20px; }
+          .result-pair .result { padding: 20px 24px; }
+          .result-model { font-size: 18px; }
+          .result h3 { font-size: 25px; margin-bottom: 22px; }
+          .result h3 a { text-decoration: none; }
+          .result figcaption { font-size: 16px; line-height: 1.35; }
+          .result figcaption > b { display: none; }
+          .overview-pair svg { height: 100px; }
+          .rate-preview > div, .overview-pair h4, .rate-preview h4 { font-size: 18px; }
         """)
         page.evaluate("document.fonts.ready")
+        bounds = page.locator(".result-pair").bounding_box()
+        assert bounds and bounds["y"] + bounds["height"] <= 630, "Result panels exceed the preview height"
         page.screenshot(path=ROOT / "assets" / "og-card.png")
         browser.close()
 

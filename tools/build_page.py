@@ -327,6 +327,9 @@ def main() -> None:
             return steer["cells"][parts[1]]["arms"][parts[2]]["share"][steer["alphas"].index(parts[3])]
         if parts[0] == "trace":                                               # a share of the trace table: step, entry, cell
             return trace["table"][int(parts[1])]["entries"][int(parts[2])]["shares"][int(parts[3])]
+        if parts[0] == "link_random":
+            row = next(r for r in demo["link_table"]["even"] if r["base"] == "mix" and r["part"] == "random")
+            return row["cells"][parts[1]]["F2"]
         if parts[0] == "pathstrip":
             return path_strip(trace, int(parts[1]))
         if key == "last_state_loss":

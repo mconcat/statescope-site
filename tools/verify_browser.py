@@ -83,8 +83,7 @@ async def open_page(browser, url: str, width: int, height: int, scheme: str, log
     page.on("request", lambda r: log.append(f"request to another host: {r.url}") if not r.url.startswith(url) else None)
     page.on("response", lambda r: log.append(f"status {r.status}: {r.url}") if r.status >= 400 else None)
     await page.goto(url + "index.html", wait_until="networkidle")
-    for sel, name in (("#read-lines svg", "count-readout.json"),
-                      ("#path-plot svg", "trace.json"), ("#causal-plot svg", "trace.json"), ("#cmp-plot svg", "geom-4b.json")):
+    for sel, name in (("#causal-plot svg", "trace.json"), ("#cmp-plot svg", "geom-4b.json")):
         if os.path.exists(os.path.join(HERE, "data", name)):
             await page.wait_for_selector(sel)
     return ctx, page
@@ -101,7 +100,8 @@ async def open_folds(page) -> None:
     await page.wait_for_selector("#clean-box .tok")
     await page.wait_for_selector("#items-plot svg")
     await page.wait_for_selector("#chain .chain-row .value")
-    for sel, name in (("#steer-items-plot svg", "steer.json"), ("#curve-plot svg", "count-curve.json")):
+    for sel, name in (("#read-lines svg", "count-readout.json"), ("#path-plot svg", "trace.json"),
+                      ("#steer-items-plot svg", "steer.json"), ("#curve-plot svg", "count-curve.json")):
         if os.path.exists(os.path.join(HERE, "data", name)):
             await page.wait_for_selector(sel)
 
@@ -566,7 +566,6 @@ async def run(args) -> None:
             log: list[str] = []
             ctx, page = await open_page(browser, url, width, height, scheme, log)
             await basic(page, name, width)
-            await lead_figure(page, demo, name, width)
             if args.shots:                                                    # before the interactions: the page as a reader first sees it
                 os.makedirs(args.shots, exist_ok=True)
                 await page.screenshot(path=os.path.join(args.shots, f"{name}.png"), full_page=True)
@@ -576,11 +575,13 @@ async def run(args) -> None:
                     if await page.locator(box).is_visible():
                         await page.locator(box).screenshot(path=os.path.join(args.shots, f"{name}-{fig}.png"))
                     else:
-                        later.append(fig)
+                        later.append(box)
             await open_folds(page)
+            await lead_figure(page, demo, name, width)
             if args.shots:
-                for fig in later:
-                    await page.locator(f"#{fig}").screenshot(path=os.path.join(args.shots, f"{name}-{fig}.png"))
+                for box in later:
+                    fig = box.split()[0][1:]
+                    await page.locator(box).screenshot(path=os.path.join(args.shots, f"{name}-{fig}.png"))
             await basic(page, name + " with the closed blocks opened", width)
             if name in ("desktop-light", "phone-light"):
                 await full_pass(page, demo, layers, splice, corpus, name)
