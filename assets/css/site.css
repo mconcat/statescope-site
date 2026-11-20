@@ -317,19 +317,18 @@ pre,
   text-align: center;
 }
 .hero h1 {
-  font-size: clamp(2.9rem, 9vw, 4.6rem);
+  max-width: 21ch;
+  margin: 0 auto;
+  text-wrap: balance;
+  font-size: clamp(2.45rem, 6vw, 4.2rem);
   font-weight: 720;
   letter-spacing: -0.04em;
   line-height: 0.98;
 }
-.subtitle {
-  max-width: 44rem;
-  margin: 1.3rem auto 0;
-  font-size: clamp(1.12rem, 2.5vw, 1.4rem);
-  line-height: 1.4;
-  letter-spacing: -0.008em;
-  color: var(--muted);
-  text-wrap: balance;
+.project-name {
+  margin: 0 auto .8rem;
+  font-size: 1.15rem;
+  font-weight: 650;
 }
 .sets {
   max-width: 40rem;
@@ -370,6 +369,41 @@ pre,
 }
 .abstract p {
   font-size: 1.04rem;
+}
+
+/* The two measured stops use identical projection and scale. */
+.overview {
+  max-width: 48rem;
+  margin: 0 auto;
+}
+.overview-pair {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+.overview-pair h3, .sample-code h3 {
+  margin: 0 0 .5rem;
+  font-size: 1rem;
+}
+.overview-pair p {
+  margin: .3rem 0;
+  font-size: .9rem;
+  color: var(--muted);
+}
+.overview-pair p b { color: var(--ink); }
+.overview-pair svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.sample-code pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  padding: 1rem;
+  background: var(--paper);
+}
+@media (max-width: 50rem) {
+  .overview { margin-inline: var(--gutter); }
 }
 
 /* ------------------------------------------------------------------ figures */

@@ -2,6 +2,13 @@
   "note": "Works the page refers to, in the order in which it refers to them. Bibliographic data, typed by hand from the works' own pages; tools/build_page.py writes the list.",
   "references": [
     {
+      "authors": "Seyed Arshan Dalili, Mehrdad Mahdavi",
+      "title": "Subspace-Aware Sparse Autoencoders for Effective Mechanistic Interpretability",
+      "id": "arXiv:2606.06333",
+      "date": "4 June 2026",
+      "url": "https://arxiv.org/abs/2606.06333"
+    },
+    {
       "authors": "Jack Lindsey, Brian Chen, Adam Pearce, Sasha Hydrie, Thomas Conerly; edited by Jeff Wu",
       "title": "Sparse mixtures of linear transforms",
       "id": "Transformer Circuits Thread",

@@ -348,7 +348,7 @@ def main() -> None:
         check("35. the three rates of correct rules of one run", [f3(ctl[k]["correct_rule"][0]) for k in ("base", "move", "hash")], [b["value"] for b in held["steer"]["bars"]])
         dose = g("steer_state", "figure_state.json")["A_dose_on_instruction_tokens"]
         main = dose["series"]["neutral instruction sentence (the one the unit was found against)"]
-        check("37. one direction on the tokens of a sentence: the share of validated functions by dose, the pooled-control differences and the rate with the instruction",
+        check("37. one direction on the tokens of a sentence: the fraction of outputs with a raise statement or an isinstance call by dose, the pooled-control differences and the rate with the instruction",
               ([f3(p["guard_rate"]) for p in main], [f"{dose['unit_minus_pooled_controls_at_the_same_dose'][f'n_g2879_d{d}']['diff'][0]:+.2f}" for d in (1, 2)], f3(dose["natural_prompts"][0]["guard_rate"])),
               ([p["rate"] for p in held["state"]["series"][0]["points"]], [facts["su.minus1"]["display"], facts["su.minus2"]["display"]], held["state"]["instructed"]))
 

@@ -304,7 +304,7 @@ def line_count(facts, folder: str, demo: dict) -> dict:
 
 
 def state_unit(facts, root: str, source) -> dict:
-    """one direction of a state group's frame, added on the tokens of a sentence in the prompt: the rate of validated functions
+    """one direction of a state group's frame, added on the tokens of a sentence in the prompt: the rate of outputs with a raise statement or an isinstance call
     against the dose (steer_state/figure_state.json) and the sentences its notes add (read by pattern; the build stops if one has
     changed)"""
     import re
@@ -336,6 +336,7 @@ def state_unit(facts, root: str, source) -> dict:
             add(f"su.minus{dose}", signed(d, 2), f"A_dose_on_instruction_tokens.unit_minus_pooled_controls_at_the_same_dose, dose {dose}: diff[0]")
     real = next(x for x in A["natural_prompts"] if x["prompt"] == "guard")
     add("su.instructed", fixed(real["guard_rate"], 3), "A_dose_on_instruction_tokens.natural_prompts[guard].guard_rate")
+    add("su.reference_tasks", re.fullmatch(r"(\d+) tasks, greedy", real["rows"]).group(1), "natural_prompts[guard].rows")
     removal = A["removal_from_the_real_instruction"]
     assert removal["g_g2879_d-1"] == removal["g_g2879_d-2"]
     add("su.removed", fixed(removal["g_g2879_d-1"], 3), "A_dose_on_instruction_tokens.removal_from_the_real_instruction: the unit's natural amount, or twice that, taken away")
@@ -359,6 +360,10 @@ def state_unit(facts, root: str, source) -> dict:
     read(r"the 8 largest \+0\.\d+ \(0\.\d+ … 0\.\d+; guard rate (0\.\d+)\)", ("su.eight_rate",), "geometry: the 8 largest groups of the contrast together, at their natural size")
     assert facts.items["su.forced_rate"]["display"] == facts.items["su.rate0"]["display"]
 
+    for key in ("rate0", "rate1", "rate2", "removed", "eight_rate", "forced_rate"):
+        fact = facts.items[f"su.{key}"]
+        pct = f"{float(fact['display']):.1%}".replace(".0%", "%")
+        facts.add(f"su.{key}_pct", pct, fact["source"], fact["how"] + ", expressed as a percentage")
     return {"series": series, "controls": controls, "instructed": fixed(real["guard_rate"], 3)}
 
 

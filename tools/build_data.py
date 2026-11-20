@@ -424,6 +424,9 @@ def demo_data(facts: Facts, c: dict, result: dict, tensors: dict, n_items: int, 
         facts.add(f"link.rest_six.{tag}", rest["F2"], RESULT_JSON, f"shares['{cell}']['link/mix/minus_g4885/F2'].even")
         facts.add(f"link.rest_two.{tag}", rest["T2"], RESULT_JSON, f"shares['{cell}']['link/mix/minus_g4885/T2'].even")
         facts.add(f"link.rest_down.{tag}", rest["down"], RESULT_JSON, f"shares['{cell}']['link/mix/minus_g4885/down'].even")
+    retained = [float(link_rows[1]["cells"][c]["F2"]) / float(link_rows[0]["cells"][c]["F2"]) for c in cells]
+    facts.add("link.retained_range", f"{min(retained):.0%} to {max(retained):.0%}", RESULT_JSON,
+              "even items, mixer swap through six transforms, in-frame share divided by full share, range across three cells")
     facts.add("link.random_six_max", max(link_rows[-1]["cells"][cell]["F2"] for cell in cells), RESULT_JSON, "largest random-frame share, six transforms, even half")
     facts.add("link.random_two_max", max(link_rows[-1]["cells"][cell]["T2"] for cell in cells), RESULT_JSON, "largest random-frame share, two transforms, even half")
 

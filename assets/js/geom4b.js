@@ -205,8 +205,8 @@ export function initGeom(geom) {
   initState(geom.state);
 }
 
-// one direction of a group's frame added on the tokens of a sentence in the prompt: the share of generated functions that
-// validate their input, against the dose. state: { series[] = { key, points[] = { dose, rate, lo, hi } },
+// one direction of a group's frame added on the tokens of a sentence in the prompt: the fraction of outputs containing
+// a raise statement or an isinstance call, against the dose. state: { series[] = { key, points[] = { dose, rate, lo, hi } },
 // controls[] = { series, dose, rate }, instructed }
 function initState(d) {
   const figure = document.getElementById("fig-su");

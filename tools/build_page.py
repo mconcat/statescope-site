@@ -329,6 +329,8 @@ def main() -> None:
             return trace["table"][int(parts[1])]["entries"][int(parts[2])]["shares"][int(parts[3])]
         if parts[0] == "pathstrip":
             return path_strip(trace, int(parts[1]))
+        if key == "last_state_loss":
+            return data("splice.json")["rows"][-1]["state"]
         if key == "references":
             return references()
         if parts[0] == "rate":
