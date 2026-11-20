@@ -11,9 +11,9 @@ python -m http.server --directory . 8000      # then open http://127.0.0.1:8000/
 
 - `index.html` is generated. Edit `tools/page.template.html` and run `tools/build_page.py`.
 - The page: a centred header (title, one line, three buttons), a teaser figure, an abstract, then sections as full-width bands:
-  the two dictionaries, the worked example on the 0.8B set as one trace (an animated path of the count through the layers, the
-  steps, a trace table, the swaps and the dose slider), examples from the 4B set (planes inside state-group frames), how to
-  use the files, how to cite. Training details, numbers per layer and what was checked are closed blocks near the end.
+  the two dictionaries, the worked example on the 0.8B set as one story (five paragraphs beside one animated figure, the
+  reading of two transforms, the causal test, and one closed block "Evidence and numbers" with the trace table, the swaps and
+  the dose slider), the same operations in the 4B set (five short parts), how to use the files, how to cite. Training details, numbers per layer and what was checked are closed blocks near the end.
 - `assets/css/site.css` holds the design tokens (light and dark) and all styles.
 - `assets/js/` holds `main.js` (loading), `demo.js` (the line-count demonstration: pair viewer, chain, one swap item by item, link
   comparison), `curve.js` (the count as a curve in one group's frame, and how two transforms read it), `path.js` (the animated path and
@@ -47,8 +47,12 @@ Optional parts, each left out of the page when its option is not given:
 - `--weights-4b`: the per-layer numbers of the 4B set (`data/layers-4b.json`) and facts read by pattern from the 4B model card.
 - `--geom`: the trace of the line-count example (`data/trace.json`: the stops of the animated figure, the trace table, the
   causal test) and the planes of the 4B examples (`data/geom-4b.json`), read by `tools/geom_data.py` from the JSON files of five
-  analyses made with the published reader and weights. In the animated figure every stop is a measured state; the movement
-  between two stops is interpolated, except at the two mixer steps, which move each cell by the stored write.
+  analyses made with the published reader and weights. The animated figure draws the (count, width) mesh in one fixed view
+  (the first two of the analysis's three common directions) from `resid_mid.9` to `resid_post.13`: eight measured states and
+  the state before the layer-12 mixer's write (the state after it minus the stored write). The movement between two stops is
+  interpolated, except during that write, which moves each cell by a fraction of the stored write. When
+  `line_count/f_frames_in_common.json` is there, each stop also carries its main group's frame in the view and the cuts that
+  the analysis found to be straight there; without it the cuts are joined crossing points and no frame is drawn.
 - `--steer`: the dose figure (`data/steer.json`), from one run of a script that scales the demonstration's swaps. The build
   compares dose 0 with the clean run and dose 1 with the demonstration's swap, string for string.
 - `--count-curve`: the two count figures (`data/count-curve.json`, `data/count-readout.json`), from runs of two scripts that use
@@ -65,7 +69,7 @@ python -B tools/verify_browser.py --repo <checkout> [--shots <folder>]          
 
 `verify_browser.py` loads the page at desktop, tablet and phone width in light and dark, checks that it does not scroll sideways
 (also with the closed blocks opened), and compares what every figure shows with the data files. Without JavaScript the
-animated figure is a row of small drawings of its stops with their labels.
+animated figure is a row of small drawings of its five stages with their names.
 
 ## Fonts
 

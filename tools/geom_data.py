@@ -5,6 +5,7 @@ every number that the page states in a sentence becomes a fact with the file and
 
   line_count/   f_animation_keyframes.json, f_trace.json, m1_map.json, m1b_levels.json, m2_heads.json, m3_causal.json,
                 f0_sheet_raw.json, f4_decision.json, f7_late_readouts.json           -> data/trace.json
+                f_frames_in_common.json (when there: the groups' frames and the straight cuts in the view)
   aba_abb/      figure_frame_plane.json, run3_shares.json                             -> data/geom-4b.json "aba"
   random_units/ data/story_lethality.json, story_tables.json, story_exemplification.json  -> data/geom-4b.json "lethality"
   compare_357/  figure_g9719_plane.json, rank_own_outcome.json, rank_spectrum.json    -> data/geom-4b.json "compare"
@@ -39,6 +40,144 @@ TRACE_ROWS = [(0, (0, 2, 7)), (1, (2,)), (2, (0, 4)), (3, (0, 1, 3)), (4, (6, 7)
 CAUSAL_ARMS = {"clean": "clean", "shift40": "shift:40", "shift60": "shift:60", "perm40": "perm:40"}
 
 
+# the stops of the animated figure, all in ONE coordinate system: the file's fixed 3-dimensional basis of the residual space
+# (xyz_common), drawn in its first two directions; no stop is re-aligned or re-scaled. "before" is the state after the layer-12
+# mixer's write minus the stored write. CUTS: the read-out transforms drawn at a stop (a straight line where the analysis found
+# one faithful in this view, joined crossing points otherwise)
+PATH_STOPS = ["resid_mid.9", "resid_post.9", "resid_post.10", "resid_post.11", "before", "resid_mid.12", "resid_post.12", "resid_mid.13", "resid_post.13"]
+HIGHLIGHT = 10          # the last characters of a line that the figure marks
+CONNECT = 10            # a connector across the widths at every so many characters
+CUTS = {"resid_mid.9": (410, 1749), "resid_mid.13": (2490,)}
+
+
+def common_path(add, kf: dict, by_id: dict, widths: list[str], frames_file: dict | None) -> dict:
+    import torch
+    import re
+    from decimal import Decimal, ROUND_HALF_UP
+    name = "f_animation_keyframes.json"
+    frame_of = {k["id"]: k for k in frames_file["keyframes"]} if frames_file else {}
+    sites = [s for s in PATH_STOPS if s != "before"]
+    counts = {}
+    for w in widths:                                                          # the cells every drawn key frame has: a run of consecutive counts
+        common = set(by_id[sites[0]]["cells"][w]["counts"])
+        for s in sites:
+            common &= set(by_id[s]["cells"][w]["counts"])
+        counts[w] = sorted(common)
+        assert counts[w] == list(range(counts[w][0], counts[w][-1] + 1)) and len(counts[w]) >= 20, w
+    def cells(site: str, field: str, inside=None) -> dict:
+        out = {}
+        for w in widths:
+            c = by_id[site]["cells"][w]
+            at = {v: i for i, v in enumerate(c["counts"])}
+            src = (inside or c)[w][field] if inside else c[field]
+            out[w] = torch.tensor([src[at[v]] for v in counts[w]], dtype=torch.float64)
+        return out
+    xyz = {s: cells(s, "xyz_common") for s in sites}
+    write = cells("resid_mid.12", "write_xyz_common", by_id["resid_mid.12"]["write"]["cells"])
+    xyz["before"] = {w: xyz["resid_mid.12"][w] - write[w] for w in widths}    # the state before the layer-12 mixer's write, in the same coordinates
+    # the drawn view: the first two of the three common directions, in the file's own coordinates (each key frame centred on its cells)
+    basis = torch.eye(3, dtype=torch.float64)[:2]
+    mu = torch.zeros(3, dtype=torch.float64)
+    view = {s: {w: xyz[s][w][:, :2] for w in widths} for s in PATH_STOPS}
+    centred = [torch.cat([xyz[s][w] for w in widths]) for s in PATH_STOPS]
+    centred = torch.cat([c - c.mean(0) for c in centred])
+    view_share = float((centred[:, :2] ** 2).sum() / (centred ** 2).sum())
+
+    def spread(site: str, key: str) -> float:
+        """variance between widths inside cells of equal count (or equal remaining characters) over the total variance of those cells"""
+        table = {}
+        for w in widths:
+            for c, p in zip(counts[w], view[site][w]):
+                table.setdefault(c if key == "count" else int(w) - c, []).append(p)
+        keep = [torch.stack(v) for v in table.values() if len(v) >= 3]
+        centre = torch.cat(keep).mean(0)
+        return float(sum(((v - v.mean(0)) ** 2).sum() for v in keep) / sum(((v - centre) ** 2).sum() for v in keep))
+
+    def on_curve(site: str, w: str, count: float):
+        i = count - counts[w][0]
+        if i < 0 or i > len(counts[w]) - 1:
+            return None
+        lo = min(int(i), len(counts[w]) - 2)
+        p = view[site][w][lo] + (view[site][w][lo + 1] - view[site][w][lo]) * (i - lo)
+        return {"x": fixed(float(p[0]), 3), "y": fixed(float(p[1]), 3), "count": fixed(count, 1), "remaining": fixed(int(w) - count, 1)}
+
+    stops = []
+    for i, s in enumerate(PATH_STOPS):
+        site = "resid_mid.12" if s == "before" else s
+        cuts = []
+        for t in CUTS.get(s, ()):
+            r = next(x for x in by_id[s]["readouts"] if x["transform"] == t)
+            plane = next(x for x in frame_of[s]["readouts"] if x["transform"] == t)["plane"]["xy"] if frame_of else None
+            if plane and plane["faithful"]:
+                # a straight line reproduces the measured crossings (the analyst's test, in this view): the cut is drawn as that line
+                u, off = torch.tensor(plane["unit_direction"], dtype=torch.float64), plane["offset"]
+                for w, v in r["crossings"]["up"].items():                    # the transform fires on the side u . p > offset
+                    j = int(round(v["count"])) - counts[w][0]
+                    if 3 <= j < len(counts[w]) - 3:
+                        assert float(view[s][w][j - 3] @ u) < off < float(view[s][w][j + 3] @ u), (t, w)
+                cuts.append({"transform": t, "shape": "line", "direction": [fixed(float(u[0]), 4), fixed(float(u[1]), 4)], "offset": fixed(off, 4),
+                             "error": fixed(plane["largest_error_in_characters"], 1)})
+                add(f"pv.t{t}_error", fixed(plane["largest_error_in_characters"], 1), "f_frames_in_common.json",
+                    f"readout of transform {t} at {s}: plane.xy.largest_error_in_characters")
+                continue
+            for kind, per in r["crossings"].items():
+                pts = {w: on_curve(s, w, v["count"]) for w, v in per.items()}
+                pts = {w: p for w, p in pts.items() if p}
+                if pts:
+                    cuts.append({"transform": t, "shape": "points", "kind": kind, "points": pts})
+        state_id = "resid_post.11" if s == "before" else s                       # the state before the write is resid_post.11
+        entry = {"id": state_id, "kind": "before" if s == "before" else "state", "group": by_id[state_id]["view"]["group"],
+                 "curves": {w: {"x": [fixed(float(p[0]), 3) for p in view[s][w]], "y": [fixed(float(p[1]), 3) for p in view[s][w]]} for w in widths},
+                 "spread": {"count": fixed(spread(s, "count"), 2), "remaining": fixed(spread(s, "remaining"), 2)}, "cuts": cuts}
+        if frame_of:
+            # the frame of the state's main group: its two directions closest to the plane of the view, in the view's coordinates
+            fr = frame_of[state_id]
+            assert fr["group"] == entry["group"] and fr["in_common_range"], state_id
+            entry["frame"] = {"axes": [[fixed(v[0], 3), fixed(v[1], 3)] for v in fr["aligned_axes_in_common"][:2]],
+                              "holds": fixed(fr["share_of_common_structure_inside_frame"], 2)}
+            wp = fr["with_previous"]
+            if stops and stops[-1]["group"] != entry["group"]:              # a new group: what its frame shares with the previous one's
+                assert wp["previous_key_frame"] == stops[-1]["id"] and not wp["identical_by_construction"], state_id
+                # the file keeps three decimals; two decimals, rounded half up, are the ones its own statement gives
+                two = [str(Decimal(str(c)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)) for c in wp["principal_cosines"][:wp["carried_over"]]]
+                assert "cosines " + ", ".join(two) + ";" in wp["statement"], (state_id, two)
+                entry["frame"]["shared"] = {"directions": str(wp["carried_over"]), "cosines": two}
+            if s == "resid_mid.12":
+                entry["frame"]["write_inside"] = fixed(fr["write"]["share_of_cell_dependent_displacement_inside_frame"], 2)
+        stops.append(entry)
+        add(f"pv.s{i}_count", entry["spread"]["count"], name, f"variance between widths at equal count over the total, in the drawn view, at {s}")
+        add(f"pv.s{i}_remaining", entry["spread"]["remaining"], name, f"variance between widths at equal remaining characters over the total, in the drawn view, at {s}")
+    held = [by_id[s]["common_view"]["share_of_site_table"] for s in sites]
+    add("pv.common_low", fixed(min(held), 2), name, "common_view.share_of_site_table, smallest over the drawn key frames")
+    add("pv.common_high", fixed(max(held), 2), name, "largest")
+    add("pv.view_share", fixed(view_share, 2), name, "share of the cells' variance in the three common directions that lies in the two drawn ones, over the drawn stops (each centred on its own cells)")
+    for t in (410, 1749):
+        add(f"lc.t{t}", str(t), name, f"readouts of resid_mid.9: transform {t}")
+    add("pv.additivity", fixed(kf["common_basis"]["additivity_check"]["resid_mid.12"]["squared_error_of_before_plus_write_over_spread_of_after"], 3), name,
+        "common_basis.additivity_check['resid_mid.12']: squared error of before + write over the spread of after")
+    add("pv.stops", str(len(stops)), name, "number of stops of the animated figure")
+    add("pv.measured", str(sum(x["kind"] == "state" for x in stops)), name, "number of those stops that are measured states (the other is the state after the layer-12 mixer's write minus the stored write)")
+    if frame_of:
+        ff = "f_frames_in_common.json"
+        holds = [float(x["frame"]["holds"]) for x in stops]
+        add("pv.frame_holds_low", fixed(min(holds), 2), ff, "share_of_common_structure_inside_frame, smallest over the drawn stops")
+        add("pv.frame_holds_high", fixed(max(holds), 2), ff, "largest")
+        shared = [x["frame"]["shared"] for x in stops if "shared" in x["frame"]]
+        assert len({x["directions"] for x in shared}) == 1 and len(shared) == 4
+        cos = [float(c) for x in shared for c in x["cosines"]]
+        add("pv.frame_cos_low", fixed(min(cos), 2), ff, "with_previous.principal_cosines of the carried-over directions, at the four changes of group (resid_post.10 to resid_mid.13): smallest")
+        add("pv.frame_cos_high", fixed(max(cos), 2), ff, "largest")
+        add("pv.frame_carried", shared[0]["directions"], ff, "with_previous.carried_over, the same at the four changes of group")
+        add("pv.frame_directions", str(len(frame_of["resid_mid.12"]["with_previous"]["principal_cosines"])), ff, "number of directions of a group's frame (principal cosines listed)")
+        add("pv.write_inside", next(x["frame"]["write_inside"] for x in stops if "write_inside" in x["frame"]), ff, "resid_mid.12 write.share_of_cell_dependent_displacement_inside_frame")
+        tol = re.search(r"faithful \(all errors within (\d+) characters and no extra crossing\)", frames_file["fields"]["keyframes[].readouts"])
+        add("pv.cut_tolerance", tol.group(1), ff, "fields: the rule for a straight cut (all errors within so many characters and no extra crossing)")
+    add("pv.highlight", str(HIGHLIGHT), "tools/geom_data.py", "HIGHLIGHT: the last characters of a line that the figure marks")
+    add("pv.connect", str(CONNECT), "tools/geom_data.py", "CONNECT: a connector across the widths at every so many characters")
+    return {"_counts": counts, "stops": stops, "highlight": HIGHLIGHT, "connect": CONNECT,
+            "basis_in_common": [[fixed(float(v), 4) for v in row] for row in basis], "centre_in_common": [fixed(float(v), 4) for v in mu]}
+
+
 def line_count(facts, folder: str, demo: dict) -> dict:
     src = lambda name: f"line_count/{name} (an analysis made for this page with the published reader and weights; not part of the repository)"
     add = lambda key, value, name, how: facts.add(key, value, src(name), how)
@@ -47,55 +186,10 @@ def line_count(facts, folder: str, demo: dict) -> dict:
     frames = kf["keyframes"]
     assert [k["id"] for k in frames] == ["resid_post.8", "resid_mid.9", "resid_post.9", "resid_post.10", "resid_post.11", "resid_mid.12", "resid_post.12",
                                          "resid_mid.13", "resid_post.13", "resid_post.21"]
-    # the cells every key frame has, per width (a run of consecutive counts)
-    counts = {}
-    for w in widths:
-        common = set(frames[0]["cells"][w]["counts"])
-        for k in frames:
-            common &= set(k["cells"][w]["counts"])
-        counts[w] = sorted(common)
-        assert counts[w] == list(range(counts[w][0], counts[w][-1] + 1)) and len(counts[w]) >= 20, w
-    stops = []
-    for k in frames:
-        cells, before = {}, {}
-        for w in widths:
-            c = k["cells"][w]
-            at = {v: i for i, v in enumerate(c["counts"])}
-            pts = [c["xyz_aligned"][at[v]] for v in counts[w]]
-            cells[w] = {"x": [fixed(p[0], 3) for p in pts], "y": [fixed(p[1], 3) for p in pts]}
-            if k.get("write"):
-                wc = k["write"]["cells"][w]
-                b = [wc["before_xyz_aligned"][at[v]] for v in counts[w]]
-                d = [wc["write_xyz_aligned"][at[v]] for v in counts[w]]
-                assert max(abs(b[i][j] + d[i][j] - pts[i][j]) for i in range(len(pts)) for j in range(3)) < 2e-3, (k["id"], w)   # before + write = after
-                before[w] = {"x": [fixed(p[0], 3) for p in b], "y": [fixed(p[1], 3) for p in b]}
-        geometry = {"by_count": fixed(k["geometry"]["by_count"], 2), "by_remaining": fixed(k["geometry"]["by_remaining"], 2)}
-        if before:
-            g0 = k["write"]["geometry_before"]
-            # the state before the write is the previous key frame's state, seen in this key frame's frame
-            stops.append({"id": frames[frames.index(k) - 1]["id"], "kind": "before", "group": k["view"]["group"], "curves": before,
-                          "geometry": {"by_count": fixed(g0["by_count"], 2), "by_remaining": fixed(g0["by_remaining"], 2)}, "readouts": []})
-        readouts = []
-        for r in k.get("readouts", []):
-            cross = {}
-            for kind, per_width in r["crossings"].items():
-                cross[kind] = {w: {"x": fixed(v["xyz_aligned"][0], 3), "y": fixed(v["xyz_aligned"][1], 3), "count": fixed(v["count"], 1),
-                                   "remaining": fixed(v["remaining"], 1)} for w, v in per_width.items()}
-            readouts.append({"layer": r["mlp_layer"], "transform": r["transform"], "direction": [fixed(v, 4) for v in r["direction_xyz_aligned"][:2]],
-                             "crossings": cross, "r2": fixed(r["r2_gate_input_on_frame_part"], 2)})
-        stops.append({"id": k["id"], "kind": "state", "group": k["view"]["group"], "curves": cells, "geometry": geometry, "readouts": readouts})
-    assert len(stops) == 12
-    for i, s in enumerate(stops):                                             # what each stop shows, as facts for its label
-        add(f"lc.stop{i}_count", s["geometry"]["by_count"], "f_animation_keyframes.json", f"geometry.by_count of {s['id']} ({s['kind']})")
-        add(f"lc.stop{i}_remaining", s["geometry"]["by_remaining"], "f_animation_keyframes.json", f"geometry.by_remaining of {s['id']} ({s['kind']})")
     by_id = {k["id"]: k for k in frames}
-    res = [by_id[i]["procrustes"]["xyz"]["residual"] for i in ("resid_mid.9", "resid_mid.12")]
-    others = [k["procrustes"]["xyz"]["residual"] for k in frames[2:] if k["id"] != "resid_mid.12"]
-    add("lc.align_write9", fixed(res[0], 2), "f_animation_keyframes.json", "procrustes.xyz.residual of resid_mid.9")
-    add("lc.align_write12", fixed(res[1], 2), "f_animation_keyframes.json", "procrustes.xyz.residual of resid_mid.12")
-    add("lc.align_other_max", fixed(max(others), 2), "f_animation_keyframes.json", "largest procrustes.xyz.residual of the other key frames from resid_post.9 on")
-    add("lc.keyframes", str(len(frames)), "f_animation_keyframes.json", "number of key frames")
-    add("lc.stops", str(len(stops)), "f_animation_keyframes.json", "key frames plus the two states before a stored mixer write")
+    frames_path = os.path.join(folder, "f_frames_in_common.json")
+    path = common_path(add, kf, by_id, widths, load(folder, "f_frames_in_common.json") if os.path.exists(frames_path) else None)
+    counts = path.pop("_counts")
     import re
     m = re.match(r"(\d+) documents x (\d+) widths, (\d+) tokens each", kf["source"])
     add("lc.documents", m.group(1), "f_animation_keyframes.json", "source")
@@ -203,9 +297,9 @@ def line_count(facts, folder: str, demo: dict) -> dict:
         assert name in f7["units"]
         add(f"lc.{name.split('/')[1]}", name.split("/t")[1], "f7_late_readouts.json", f"units['{name}']")
     add("lc.h15_remaining", fixed(f4["units"]["L21h15"]["r_only"], 2), "f4_decision.json", "units.L21h15.r_only")
-    print(f"trace: {len(stops)} stops, {sum(len(v) for v in counts.values())} cells per stop, {sum(len(r['entries']) for r in table)} table entries")
+    print(f"trace: {len(path['stops'])} stops in one fixed view, {sum(len(v) for v in counts.values())} cells per stop, {sum(len(r['entries']) for r in table)} table entries")
     return {"sources": [src(n) for n in ("f_animation_keyframes.json", "f_trace.json", "m3_causal.json")], "widths": widths,
-            "counts": {w: [str(counts[w][0]), str(counts[w][-1])] for w in widths}, "stops": stops, "table": table, "cells": cells, "causal": causal}
+            "counts": {w: [str(counts[w][0]), str(counts[w][-1])] for w in widths}, "path": path, "table": table, "cells": cells, "causal": causal}
 
 
 def four_b_geometry(facts, root: str) -> dict:

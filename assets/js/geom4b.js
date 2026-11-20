@@ -101,25 +101,44 @@ function initLethality(d) {
   if (!figure) return;
   const w = figure.dataset;
   const pts = d.words.map((x) => [Number(x.c4), Number(x.c2)]);
-  plane(document.getElementById("leth-plot"), pts, { aria: w.aria, x: w.x, y: w.y }, { height: 0.8, pad: 34 }, ({ root, X, Y, width, height }) => {
+  plane(document.getElementById("leth-plot"), pts, { aria: w.aria, x: w.x, y: w.y }, { height: 0.95, pad: 30 }, ({ root, X, Y, width, height }) => {
     const placed = [];
-    const order = d.words.map((x, i) => i).sort((a, b) => Math.hypot(...pts[b]) - Math.hypot(...pts[a])); // the words far from the centre keep their labels
+    const order = d.words.map((x, i) => i).sort((a, b) => Math.hypot(...pts[b]) - Math.hypot(...pts[a])); // the words far from the centre are placed first
+    for (const p of pts) placed.push({ x0: X(p[0]) - 5, x1: X(p[0]) + 5, y0: Y(p[1]) - 5, y1: Y(p[1]) + 5 }); // no label covers a point
     const labels = svg("g", { "aria-hidden": "true" });
     for (const i of order) {
       const x = X(pts[i][0]);
       const y = Y(pts[i][1]);
-      const dot = svg("circle", { cx: x, cy: y, r: 4, class: "word-pt", "data-word": d.words[i].word });
+      const dot = svg("circle", { cx: x, cy: y, r: 2.6, class: "word-pt small", "data-word": d.words[i].word });
       tipOn(dot, [[h("b", { text: d.words[i].word })], [`${w.x} `, h("b", { text: d.words[i].c4 })], [`${w.y} `, h("b", { text: d.words[i].c2 })]]);
       root.append(dot);
-      const tw = d.words[i].word.length * 6.4 + 6;
-      const right = x + 8 + tw < width;
-      const boxed = { x0: right ? x + 6 : x - 8 - tw, x1: right ? x + 8 + tw : x - 6, y0: y - 9, y1: y + 6 };
-      if (placed.every((p) => boxed.x1 < p.x0 || boxed.x0 > p.x1 || boxed.y1 < p.y0 || boxed.y0 > p.y1) && boxed.y0 > 14 && boxed.y1 < height) {
-        placed.push(boxed);
-        labels.append(svg("text", { x: right ? x + 8 : x - 8, y: y + 4, "text-anchor": right ? "start" : "end", class: "on-plot" }, d.words[i].word));
+      // a label goes to the first free place beside, above or below its point
+      const tw = d.words[i].word.length * 5.9 + 4;
+      const tries = [
+        { x: x + 7, y: y + 4, anchor: "start", x0: x + 6, x1: x + 7 + tw },
+        { x: x - 7, y: y + 4, anchor: "end", x0: x - 7 - tw, x1: x - 6 },
+        { x, y: y - 8, anchor: "middle", x0: x - tw / 2, x1: x + tw / 2 },
+        { x, y: y + 15, anchor: "middle", x0: x - tw / 2, x1: x + tw / 2 },
+        { x: x + 7, y: y - 6, anchor: "start", x0: x + 6, x1: x + 7 + tw },
+        { x: x - 7, y: y + 13, anchor: "end", x0: x - 7 - tw, x1: x - 6 },
+      ];
+      for (const c of tries) {
+        const boxed = { x0: c.x0, x1: c.x1, y0: c.y - 9, y1: c.y + 3 };
+        if (boxed.x0 > 2 && boxed.x1 < width - 2 && boxed.y0 > 14 && boxed.y1 < height - 14 && placed.every((p) => boxed.x1 < p.x0 || boxed.x0 > p.x1 || boxed.y1 < p.y0 || boxed.y0 > p.y1)) {
+          placed.push(boxed);
+          labels.append(svg("text", { x: c.x, y: c.y, "text-anchor": c.anchor, class: "on-plot word" }, d.words[i].word));
+          dot.setAttribute("r", 4); // a point with its word beside it is drawn at full size
+          dot.setAttribute("class", "word-pt");
+          break;
+        }
       }
     }
     root.append(labels);
+    // the words that found no room: drawn small, read by pointing at them, and counted under the plot
+    const rest = root.querySelectorAll(".word-pt.small").length;
+    const note = document.getElementById("leth-rest");
+    note.hidden = rest === 0;
+    note.textContent = w.rest.replace("{n}", String(rest));
   });
 }
 

@@ -20,8 +20,9 @@ Blocks:
   <!--if curve--> ... <!--endif curve-->  kept only when data/count-curve.json exists
   <!--if trace--> ... <!--endif trace-->  kept only when data/trace.json exists
   <!--if geom--> ... <!--endif geom-->    kept only when data/geom-4b.json exists
+  <!--if frames--> ... <!--endif frames-->  kept only when the stops of data/trace.json carry the groups' frames
   {{trace|<step>|<entry>|<cell>}}  a share of the trace table of data/trace.json
-  {{pathstrip}}                the stops of the animated figure as small static drawings
+  {{pathstrip|<stop>}}         one stop of the animated figure as a small static drawing
   {{references}}               the list of tools/references.json
 Every <h2 id> and <h3 id> becomes its own link. Standard library only.
 """
@@ -247,23 +248,28 @@ def rates_chart(demo: dict) -> str:
     return "\n".join(out)
 
 
-def path_strip(trace: dict) -> str:
-    """the stops of the animated figure as a row of small drawings (one curve per width), shown where scripts are off"""
-    stops, widths = trace["stops"], trace["widths"]
+def path_strip(trace: dict, index: int) -> str:
+    """one stop of the animated figure as a small static drawing (the mesh in the figure's fixed view), shown where scripts are off"""
+    path, widths = trace["path"], trace["widths"]
+    stops = path["stops"]
     pts = [(float(x), -float(y)) for s in stops for w in widths for x, y in zip(s["curves"][w]["x"], s["curves"][w]["y"])]
     x0, x1, y0, y1 = min(p[0] for p in pts), max(p[0] for p in pts), min(p[1] for p in pts), max(p[1] for p in pts)
-    W, H, M = 150, 104, 6
+    W, H, M = 190, 120, 6
     k = min((W - 2 * M) / (x1 - x0), (H - 2 * M) / (y1 - y0))
-    dash = ["1 3", "5 3", "", "9 3 2 3", "12 4"]
+    place = lambda x, y: f"{M + (float(x) - x0) * k:.1f} {M + (-float(y) - y0) * k:.1f}"
     out = []
-    for i, s in enumerate(stops):
-        paths = []
-        for j, w in enumerate(widths):
-            c = s["curves"][w]
-            d = "M" + "L".join(f"{M + (float(x) - x0) * k:.1f} {M + (-float(y) - y0) * k:.1f}" for x, y in list(zip(c["x"], c["y"]))[::3])
-            paths.append(f'<path d="{d}" class="path-line"' + (f' stroke-dasharray="{dash[j]}"' if dash[j] else "") + "/>")
-        out.append(f'        <figure class="strip-stop"><svg viewBox="0 0 {W} {H}" width="{W}" height="{H}">{"".join(paths)}</svg><figcaption>{i + 1}. {esc(s["id"])}</figcaption></figure>')
-    return "\n".join(out)
+    curves = stops[index]["curves"]
+    first = {w: int(trace["counts"][w][0]) for w in widths}
+    for c in range(path["connect"], max(int(trace["counts"][w][1]) for w in widths) + 1, path["connect"]):
+        has = [w for w in widths if 0 <= c - first[w] < len(curves[w]["x"])]
+        if len(has) > 1:
+            out.append('<path d="M' + "L".join(place(curves[w]["x"][c - first[w]], curves[w]["y"][c - first[w]]) for w in has) + '" class="mesh-connector"/>')
+    for w in widths:
+        xy = list(zip(curves[w]["x"], curves[w]["y"]))
+        out.append('<path d="M' + "L".join(place(x, y) for x, y in xy[::2]) + '" class="path-line"/>')
+        tail = xy[max(0, int(w) - path["highlight"] - first[w]):]
+        out.append('<path d="M' + "L".join(place(x, y) for x, y in tail) + '" class="mesh-end"/>')
+    return f'<svg viewBox="0 0 {W} {H}" width="{W}" height="{H}">{"".join(out)}</svg>'
 
 
 def references() -> str:
@@ -299,6 +305,7 @@ def main() -> None:
     page = conditional(page, "trace", exists("trace.json"))
     page = conditional(page, "geom", exists("geom-4b.json"))
     trace = data("trace.json") if exists("trace.json") else None
+    page = conditional(page, "frames", bool(trace) and "frame" in trace["path"]["stops"][0], inside="trace.json")
     steer = data("steer.json") if exists("steer.json") else None
     page = re.sub(r"<!--.*?-->", "", page, flags=re.S)                        # the template's remaining notes are not part of the page
 
@@ -320,8 +327,8 @@ def main() -> None:
             return steer["cells"][parts[1]]["arms"][parts[2]]["share"][steer["alphas"].index(parts[3])]
         if parts[0] == "trace":                                               # a share of the trace table: step, entry, cell
             return trace["table"][int(parts[1])]["entries"][int(parts[2])]["shares"][int(parts[3])]
-        if key == "pathstrip":
-            return path_strip(trace)
+        if parts[0] == "pathstrip":
+            return path_strip(trace, int(parts[1]))
         if key == "references":
             return references()
         if parts[0] == "rate":

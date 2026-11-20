@@ -7,8 +7,9 @@ Checks: no console error, no failed request, no request to another host, no hori
 width, light and dark; the first figure (built without a browser) holds the tokens, gates and character counts of the item file and
 its text sits on the scale of one character; every cell x swap x set of items shows the share of data/demo.json; the chain, the
 items, the pair viewer, the link comparison, the tables, the layer panels (by keyboard and by pointer) and the 4B panels show the
-values of the data files; the animated path shows at every stop the site, the group, the two shares and the threshold crossings of
-data/trace.json, plays and pauses, and the trace table and the causal figure hold its values; the three planes of the 4B examples hold
+values of the data files; the animated path shows at every stage the site, the group, the two spreads and the cuts of
+data/trace.json, stands half way at half of the write, steps, plays and pauses and follows a selected paragraph, and the trace table
+and the causal figure hold its values; the three planes of the 4B examples hold
 the marks of data/geom-4b.json; the dose figure shows the share, interval, mean margin and item margins of data/steer.json at every unit,
 cell and dose; the two count figures show the values of data/count-curve.json and data/count-readout.json; no "NaN" or "undefined"
 anywhere; every number that the page shows after these interactions is traceable
@@ -82,8 +83,7 @@ async def open_page(browser, url: str, width: int, height: int, scheme: str, log
     page.on("request", lambda r: log.append(f"request to another host: {r.url}") if not r.url.startswith(url) else None)
     page.on("response", lambda r: log.append(f"status {r.status}: {r.url}") if r.status >= 400 else None)
     await page.goto(url + "index.html", wait_until="networkidle")
-    await page.wait_for_selector("#chain .chain-row .value")
-    for sel, name in (("#steer-items-plot svg", "steer.json"), ("#curve-plot svg", "count-curve.json"), ("#read-lines svg", "count-readout.json"),
+    for sel, name in (("#read-lines svg", "count-readout.json"),
                       ("#path-plot svg", "trace.json"), ("#causal-plot svg", "trace.json"), ("#cmp-plot svg", "geom-4b.json")):
         if os.path.exists(os.path.join(HERE, "data", name)):
             await page.wait_for_selector(sel)
@@ -91,8 +91,8 @@ async def open_page(browser, url: str, width: int, height: int, scheme: str, log
 
 
 async def open_folds(page) -> None:
-    """the blocks that stay closed until asked for (more on the swaps, training details, numbers per layer, what was checked) are opened
-    by their summaries"""
+    """the blocks that stay closed until asked for (evidence and numbers of the worked example, training details, numbers per layer,
+    what was checked) are opened by their summaries; the figures inside them are drawn once they are visible"""
     for i in range(await page.locator("details.fold").count()):
         d = page.locator("details.fold").nth(i)
         if await d.get_attribute("open") is None:
@@ -100,6 +100,10 @@ async def open_folds(page) -> None:
     await page.wait_for_selector("#layer-panels svg")
     await page.wait_for_selector("#clean-box .tok")
     await page.wait_for_selector("#items-plot svg")
+    await page.wait_for_selector("#chain .chain-row .value")
+    for sel, name in (("#steer-items-plot svg", "steer.json"), ("#curve-plot svg", "count-curve.json")):
+        if os.path.exists(os.path.join(HERE, "data", name)):
+            await page.wait_for_selector(sel)
 
 
 async def basic(page, name: str, width: int) -> None:
@@ -441,29 +445,64 @@ async def new_figures(page, demo: dict) -> list[str]:
         expect(await page.locator("#read-plane .read-arrow").count() == 2, "count readout: the read direction is not drawn")
     if os.path.exists(os.path.join(HERE, "data", "trace.json")):
         trace = data("trace.json")
-        stops = trace["stops"]
-        expect(await page.locator("#path-labels li").count() == len(stops), "path figure: one label per stop")
-        cells = sum(len(v["x"]) for v in stops[0]["curves"].values())
-        for i, st in enumerate(stops):
-            await page.fill("#path-step", str(i))
+        path = trace["path"]
+        stops = path["stops"]
+        before = next(i for i, x in enumerate(stops) if x["kind"] == "before")
+        late = next(i for i, x in enumerate(stops) if i > before + 1 and x["cuts"])
+        stages = [("a", 0, True), ("b", before - 1, False), ("c", before + 1, False), ("d", late, True), ("e", len(stops) - 1, False)]
+        names = {k: await page.get_attribute("#fig-path", f"data-stage-{k}") for k, _, _ in stages}
+        tops = []
+        for i, (key, at, cuts) in enumerate(stages):
+            await page.evaluate(f"document.getElementById('fig-path').jump({i})")
+            st = stops[at]
             got = await page.eval_on_selector_all("#path-readout b", "n => n.map(x => x.textContent)")
-            want = [f"{i + 1} / {len(stops)}", st["id"]] + ([str(st["group"])] if st["group"] else []) + [st["geometry"]["by_count"], st["geometry"]["by_remaining"]]
-            expect(got == want, f"path figure, stop {i}: {got} != {want}")
-            current = await page.eval_on_selector_all("#path-labels li.current", "n => n.map(x => x.dataset.stop)")
-            expect(current == [str(i)], f"path figure, stop {i}: label shown {current}")
-            levels = await page.eval_on_selector_all("#path-plot .level", "n => n.map(x => [x.dataset.transform, x.dataset.kind, x.querySelectorAll('.level-pt').length])")
-            want_levels = [[str(r["transform"]), kind, len(per)] for r in st["readouts"] for kind, per in r["crossings"].items() if per]
-            expect(levels == want_levels, f"path figure, stop {i}: threshold crossings {levels} != {want_levels}")
-            dots = await page.locator("#path-plot .curve-pt").count()
-            expect(dots == sum((len(v["x"]) + 1) // 2 for v in st["curves"].values()) and cells == sum(len(v["x"]) for v in st["curves"].values()), f"path figure, stop {i}: {dots} points")
+            fr = st.get("frame", {})
+            want = ([f"{i + 1} / {len(stages)}", st["id"]] + ([str(st["group"])] if st["group"] else []) + ([", ".join(fr["shared"]["cosines"])] if "shared" in fr else []) +
+                    ([fr["holds"]] if fr else []) + ([fr["write_inside"]] if key == "c" and "write_inside" in fr else []) + [st["spread"]["count"], st["spread"]["remaining"]])
+            expect(got == want, f"path figure, stage {key}: {got} != {want}")
+            expect(names[key] in await page.inner_text("#path-readout"), f"path figure, stage {key}: its name is not shown")
+            levels = await page.eval_on_selector_all("#path-plot .level", "n => n.map(x => [x.dataset.transform, x.dataset.shape, x.querySelectorAll('.level-pt').length, x.querySelectorAll('.level-side').length])")
+            want_levels = [[str(c["transform"]), c["shape"], len(c.get("points", {})), int(c["shape"] == "line")] for c in st["cuts"]] if cuts else []
+            expect(levels == want_levels, f"path figure, stage {key}: cuts {levels} != {want_levels}")
+            active = await page.eval_on_selector_all("#story .story-step.active", "n => n.map(x => x.dataset.stage)")
+            expect(set(active) <= {key} and (bool(active) or key == "e"), f"path figure, stage {key}: paragraphs marked {active}")
+            tops.append(await page.evaluate("document.getElementById('path-plot').getBoundingClientRect().top - document.querySelector('#fig-path > .needs-js').getBoundingClientRect().top"))
             counts["stops"] += 1
-        expect(await page.locator("#path-plot .path-line").count() == len(trace["widths"]), "path figure: one curve per width")
-        await page.fill("#path-step", "0")
+        expect(max(tops) - min(tops) <= 1.5, f"path figure: the plot moves between the stages ({tops})")
+        expect(await page.locator("#path-plot .mesh-end").count() == len(trace["widths"]), "path figure: one highlighted line end per width")
+        expect(await page.locator("#path-plot .mesh-connector").count() >= 5, "path figure: connectors across the widths")
+        # the write: between the state before it and the state after it every cell stands at before + t x write
+        cells = await page.evaluate("""() => { const f = document.getElementById('fig-path'); const at = (p) => { f.jump(2); f.at(p);
+            return [...document.querySelectorAll('#path-plot .mesh-end')].map(e => e.getAttribute('d').split('L').pop().split(' ').map(Number)); };
+            return [at(%d), at(%d + 0.5), at(%d)]; }""" % (before, before, before + 1))
+        expect(all(abs(m[k] - (a[k] + b[k]) / 2) < 0.6 for a, m, b in zip(*cells) for k in (0, 1)), "path figure: half of the write is not half way between the states before and after it")
+        expect(await page.locator("#path-plot .trail").count() == len(trace["widths"]), "path figure: the displacement of the line ends is not drawn during the write")
+        # on a wide screen a paragraph that scrolls to the middle of the window sets the stage: bring the figure into view first,
+        # let that settle, and start from the first stage
+        await page.locator("#path-play").scroll_into_view_if_needed()
+        await page.wait_for_timeout(4200)
+        await page.evaluate("document.getElementById('fig-path').jump(0)")
+        await page.click('#path-colour button[data-value="remaining"]')
+        expect(await page.get_attribute("#fig-path", "data-colour") == "remaining", "path figure: the colour choice")
+        await page.click('#path-colour button[data-value="count"]')
+        await page.click("#path-next")
+        await page.wait_for_function("document.getElementById('fig-path').dataset.stage === 'b' && document.getElementById('fig-path').dataset.at === '%d'" % (before - 1), timeout=9000)
+        await page.click("#path-prev")
+        await page.wait_for_function("document.getElementById('fig-path').dataset.at === '0'", timeout=9000)
         await page.click("#path-play")
         expect(await page.get_attribute("#path-play", "aria-pressed") == "true", "path figure: the play button does not start")
-        await page.wait_for_function("document.getElementById('fig-path').dataset.at === '1'", timeout=8000)
+        await page.wait_for_function("document.getElementById('fig-path').dataset.stage === 'b'", timeout=9000)
         await page.click("#path-play")
         expect(await page.get_attribute("#path-play", "aria-pressed") == "false", "path figure: the play button does not pause")
+        await page.wait_for_timeout(1800)
+        step = page.locator('#story .story-step[data-stage="c"]')
+        await step.evaluate("e => e.scrollIntoView({ block: 'center' })")
+        await page.wait_for_timeout(4200)
+        if await page.evaluate("innerWidth") > 1000:                         # scrolled to the middle of the window, the paragraph has set its stage
+            expect(await page.get_attribute("#fig-path", "data-stage") == "c", "path figure: the paragraph scrolled to the middle does not set the stage")
+        await page.evaluate("document.getElementById('fig-path').jump(0)")
+        await step.click()
+        await page.wait_for_function("document.getElementById('fig-path').dataset.stage === 'c' && document.getElementById('fig-path').dataset.at === '%d'" % (before + 1), timeout=9000)
         shown = await page.eval_on_selector_all(".trace-table tbody tr", "rows => rows.map(r => [...r.querySelectorAll('td')].map(c => c.textContent))")
         want = [e["shares"] for row in trace["table"] for e in row["entries"]]
         expect(shown == want, f"trace table: {shown[:3]} ...")
@@ -528,8 +567,9 @@ async def run(args) -> None:
                 await page.screenshot(path=os.path.join(args.shots, f"{name}.png"), full_page=True)
                 later = []                                                    # figures inside a closed block are taken once it is open
                 for fig in await page.eval_on_selector_all("figure[id]", "n => n.map(f => f.id)"):
-                    if await page.locator(f"#{fig}").is_visible():
-                        await page.locator(f"#{fig}").screenshot(path=os.path.join(args.shots, f"{name}-{fig}.png"))
+                    box = "#fig-path > .needs-js" if fig == "fig-path" else f"#{fig}"   # on a wide screen that figure has no box of its own
+                    if await page.locator(box).is_visible():
+                        await page.locator(box).screenshot(path=os.path.join(args.shots, f"{name}-{fig}.png"))
                     else:
                         later.append(fig)
             await open_folds(page)
@@ -556,8 +596,8 @@ async def run(args) -> None:
         # shares, rates, link, layers, spliced-in loss, details; 4B: layers, details; the trace table
         want = 6 + 2 * os.path.exists(os.path.join(HERE, "data", "layers-4b.json")) + os.path.exists(os.path.join(HERE, "data", "trace.json"))
         if os.path.exists(os.path.join(HERE, "data", "trace.json")):
-            expect(await page.locator(".path-strip svg:visible").count() == len(data("trace.json")["stops"]), "without JavaScript: the strip of stops is not there")
-            expect(await page.locator("#path-labels li:visible").count() == len(data("trace.json")["stops"]), "without JavaScript: the labels of the stops are not there")
+            expect(await page.locator(".path-strip svg:visible").count() == 5, "without JavaScript: the strip of stops is not there")
+            expect(await page.locator("#story .story-step:visible").count() == 5, "without JavaScript: the paragraphs of the story are not there")
         expect(tables == want, f"without JavaScript: {tables} tables visible, {want} expected")
         expect(await page.locator(".needs-js:visible").count() == 0, "without JavaScript: an empty interactive block is visible")
         expect(await page.locator("#fig-lead .tok:visible").count() > 100, "without JavaScript: the first figure is not there")

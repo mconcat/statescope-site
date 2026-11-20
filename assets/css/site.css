@@ -1200,6 +1200,9 @@ input[type="number"]::-webkit-inner-spin-button {
   stroke-width: 3.5px;
   stroke-linejoin: round;
 }
+.plot text.on-plot.word {
+  font-size: 10.5px;
+}
 .plot .mean-arrow text.on-plot {
   stroke: var(--paper);
 }
@@ -1293,7 +1296,141 @@ html:not(.js) .path-labels {
   margin: 0.3rem 0 0;
   padding: 0;
   border: 0;
-  font: 0.72rem var(--mono);
+  font-size: 0.78rem;
+  line-height: 1.35;
+}
+/* the story beside the animated figure: on a wide screen the figure stays in view while the paragraphs pass */
+.story {
+  display: grid;
+  grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+  gap: 2rem 3.2rem;
+  align-items: start;
+  margin-top: 2.6rem;
+}
+/* wide screens: the figure's drawing stays in view beside the paragraphs, and its caption stands below the story */
+.story-figure {
+  display: contents;
+}
+.story-figure > .needs-js {
+  grid-column: 2;
+  grid-row: 1;
+  position: sticky;
+  top: 14px;
+  padding: 1.3rem 1.5rem 1.1rem;
+  border: 1px solid var(--line-soft);
+  border-radius: 12px;
+  background: var(--ground);
+}
+.story-figure > figcaption,
+.story-figure > .nojs-only {
+  grid-column: 1 / -1;
+}
+.story-figure > figcaption {
+  max-width: 62rem;
+  margin-inline: auto;
+}
+.story-text {
+  grid-column: 1;
+  grid-row: 1;
+}
+.story-figure .keys {
+  margin: 0.8rem 0 0;
+}
+.story-step {
+  margin: 0 0 16vh;
+  padding: 1.3rem 1.5rem 0.5rem;
+  border-left: 3px solid var(--line);
+  border-radius: 0 12px 12px 0;
+  cursor: pointer;
+  transition: border-color 0.15s, background-color 0.15s;
+}
+.story-step:last-child {
+  margin-bottom: 4vh;
+}
+.story-step h3 {
+  margin: 0 0 0.6rem;
+  font-size: 1.2rem;
+  text-align: left;
+}
+.story-step p {
+  font-size: 0.98rem;
+}
+html.js .story-step.active {
+  border-left-color: var(--ink);
+  background: var(--paper);
+}
+.read-intro {
+  margin-top: 3.4rem;
+}
+.mesh-curve {
+  fill: none;
+  stroke-width: 1.5;
+  stroke: color-mix(in oklab, var(--ink) calc(22% + var(--t, 0.5) * 78%), var(--line-soft));
+}
+.mesh-connector {
+  fill: none;
+  stroke: var(--grid);
+  stroke-width: 0.8;
+  opacity: 0.7;
+}
+.mesh-end {
+  fill: none;
+  stroke: var(--u1749);
+  stroke-width: 3.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.frame-axis {
+  fill: none;
+  stroke: var(--ink);
+  stroke-width: 1.8;
+  stroke-linecap: round;
+}
+.frame-patch {
+  fill: var(--ink);
+  fill-opacity: 0.08;
+  stroke: none;
+}
+.level-side {
+  fill: var(--u1749);
+  fill-opacity: 0.09;
+  stroke: none;
+}
+#path-readout {
+  display: block;
+}
+/* without scripts: the strip of stops, then the paragraphs, then the caption, in one column */
+html:not(.js) .story {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+}
+html:not(.js) .story-figure > .nojs-only {
+  order: -1;
+}
+html:not(.js) .story-step {
+  margin-bottom: 1.2rem;
+}
+#path-readout .readout-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.15rem 1.4rem;
+}
+.ghost-curve {
+  fill: none;
+  stroke: var(--grid);
+  stroke-width: 1;
+  stroke-dasharray: 2 3;
+}
+.trail {
+  fill: none;
+  stroke: var(--u410);
+  stroke-width: 1.6;
+}
+.trail-start {
+  fill: var(--ground);
+  stroke: var(--u410);
+  stroke-width: 1.4;
 }
 .stepgrid {
   display: grid;
@@ -2276,6 +2413,30 @@ details.more > summary:hover {
 
 /* ------------------------------------------------------------------ narrower screens */
 @media (max-width: 1000px) {
+  .story {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  /* narrow screens: the figure first, then the paragraphs, then the caption */
+  .story-figure > .needs-js {
+    position: static;
+    grid-column: 1;
+    grid-row: auto;
+    order: -1;
+    padding: 1rem 1rem 0.8rem;
+  }
+  .story-text {
+    grid-row: auto;
+  }
+  .story-figure > figcaption,
+  .story-figure > .nojs-only {
+    order: 1;
+  }
+  .story-figure > figcaption {
+    max-width: none;
+  }
+  .story-step {
+    margin-bottom: 1.2rem;
+  }
   .avg-grid,
   .split.diagram,
   .split.curve,
@@ -2498,4 +2659,25 @@ details.more > summary:hover {
     color: var(--muted);
     overflow-wrap: anywhere;
   }
+}
+
+@media (max-width: 640px) {
+  #fig-path .controls {
+    gap: 0.6rem 0.8rem;
+  }
+  #fig-path .control {
+    flex-wrap: wrap;
+  }
+  #path-colour button {
+    white-space: nowrap;
+    padding-inline: 0.6rem;
+    font-size: 0.76rem;
+  }
+  #path-readout {
+    font-size: 0.74rem;
+  }
+}
+.word-pt.small {
+  fill: var(--muted);
+  opacity: 0.55;
 }
