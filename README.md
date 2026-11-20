@@ -11,12 +11,13 @@ python -m http.server --directory . 8000      # then open http://127.0.0.1:8000/
 
 - `index.html` is generated. Edit `tools/page.template.html` and run `tools/build_page.py`.
 - The page: a centred header (title, one line, three buttons), a teaser figure, an abstract, then sections as full-width bands:
-  the two dictionaries, the worked example on the 0.8B set, the examples with the 4B set, how to use the files, how to cite.
-  Training details, numbers per layer and what was checked are closed blocks near the end.
+  the two dictionaries, the worked example on the 0.8B set as one trace (an animated path of the count through the layers, the
+  steps, a trace table, the swaps and the dose slider), examples from the 4B set (planes inside state-group frames), how to
+  use the files, how to cite. Training details, numbers per layer and what was checked are closed blocks near the end.
 - `assets/css/site.css` holds the design tokens (light and dark) and all styles.
 - `assets/js/` holds `main.js` (loading), `demo.js` (the line-count demonstration: pair viewer, chain, one swap item by item, link
-  comparison), `curve.js` (the count as a curve in one group's frame, and how two transforms read it), `steer.js` (one unit by a
-  dose), `layers.js` (numbers per layer, spliced-in loss), `tokens.js` and `svg.js` (helpers). The charts are hand-written SVG;
+  comparison), `curve.js` (the count as a curve in one group's frame, and how two transforms read it), `path.js` (the animated path and
+  the causal test at layer 12), `geom4b.js` (the planes of the 4B examples), `steer.js` (one unit by a dose), `layers.js` (numbers per layer, spliced-in loss), `tokens.js` and `svg.js` (helpers). The charts are hand-written SVG;
   no library is used. The words shown on the charts are in the template (data attributes), not in the scripts.
 - `assets/fonts/` holds Latin subsets of Pretendard (internal name changed to "Site Sans", as the Open Font License asks of a
   modified font with a reserved name) and of Geist Mono, with both licence texts.
@@ -31,8 +32,8 @@ The numbers come from a checkout of the statescope repository and from one outpu
 
 ```sh
 python -B tools/build_data.py --repo <checkout> --hf-home <Hugging Face cache> --result <folder> \
-    [--weights-4b <4B weights folder with ALWAYS_ON.json>] [--examples-4b <notes of selected results>] \
-    [--steer <folder>] [--count-curve <folder>]                                # torch, safetensors, transformers; CPU
+    [--weights-4b <4B weights folder with ALWAYS_ON.json>] [--steer <folder>] [--count-curve <folder>] \
+    [--geom <folder of the analyses>]                                          # torch, safetensors, transformers; CPU
 python -B tools/build_page.py                                                  # standard library
 ```
 
@@ -43,10 +44,11 @@ result files.
 
 Optional parts, each left out of the page when its option is not given:
 
-- `--weights-4b`: the per-layer numbers of the 4B set (`data/layers-4b.json`) and the numbers of the three 4B examples, read by
-  pattern from the 4B model card (`data/used-4b.json`).
-- `--examples-4b`: the samples beside the 4B examples (one generated function, four natural-text contexts) and three pairs of
-  rates, cut by pattern from the project's notes of selected results (`data/examples-4b.json`).
+- `--weights-4b`: the per-layer numbers of the 4B set (`data/layers-4b.json`) and facts read by pattern from the 4B model card.
+- `--geom`: the trace of the line-count example (`data/trace.json`: the stops of the animated figure, the trace table, the
+  causal test) and the planes of the 4B examples (`data/geom-4b.json`), read by `tools/geom_data.py` from the JSON files of five
+  analyses made with the published reader and weights. In the animated figure every stop is a measured state; the movement
+  between two stops is interpolated, except at the two mixer steps, which move each cell by the stored write.
 - `--steer`: the dose figure (`data/steer.json`), from one run of a script that scales the demonstration's swaps. The build
   compares dose 0 with the clean run and dose 1 with the demonstration's swap, string for string.
 - `--count-curve`: the two count figures (`data/count-curve.json`, `data/count-readout.json`), from runs of two scripts that use
@@ -57,12 +59,13 @@ Optional parts, each left out of the page when its option is not given:
 ```sh
 python -B tools/lint_page.py --repo <checkout>                                           # numbers traceable, sentences, hygiene
 python -B tools/check_numbers.py --repo <checkout> --result <folder> --hf-home <cache> \
-    [--weights-4b <folder>] [--steer <folder>] [--examples-4b <notes>]                   # numbers re-derived from the sources
+    [--weights-4b <folder>] [--steer <folder>] [--geom <folder>]                         # numbers re-derived from the sources
 python -B tools/verify_browser.py --repo <checkout> [--shots <folder>]                   # headless Chromium (playwright)
 ```
 
 `verify_browser.py` loads the page at desktop, tablet and phone width in light and dark, checks that it does not scroll sideways
-(also with the closed blocks opened), and compares what every figure shows with the data files.
+(also with the closed blocks opened), and compares what every figure shows with the data files. Without JavaScript the
+animated figure is a row of small drawings of its stops with their labels.
 
 ## Fonts
 

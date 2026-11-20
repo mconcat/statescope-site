@@ -1344,6 +1344,10 @@ html:not(.js) .path-labels {
 }
 .trace-table tbody th[scope="row"] {
   color: var(--ink);
+  text-align: left;
+}
+.table-wrap.trace-table {
+  margin-inline: auto;
 }
 .wrap > .fold {
   margin-top: 3rem;
