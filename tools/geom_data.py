@@ -356,9 +356,6 @@ def state_unit(facts, root: str, source) -> dict:
     read(r"The move ends (\d+) tokens before the last prompt token", ("su.gap",), "A.1: the move ends so many tokens before the last prompt token")
     read(r"the first check in the code comes at a median\s+of (\d+) to (\d+) tokens after the prompt", ("su.first_low", "su.first_high"), "A.1: median position of the first check")
     read(r"giving the unsteered prompt the first (\d+) tokens of the steered answer changes nothing\s+\((0\.\d+)\)", ("su.forced_tokens", "su.forced_rate"), "A.1: the first tokens of the steered answer given, no move")
-    read(r"at cosine (1\.00), (0\.\d+) and (0\.\d+) with the move\s+direction", ("su.cos1", "su.cos2", "su.cos3"), "geometry: three wordings of the instruction against the move direction")
-    read(r"without the layer-15 attention (0\.\d+) of the\s+effect remains, without the layer-11 attention (0\.\d+),", ("su.remain15", "su.remain11"), "who reads it: share of the effect that remains with one attention layer frozen")
-    read(r"without\s+the layer-19 attention (0\.\d+); with all later mixers frozen exactly 0;", ("su.remain19",), "who reads it: layer-19 attention frozen; all later mixers frozen: exactly 0")
     read(r"the 8 largest \+0\.\d+ \(0\.\d+ … 0\.\d+; guard rate (0\.\d+)\)", ("su.eight_rate",), "geometry: the 8 largest groups of the contrast together, at their natural size")
     assert facts.items["su.forced_rate"]["display"] == facts.items["su.rate0"]["display"]
 

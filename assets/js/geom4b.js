@@ -221,7 +221,7 @@ function initState(d) {
   const M = { l: 40, r: 14, t: 26, b: 40 };
   function draw() {
     if (!width) return;
-    const height = Math.round(Math.min(330, Math.max(240, width * 0.62)));
+    const height = Math.round(Math.min(270, Math.max(220, width * 0.5)));
     const x = linear(doses[0], doses[doses.length - 1], M.l, width - M.r);
     const yt = niceTicks(0, 1, 4);
     const y = linear(0, 1, height - M.b, M.t);

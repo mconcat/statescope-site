@@ -62,7 +62,7 @@ export function initPath(trace) {
     const panel = box.parentElement;
     const beside = window.matchMedia("(min-width: 1001px)").matches;
     const room = beside ? window.innerHeight - (panel.offsetHeight - box.offsetHeight) - 30 : Infinity;
-    const most = Math.max(200, Math.min(window.innerHeight * 0.58, room));
+    const most = Math.max(200, Math.min(window.innerHeight * 0.7, room));
     // one fixed scale for both directions and all stops; the plot is as tall as the path needs at that scale
     const k = Math.min((width - 2 * M) / (hi[0] - lo[0]), (most - 2 * M) / (hi[1] - lo[1]));
     const height = Math.round(k * (hi[1] - lo[1]) + 2 * M);
@@ -97,6 +97,7 @@ export function initPath(trace) {
     root.append(ghost, ...connectors.map((c) => c.node), ...pieces.flat().map((p) => p.node), ...ends, ...labels, marks, frame);
     clear(box).append(root);
     nodes = { X, Y, k, ghost, connectors, pieces, ends, labels, marks, width, height, axes };
+    figure.dataset.scale = k.toFixed(1); // pixels per unit of the view, the same at every stop
     colour();
     place();
     show();

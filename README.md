@@ -46,7 +46,7 @@ Optional parts, each left out of the page when its option is not given:
 
 - `--weights-4b`: the per-layer numbers of the 4B set (`data/layers-4b.json`) and facts read by pattern from the 4B model card.
 - `--geom`: the trace of the line-count example (`data/trace.json`: the stops of the animated figure, the trace table, the
-  causal test) and the planes of the 4B examples (`data/geom-4b.json`), read by `tools/geom_data.py` from the JSON files of five
+  causal test) and the planes of the 4B examples (`data/geom-4b.json`), read by `tools/geom_data.py` from the JSON files of six
   analyses made with the published reader and weights. The animated figure draws the (count, width) mesh in one fixed view
   (the first two of the analysis's three common directions) from `resid_mid.9` to `resid_post.13`: eight measured states and
   the state before the layer-12 mixer's write (the state after it minus the stored write). The movement between two stops is
