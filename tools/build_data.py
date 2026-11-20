@@ -113,7 +113,7 @@ def text_facts(facts: Facts, manifest: dict, reader_fvu: dict) -> None:
     f = facts
     f.find(README, r"\| `Qwen/Qwen3\.5-0\.8B` \| (\d+) \| ([\d,]+) \| ([\d,]+) / (\d+) \| ([\d,]+) \| About ([\d.]+) GiB \|",
            ["model.layers", "model.width", "state.groups_readme", "state.active_readme", "mlp.transforms_readme", "set.total_gib_readme"])
-    f.find(README, r"The 0\.8B base model's revision is `([0-9a-f]{40})`\.", ["model.revision"])
+    f.find(README, r"and on `Qwen/Qwen3\.5-0\.8B` at revision `([0-9a-f]{40})`\.", ["model.revision"])
     f.find(CARD, r"The (\d+) weight and config files cover (\d+) layers", ["set.files_card", "model.layers_card"])
     assert f.items.pop("model.layers_card")["display"] == f.items["model.layers"]["display"]
     f.find(README, r"The 0\.8B set contains (\d+) files\. Its state dictionaries occupy about ([\d.]+) GiB, and its MLP dictionaries occupy about ([\d.]+) GiB\.",
@@ -585,9 +585,10 @@ def four_b(facts: Facts, repo: str, weights: str) -> dict:
     assert f.items["b4.k24_splice"]["display"] == f.items["b4.splice_state"]["display"]
     f.find(README, r"The 4B set has (\d+) transforms of rank (\d+), (\d+) of rank (\d+), ([\d,]+) of rank (\d+), ([\d,]+) of rank (\d+) and ([\d,]+) of rank (\d+)\.",
            ["b4.tier1_n", "b4.tier1_rank", "b4.tier2_n", "b4.tier2_rank", "b4.tier3_n", "b4.tier3_rank", "b4.tier4_n", "b4.tier4_rank", "b4.tier5_n", "b4.tier5_rank"])
-    f.find(card, r"We trained each layer on ([\d,]+) tokens over ([\d,]+) steps, with seed 0\.", ["b4.state_train_tokens", "b4.state_train_steps"])
-    f.find(card, r"Training used ([\d,]+) steps of (\d+) tokens, or ([\d.]+) million tokens, with learning rate ([\d.e+-]+) and penalty ([\d.e+-]+) at all 32 layers\.",
-           ["b4.mlp_train_steps", "b4.mlp_step_tokens", "b4.mlp_train_million_tokens", "b4.learning_rate", "b4.penalty_card"])
+    f.find(card, r"\| Training per layer \| ([\d,]+) tokens over ([\d,]+) steps \|", ["b4.state_train_tokens", "b4.state_train_steps"])
+    f.find(card, r"\| Training \| ([\d,]+) steps of (\d+) tokens; ([\d.]+) million tokens \|", ["b4.mlp_train_steps", "b4.mlp_step_tokens", "b4.mlp_train_million_tokens"])
+    f.find(card, r"\| Learning rate \| ([\d.e+-]+) \|", ["b4.learning_rate"])
+    f.find(card, r"coefficient ([\d.e+-]+) at all 32 layers \|", ["b4.penalty_card"])
     assert f.items.pop("b4.penalty_card")["display"] == f.items["b4.penalty"]["display"]
     f.find(card, r"download one layer: about ([\d.]+) gibibytes \(GiB\) for state and ([\d.]+) GiB for MLP files\.", ["b4.layer_state_gib", "b4.layer_mlp_gib"])
     f.find(README, r"The 4B model in bf16 plus one layer's two dictionaries needed more than (\d+) GiB of GPU memory\.", ["b4.gpu_gib"])
@@ -710,10 +711,11 @@ def examples_4b(facts: Facts, path: str) -> dict:
         facts.add(f"b4x.{key}", "0" + value, EXAMPLES, "rate in the notes' item on combined steering, with a leading zero added")
     aba = re.findall(r'"([^"]*\[\[[^\]]+\]\][^"]*)"', four)
     assert len(aba) == 2 and f"그룹 {facts.items['b4u.aba_group']['display']}" in four, aba
-    unit = re.findall(r"L7 MLP MOLT 변환 (\d+), 형제 (\d+)\(같다\), (\d+)\(크다\)", five)
-    assert len(unit) == 1 and unit[0][0] == facts.items["b4u.js_transform"]["display"]
-    facts.add("b4x.equal_transform", unit[0][1], EXAMPLES, "sibling transform for 'equal'")
-    facts.add("b4x.greater_transform", unit[0][2], EXAMPLES, "sibling transform for 'greater'")
+    unit = re.findall(r"L7 MLP MOLT 변환 (\d+)과 (\d+)\.", five)
+    repeat = re.findall(r"변환 (\d+)은 목록의 둘째 줄 이후 되풀이되는 토큰", five)
+    assert len(unit) == 1 and len(repeat) == 1 and unit[0][0] == facts.items["b4u.js_transform"]["display"]
+    facts.add("b4x.equal_transform", repeat[0], EXAMPLES, "the transform that detects repeated tokens")
+    facts.add("b4x.greater_transform", unit[0][1], EXAMPLES, "the transform for 'greater'")
     less = re.findall(r"`([^`]*\[\[[^\]]+\]\][^`]*)`", five)
     assert len(less) == 2, less
     facts.add("b4x.rule_sample", sample[0].rstrip("\n"), EXAMPLES, "the generated function of the notes' first item, unchanged")
