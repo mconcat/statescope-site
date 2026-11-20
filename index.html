@@ -79,7 +79,8 @@
   <div class="wrap">
     <h2 id="example"><a href="#example">How Qwen tracks the space left in a line</a></h2>
     <div class="lead-block">
-      <p class="lead">Fifty characters almost fill a narrow line. A wide line still has room. In Claude 3.5 Haiku, <a href="https://arxiv.org/abs/2601.04480">Gurnee et al.</a> traced how attention heads combine a character count with the line width to represent the distance remaining. We revisit their task in the hybrid Qwen3.5-0.8B. A recurrent head tracks characters since line start. Early MLP transforms read stretches of that count curve. A later head multiplies a width-dependent read from earlier lines by a gate that follows count. After this write, states at the same distance from the line end cluster together across widths.</p>
+      <p class="lead">Fifty characters almost fill a narrow line. A wide line still has room. In Claude 3.5 Haiku, <a href="https://arxiv.org/abs/2601.04480">Gurnee et al.</a> traced how attention heads combine a character count with the line width to represent the distance remaining.</p>
+      <p>In the hybrid Qwen3.5-0.8B, a recurrent head tracks characters since line start. One <a href="#dictionaries">state group</a> captures the count as a curve in its frame, a set of four learned coordinate axes. Early MLP transforms respond to different stretches of the curve. A later head multiplies a width-dependent read from earlier lines by a gate that follows count. After this write, states at the same distance from the line end cluster together across widths.</p>
     </div>
 
 
@@ -113,23 +114,23 @@
       <div class="story-text">
         <article class="story-step" data-stage="a" tabindex="0">
           <h3 id="count"><a href="#count">The line start resets a clock</a></h3>
-          <p>The first token starts a new counting signal in the layer-9 character-clock head. Its cumulative log decay falls by 0.027 to 0.033 per character. The count appears as a curve in state group 4885.</p>
+          <p>The first token of each line starts a new counting signal in the character-clock head (layer 9, head 10). Its cumulative log decay falls by 0.027 to 0.033 per character. The count appears as a curve in state group 4885.</p>
         </article>
         <article class="story-step" data-stage="a" tabindex="0">
           <h3 id="cut"><a href="#cut">Straight cuts select ranges of count</a></h3>
-          <p>A transform cuts the shape straight, using a read direction and threshold as shown in Figure 5. Transform 410 switches on at about 0.20 times the width and off at 54 to 58 characters. Transform 1749 switches on at 96 to 103 characters. Neither fires a fixed distance before the line end.</p>
+          <p>Each transform reads the count curve along one direction and switches on when that reading crosses its threshold (Figure 5). The short-line transform (410) switches on at about 0.20 times the line width and off at 54 to 58 characters. The long-line transform (1749) switches on at 96 to 103 characters. Neither fires a fixed distance before the line end.</p>
         </article>
         <article class="story-step" data-stage="b" tabindex="0">
           <h3 id="width"><a href="#width">Width supplies the missing distance</a></h3>
-          <p>The model must combine width with count to obtain the distance to the line end. Width already displaces the count curves into a sheet: per character, the displacement across widths is 0.19 to 0.25 as large as the movement along a line. Head 13 of the layer-12 mixer keeps width information in a memory read from earlier lines. Layers 10 and 11 carry the sheet on.</p>
+          <p>The model must combine width with count to obtain the distance to the line end. Width already displaces the count curves into a sheet: per character, the displacement across widths is 0.19 to 0.25 as large as the movement along a line. A memory head (layer 12, head 13) reads width information from earlier lines. Layers 10 and 11 carry the sheet on.</p>
         </article>
         <article class="story-step" data-stage="c" tabindex="0">
           <h3 id="write"><a href="#write">One write brings the line ends together</a></h3>
-          <p>Head 13 of the layer-12 mixer multiplies the width it reads from memory by a gate that follows the count, then adds the result. Its share of this mixer’s count curve, using the same within-width projection, is 0.97. Before the mixer's write, tokens with equal count sit close together across widths: their spread is 0.15, against 0.71 at equal remaining characters. After the write, tokens with equal remaining characters sit close together: their spread is 0.04, against 0.78 at equal count. We infer that the product converts the count code into a code for the remaining characters.</p>
+          <p>The same memory head multiplies its width-dependent read by a gate that follows the count, then adds the result to the residual stream. Its share of this mixer’s count curve, using the same within-width projection, is 0.97. Before the mixer's write, tokens with equal count sit close together across widths: their spread is 0.15, against 0.71 at equal remaining characters. After the write, tokens with equal remaining characters sit close together: their spread is 0.04, against 0.78 at equal count. We infer that the product converts the count code into a code for the remaining characters.</p>
         </article>
         <article class="story-step" data-stage="d" tabindex="0">
           <h3 id="line-end"><a href="#line-end">A straight cut now marks the line end</a></h3>
-          <p>Transform 2490 of the layer-13 MLP fires 2 to 8 characters before the end across all five widths, and its cut is the straight line drawn at <code>resid_mid.13</code> in Figure 4, within 0.7 characters of its measured switching points. Before the write, at <code>resid_mid.9</code>, no cut fires a fixed distance before the line end. Layer-12 transform 2069 fires 2 to 6 characters before the end, and layer-20 transform 130 fires at 9.9 to 11.0 remaining characters. Swapping either line-end reader has little effect on the final margin. The total shares for the layer-13 reader are 0.04, 0.02 and 0.03 across the three conditions. The layer-12 reader rounds to 0.00 in each.</p>
+          <p>The line-end reader in the layer-13 MLP (transform 2490) fires 2 to 8 characters before the end across all five widths, and its cut is the straight line drawn at <code>resid_mid.13</code> in Figure 4, within 0.7 characters of its measured switching points. Before the write, at <code>resid_mid.9</code>, no cut fires a fixed distance before the line end. Layer-12 transform 2069 fires 2 to 6 characters before the end, and layer-20 transform 130 fires at 9.9 to 11.0 remaining characters. Swapping the layer-12 or layer-13 reader has little effect on the final margin. The total shares for the layer-13 reader are 0.04, 0.02 and 0.03 across the three conditions. The layer-12 reader rounds to 0.00 in each.</p>
           <p>Downstream, head 15 of the layer-21 mixer writes directly toward the line-break decision, with 0.97 of the reproducible variation in its margin-directed write explained by remaining character count across width/count cells. Its direct shares of the decision difference are 0.71, 0.76 and 0.81 in <code>count:60</code>, <code>count:100</code> and <code>width:100</code>, respectively.</p>
         </article>
       </div>
@@ -538,7 +539,7 @@ The frame part gives most, but not all, of the movement of the gate input; the r
 <section class="band" aria-labelledby="prompt-states">
   <div class="wrap mid">
     <h2 id="prompt-states"><a href="#prompt-states">Editing prompt states changes later code generation</a></h2>
-    <p>We asked Qwen3.5-4B to write Python functions. Every task in the main comparison ended with the same sentence, “Describe the arguments at the start of the function and keep the code easy to read.” We changed the state on its 17 tokens along one direction in group 2879 at <code>resid_post.10</code>. This group carried the largest component of the mean contrast with a length-matched instruction to validate arguments. The edit ended 11 tokens before the last prompt token. All subsequent prompt and generated tokens ran normally.</p>
+    <p>We asked Qwen3.5-4B to write Python functions. Every task in the main comparison ended with the same sentence, “Describe the arguments at the start of the function and keep the code easy to read.” We edited one direction in a four-dimensional state group on the sentence’s 17 tokens. We chose group 2879 at <code>resid_post.10</code> because it carried the largest component of the mean shift between the neutral sentence and a length-matched instruction to validate arguments. The edit ended 11 tokens before the last prompt token. All subsequent prompt and generated tokens ran normally.</p>
     <p>For the task <code>acronym</code>, the neutral and edited prompts contain exactly the same words. Here are excerpts from the paired greedy runs. We chose the first task alphabetically that gained the scored syntax at twice the mean dose.</p>
     <div class="split even sample-code">
       <div><h3>Neutral prompt</h3><pre><code># Split the phrase into individual words based on spaces
