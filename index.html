@@ -737,8 +737,8 @@ words = phrase.split()</code></pre></div>
       <div class="units">
         <article class="unit state">
           <h3 class="unit-title"><i></i>State dictionary: groups</h3>
-          <p>The <dfn>state dictionary</dfn> represents the residual stream at two sites of its layer. The site <code>resid_mid.L</code> is the input of the norm before the MLP. The site <code>resid_post.L</code> is <code>resid_mid</code> plus the MLP output.</p>
-          <p>Each group has a learned four-dimensional subspace with an orthonormal basis, its <dfn>frame</dfn>. A token has coordinates within this frame. The dictionary selects the 24 groups with the largest decoded contribution norms among 16,384 groups and sums their writes. A group can stay selected while its coordinates change with every character.</p>
+          <p>Our <dfn>state dictionary</dfn> uses the Grassmannian block-sparse featurizer (BSF) of <a href="https://arxiv.org/abs/2606.25234">Fel et al. (2026)</a>. We train one dictionary on the residual stream at two sites in each layer. The site <code>resid_mid.L</code> is the input of the norm before the MLP. The site <code>resid_post.L</code> is <code>resid_mid</code> plus the MLP output.</p>
+          <p>Each group projects the normalized input onto four orthonormal directions, its <dfn>frame</dfn>, and scales the coordinates by a learned factor for that group. It writes through the same frame. The dictionary selects the 24 groups with the largest decoded contribution norms among 16,384 groups and sums their writes. A group can stay selected while its coordinates change with every character.</p>
         <p>Group 11586 at <code>resid_post.8</code> marks the first token of a line. Group 4885 at <code>resid_mid.9</code> holds the character count as a curve.</p>
         <p>We can inspect a group's activity and write, or change its coordinates and decode them back into the residual stream.</p>
         </article>
@@ -796,7 +796,7 @@ words = phrase.split()</code></pre></div>
 
 
 
-    <p class="aside-note">The state dictionary is related to subspace-aware sparse autoencoders. <a href="https://arxiv.org/abs/2606.06333">Dalili and Mahdavi</a> learn subspaces, select groups with a top-s gate and regularize effective rank with a nuclear norm. In our released reader the same layer dictionary serves both sides of the MLP, with separate site normalization. Four directions per group is a dictionary design choice.</p>
+    <p class="aside-note">A related approach, the subspace-aware sparse autoencoder (SASA) of <a href="https://arxiv.org/abs/2606.06333">Dalili and Mahdavi</a>, selects groups with a top-s gate and uses a nuclear-norm penalty to regularize their effective rank. In our BSF, four directions per group is a design choice. The same layer dictionary serves both sides of the MLP, with separate normalization at each site.</p>
     <p class="aside-note">By design, the mixers are read directly at the level of the model's own heads and channels. We also trained a stateful transcoder, a dictionary with a state carried across tokens, on 18 GatedDeltaNet layers of the 0.8B model: in the line-counting computation it reproduced about one third of the true head's response, while one of the model's own heads (layer 9, head 10) carried the count about as well as the whole mixer. Attention is read at the level of heads.</p>
   </div>
 </section>
@@ -850,6 +850,7 @@ python demo/line_count.py --release &lt;folder&gt; --device cuda:0 --out &lt;fol
   note = {Weights: https://huggingface.co/mconcat/statescope-qwen3.5-4b and https://huggingface.co/mconcat/statescope-qwen3.5-0.8b}
 }</code></pre></div>
     <h3 id="references"><a href="#references">References</a></h3>
+    <p class="citation">Thomas Fel, Matthew Kowal, Mozes Jacobs, Dron Hazra, Usha Bhalla, Lee Sharkey, Lucius Bushnaq, Satchel Grant, Tal Haklay, Thomas Icard, Can Rager, Michael Pearce, Daniel Wurgaft, Aiden Swann, Fenil Doshi, Siddharth Boppana, Curt Tigges, Nick Cammarata, Thomas Serre, Vasudev Shyam, Owen Lewis, Thomas McGrath, Jack Merullo, Ekdeep Singh Lubana, Atticus Geiger. Structuring Sparsity: Block-Sparse Featurizers Capture Visual Concept Manifolds. arXiv:2606.25234, 23 June 2026. <a href="https://arxiv.org/abs/2606.25234">https://arxiv.org/abs/2606.25234</a></p>
     <p class="citation">Seyed Arshan Dalili, Mehrdad Mahdavi. Subspace-Aware Sparse Autoencoders for Effective Mechanistic Interpretability. arXiv:2606.06333, 4 June 2026. <a href="https://arxiv.org/abs/2606.06333">https://arxiv.org/abs/2606.06333</a></p>
     <p class="citation">Jack Lindsey, Brian Chen, Adam Pearce, Sasha Hydrie, Thomas Conerly; edited by Jeff Wu. Sparse mixtures of linear transforms. Transformer Circuits Thread, 2025. <a href="https://transformer-circuits.pub/2025/bulk-update/index.html">https://transformer-circuits.pub/2025/bulk-update/index.html</a></p>
     <p class="citation">James Oldfield, Shawn Im, Sharon Li, Mihalis A. Nicolaou, Ioannis Patras, Grigorios G Chrysos. Towards Interpretability Without Sacrifice: Faithful Dense Layer Decomposition with Mixture of Decoders. arXiv:2505.21364, 27 May 2025. <a href="https://arxiv.org/abs/2505.21364">https://arxiv.org/abs/2505.21364</a></p>
