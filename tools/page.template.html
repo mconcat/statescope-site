@@ -519,7 +519,7 @@ The frame part gives most, but not all, of the movement of the gate input; the r
     <article class="exp">
       <div class="exp-text">
         <h3 id="comparing-transform">Reading a transform that compares symbols</h3>
-        <p>Transform {{b4u.js_transform}} in the layer-{{b4u.js_layer}} MLP dictionary fires when the current symbol is smaller than the symbol in the same slot of earlier lines. Its sibling transforms cover the other comparisons: transform {{b4x.equal_transform}} fires for “equal”, and transform {{b4x.greater_transform}} fires for “greater”.</p>
+        <p>Transform {{b4u.js_transform}} in the layer-{{b4u.js_layer}} MLP dictionary fires when the current symbol is smaller than the symbol in the same slot of earlier lines. Transform {{b4x.greater_transform}} fires when the current symbol is greater than the symbol in the same slot of earlier lines, reliably in the JavaScript comparison and less reliably in plain lists. Transform {{b4x.equal_transform}} detects repeated tokens, including digits and other tokens, and does not fire on equal operands in the JavaScript comparison.</p>
       <p>We traced a circuit by hand for a JavaScript ternary expression, which chooses between two values according to a condition, and the same transform ranked first. At layer {{b4u.js_layer}}, the MLP dictionary’s reconstruction carried {{b4u.js_share}} of the MLP’s contribution, with an interval of {{b4u.js_lo}} to {{b4u.js_hi}}. Two MLP neurons carried {{b4u.js_neurons}} of the same contribution.</p>
       </div>
       <div class="exp-show">

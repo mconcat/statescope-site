@@ -611,7 +611,7 @@ The frame part gives most, but not all, of the movement of the gate input; the r
     <article class="exp">
       <div class="exp-text">
         <h3 id="comparing-transform"><a href="#comparing-transform">Reading a transform that compares symbols</a></h3>
-        <p>Transform 357 in the layer-7 MLP dictionary fires when the current symbol is smaller than the symbol in the same slot of earlier lines. Its sibling transforms cover the other comparisons: transform 186 fires for “equal”, and transform 472 fires for “greater”.</p>
+        <p>Transform 357 in the layer-7 MLP dictionary fires when the current symbol is smaller than the symbol in the same slot of earlier lines. Transform 472 fires when the current symbol is greater than the symbol in the same slot of earlier lines, reliably in the JavaScript comparison and less reliably in plain lists. Transform 186 detects repeated tokens, including digits and other tokens, and does not fire on equal operands in the JavaScript comparison.</p>
       <p>We traced a circuit by hand for a JavaScript ternary expression, which chooses between two values according to a condition, and the same transform ranked first. At layer 7, the MLP dictionary’s reconstruction carried 0.89 of the MLP’s contribution, with an interval of 0.78 to 1.00. Two MLP neurons carried 0.80 of the same contribution.</p>
       </div>
       <div class="exp-show">
