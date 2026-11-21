@@ -8,11 +8,11 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>statescope: Tracing and editing state geometry in language models</title>
-<meta name="description" content="Explore what language models represent in their hidden states, which operations read those states, and how editing them changes predictions and generated code.">
+<title>statescope: Trace model computations through learned state groups</title>
+<meta name="description" content="Follow a signal through a learned state group, identify the operations that read it, and test how editing the state changes a language model’s predictions.">
 <meta property="og:type" content="website">
-<meta property="og:title" content="statescope: Tracing and editing state geometry in language models">
-<meta property="og:description" content="Explore what language models represent in their hidden states, which operations read those states, and how editing them changes predictions and generated code.">
+<meta property="og:title" content="statescope: Trace model computations through learned state groups">
+<meta property="og:description" content="Follow a signal through a learned state group, identify the operations that read it, and test how editing the state changes a language model’s predictions.">
 <meta property="og:site_name" content="statescope">
 <meta property="og:url" content="https://statescope.ai/">
 <meta property="og:image" content="https://statescope.ai/assets/og-card.png">
@@ -21,8 +21,8 @@
 <meta property="og:image:alt" content="Two Qwen experiments: line-end states converge after a memory write, and editing prompt states increases the frequency of raise or isinstance in generated code.">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:image" content="https://statescope.ai/assets/og-card.png">
-<meta name="twitter:title" content="statescope: Tracing and editing state geometry in language models">
-<meta name="twitter:description" content="Explore what language models represent in their hidden states, which operations read those states, and how editing them changes predictions and generated code.">
+<meta name="twitter:title" content="statescope: Trace model computations through learned state groups">
+<meta name="twitter:description" content="Follow a signal through a learned state group, identify the operations that read it, and test how editing the state changes a language model’s predictions.">
 <meta name="color-scheme" content="light dark">
 <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
 <link rel="preload" href="assets/fonts/site-sans-var.woff2" as="font" type="font/woff2" crossorigin>
@@ -36,8 +36,8 @@
 
 <header class="hero" id="top">
   <p class="project-name">statescope</p>
-  <h1>Tracing and editing state geometry in language models</h1>
-  <p class="sets">What does a language model keep in its hidden states? We trace how heads and MLPs use that information, then edit the states to see how the model’s predictions change. The current release includes state and MLP dictionaries for every layer of Qwen3.5-0.8B and Qwen3.5-4B, along with the reader.</p>
+  <h1>Trace model computations through learned state groups</h1>
+  <p class="sets">statescope pairs a dictionary of multidimensional states with a dictionary of MLP operations. We can follow a signal within one group, identify the operations that read it, and edit the state to test its effect on a prediction.</p>
   <nav class="links" aria-label="Code and weights">
     <a class="pill" href="https://github.com/mconcat/statescope"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M5.6 3.6 1.6 8l4 4.4M10.4 3.6l4 4.4-4 4.4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>Code</a>
     <a class="pill" href="https://huggingface.co/mconcat/statescope-qwen3.5-4b"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M8 1.8 14 5 8 8.2 2 5zM2 8l6 3.2L14 8M2 11l6 3.2 6-3.2" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>Weights for <span class="nw">Qwen3.5-4B</span></a>
@@ -49,7 +49,8 @@
 
 <section class="wrap research-overview" aria-labelledby="abstract">
   <h2 id="abstract">What changes when we edit a state?</h2>
-  <p class="research-intro">In Qwen3.5-0.8B, editing width memory shifts <a href="#example">line-break preference</a> toward earlier positions. <!--if geom-->In Qwen3.5-4B, editing neutral prompt tokens changes <a href="#prompt-states">the code generated later</a>.<!--endif geom--></p>
+  <p class="research-intro">We trained the state and MLP dictionaries separately, without line-counting labels or hand-picked counting directions. Across three line-wrapping conditions in Qwen3.5-0.8B, we found <a href="https://github.com/mconcat/statescope#what-the-baselines-show">the same four-dimensional state group</a>. Its coordinates tracked character count, and different MLP transforms read different parts of that range.</p>
+  <p class="research-intro">Editing the model’s memory of line width shifts <a href="#example">line-break preference</a> toward earlier positions. <!--if geom-->In Qwen3.5-4B, editing one state direction as the model reads a neutral prompt changes <a href="#prompt-states">the Python code it generates later</a>.<!--endif geom--></p>
   <div class="result-pair">
 <!--if trace-->
     <figure id="fig-overview" class="result">
@@ -770,10 +771,10 @@ python demo/line_count.py --release &lt;folder&gt; --device cuda:0 --out &lt;fol
 <section class="band tint" aria-labelledby="cite">
   <div class="wrap mid">
     <h2 id="cite">How to cite</h2>
-    <p class="citation">mconcat. statescope: Tracing and editing state geometry in language models. 2026. <a href="https://github.com/mconcat/statescope">https://github.com/mconcat/statescope</a></p>
+    <p class="citation">mconcat. statescope: Trace model computations through learned state groups. 2026. <a href="https://github.com/mconcat/statescope">https://github.com/mconcat/statescope</a></p>
     <div class="codeblock"><span class="lang">bibtex</span><pre><code>@misc{statescope,
   author = {mconcat},
-  title = {statescope: Tracing and editing state geometry in language models},
+  title = {statescope: Trace model computations through learned state groups},
   year = {2026},
   url = {https://github.com/mconcat/statescope},
   note = {Weights: https://huggingface.co/mconcat/statescope-qwen3.5-4b and https://huggingface.co/mconcat/statescope-qwen3.5-0.8b}

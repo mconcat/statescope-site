@@ -22,7 +22,7 @@ def main():
         page.add_style_tag(content="""
           body { box-sizing: border-box; padding: 38px 48px; width: 1200px; height: 630px; }
           .project-name { font-size: 24px; text-align: left; }
-          h1 { margin: 10px 0 28px; font-size: 44px; text-align: left; }
+          h1 { margin: 10px 0 28px; font-size: 40px; text-align: left; }
           .result-pair { gap: 20px; }
           .result-pair .result { padding: 20px 24px; }
           .result-model { font-size: 18px; }
