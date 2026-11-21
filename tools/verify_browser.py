@@ -566,6 +566,12 @@ async def run(args) -> None:
             log: list[str] = []
             ctx, page = await open_page(browser, url, width, height, scheme, log)
             await basic(page, name, width)
+            expect(await page.locator("#fig-lead .tok").first.is_visible(), f"{name}: wrapped text starts hidden")
+            if os.path.exists(os.path.join(HERE, "data", "trace.json")):
+                await page.wait_for_selector("#path-plot svg")
+                expect(await page.locator("#path-play").is_visible(), f"{name}: geometry controls start hidden")
+            expect(await page.locator("#evidence-block").get_attribute("open") is None,
+                   f"{name}: detailed counting evidence starts expanded")
             if args.shots:                                                    # before the interactions: the page as a reader first sees it
                 os.makedirs(args.shots, exist_ok=True)
                 await page.screenshot(path=os.path.join(args.shots, f"{name}.png"), full_page=True)

@@ -89,6 +89,100 @@
     </div>
 
 <!--if trace-->
+    <section id="story" aria-labelledby="geometry-heading">
+      <h3 id="geometry-heading">How the count curves fold at the memory write</h3>
+      <div class="story">
+        <div class="story-text">
+          <p>Each curve follows a different line width. The gold segments mark the last {{pv.highlight}} characters. <span class="needs-js">Press Play to follow the gold ends as the layer-12 mixer writes, or step through the layers one at a time.</span></p>
+          <p class="needs-js">Switch from “Characters so far” to “Characters remaining” to see which positions across the different widths move together.</p>
+          <details class="fold">
+            <summary>Follow the path layer by layer</summary>
+            <article class="story-step" data-stage="a" tabindex="0">
+              <h3 id="count">The line start resets a clock</h3>
+              <p>The first token of each line starts a new counting signal in the character-clock head (layer 9, head {{demo.head}}). Its cumulative log decay falls by {{lc.clock_low}} to {{lc.clock_high}} per character. The count appears as a curve in state group {{lc.g9}}.</p>
+            </article>
+            <article class="story-step" data-stage="a" tabindex="0">
+              <h3 id="cut">Straight cuts select ranges of count</h3>
+              <p>Each transform reads the count curve along one direction and switches on when that reading crosses its threshold (Figure {{fig|read}}). The short-line transform ({{demo.l9_transform_short}}) switches on at about {{lc.t410_on_slope}} times the line width and off at {{lc.t410_off_low}} to {{lc.t410_off_high}} characters. The long-line transform ({{demo.l9_transform_long}}) switches on at {{lc.t1749_on_low}} to {{lc.t1749_on_high}} characters. Neither fires a fixed distance before the line end.</p>
+            </article>
+            <article class="story-step" data-stage="b" tabindex="0">
+              <h3 id="width">Width supplies the missing distance</h3>
+              <p>The model must combine width with count to obtain the distance to the line end. Width already displaces the count curves into a sheet: per character, the displacement across widths is {{lc.sheet_ratio_low}} to {{lc.sheet_ratio_high}} as large as the movement along a line. A memory head (layer 12, head 13) reads width information from earlier lines. Layers 10 and 11 carry the sheet on.</p>
+            </article>
+            <article class="story-step" data-stage="c" tabindex="0">
+              <h3 id="write">One write brings the line ends together</h3>
+              <p>The same memory head multiplies its width-dependent read by a gate that follows the count, then adds the result to the residual stream. Its share of this mixer’s count curve, using the same within-width projection, is {{lc.h13_curve}}. Before the mixer's write, tokens with equal count sit close together across widths: their spread is {{pv.s4_count}}, against {{pv.s4_remaining}} at equal remaining characters. After the write, tokens with equal remaining characters sit close together: their spread is {{pv.s5_remaining}}, against {{pv.s5_count}} at equal count. We infer that the product converts the count code into a code for the remaining characters.</p>
+            </article>
+            <article class="story-step" data-stage="d" tabindex="0">
+              <h3 id="line-end">A straight cut now marks the line end</h3>
+              <p>The line-end reader in the layer-13 MLP (transform {{lc.t2490}}) fires {{lc.t2490_rem_low}} to {{lc.t2490_rem_high}} characters before the end across all {{lc.n_widths}} widths, and its cut is the straight line drawn at <code>resid_mid.13</code> in Figure {{fig|path}}, within {{pv.t2490_error}} characters of its measured switching points. Before the write, at <code>resid_mid.9</code>, no cut fires a fixed distance before the line end. Layer-12 transform {{lc.t2069}} fires {{lc.t2069_rem_low}} to {{lc.t2069_rem_high}} characters before the end, and layer-20 transform 130 fires at {{lc.t130_rem_low}} to {{lc.t130_rem_high}} remaining characters. Swapping the layer-12 or layer-13 reader has little effect on the final margin. The total shares for the layer-13 reader are {{trace|6|1|0}}, {{trace|6|1|1}} and {{trace|6|1|2}} across the three conditions. The layer-12 reader rounds to {{trace|6|0|0}} in each.</p>
+              <p>Downstream, head 15 of the layer-21 mixer writes directly toward the line-break decision, with {{lc.h15_remaining}} of the reproducible variation in its margin-directed write explained by remaining character count across width/count cells. Its direct shares of the decision difference are {{lc.h15_direct.count60}}, {{lc.h15_direct.count100}} and {{lc.h15_direct.width100}} in <code>count:60</code>, <code>count:100</code> and <code>width:100</code>, respectively.</p>
+            </article>
+          </details>
+        </div>
+        <figure id="fig-path" class="story-figure" data-aria="A mesh follows count and width through the model as the layer-12 mixer's write brings positions with equal remaining characters together." data-play="Play" data-pause="Pause" data-spread-count="Spread at equal count" data-spread-remaining="Spread at equal remaining characters" <!--if frames-->data-frame-holds="Share of shape inside frame" data-frame-shared="{{pv.frame_carried}} of {{pv.frame_directions}} directions shared with previous group" data-write-inside="Layer-12 mixer write share inside frame"<!--endif frames--> data-stage-a="The clock writes the count" data-stage-b="The sheet is carried onward" data-stage-c="Layer-12 mixer write combines width and count" data-stage-d="Straight cut near the line end" data-stage-e="Remaining characters stay together">
+          <div class="needs-js">
+            <div class="figure-head">
+              <div class="controls">
+                <div class="control"><button type="button" class="quiet play" id="path-play" aria-pressed="false">Play</button>
+                  <span class="stepper"><button type="button" class="quiet" id="path-prev" aria-label="Previous">&#8249;</button><button type="button" class="quiet" id="path-next" aria-label="Next">&#8250;</button></span></div>
+                <div class="control"><span class="label" id="path-colour-label">Colour by</span><div class="seg" role="group" aria-labelledby="path-colour-label" id="path-colour"><button type="button" data-value="count" aria-pressed="true">Characters so far</button><button type="button" data-value="remaining" aria-pressed="false">Characters remaining</button></div></div>
+              </div>
+            </div>
+            <div class="layer-readout" id="path-readout" aria-live="polite"></div>
+            <div class="plot" id="path-plot"></div>
+            <ul class="keys" aria-hidden="true">
+              <li><svg width="26" height="12"><path d="M2 6H24" class="mesh-end"/></svg>Last {{pv.highlight}} characters of each line</li>
+              <li><svg width="26" height="12"><path d="M2 6H24" class="mesh-connector"/></svg>Equal count across widths</li>
+              <li><svg width="26" height="12"><path d="M2 6H24" class="level-line"/><circle cx="13" cy="6" r="4" class="level-pt"/></svg>Joined measured switching points</li>
+              <!--if frames--><li><svg width="26" height="12"><path d="M2 1H24V11H2Z" class="level-side"/><path d="M2 11L24 1" class="level-line"/></svg>Straight cut with firing side shaded</li><!--endif frames-->
+              <li><svg width="26" height="12"><path d="M2 6H24" class="trail"/></svg>Line-end movement from the layer-12 mixer's write</li>
+              <!--if frames--><li><svg width="26" height="14"><path d="M4 12H22V2H4Z" class="frame-patch"/><path d="M4 12H22" class="frame-axis"/><path d="M4 12V2" class="frame-axis"/></svg>Frame directions and the plane between them</li><!--endif frames-->
+            </ul>
+          </div>
+          <p class="sample-note nojs-only">The static strip shows five stops along the path.</p>
+          <div class="path-strip nojs-only">
+            <figure class="strip-stop">{{pathstrip|0}}<figcaption>The clock writes the count</figcaption></figure>
+            <figure class="strip-stop">{{pathstrip|3}}<figcaption>The sheet is carried onward</figcaption></figure>
+            <figure class="strip-stop">{{pathstrip|5}}<figcaption>Layer-12 mixer write combines width and count</figcaption></figure>
+            <figure class="strip-stop">{{pathstrip|7}}<figcaption>Straight cut near the line end</figcaption></figure>
+            <figure class="strip-stop">{{pathstrip|8}}<figcaption>Remaining characters stay together</figcaption></figure>
+          </div>
+          <figcaption><b>Figure {{fig|path}}.</b> Thin connectors join positions with equal character counts across widths. After the write, the line ends lie closer together. The animation interpolates between stops in a common projection.
+            <details class="measurement"><summary>Projection, interpolation and clock measurements</summary>
+              <p>We use the first two of three common residual directions. The three capture {{pv.common_low}} to {{pv.common_high}} of each stop’s variation over count and width, and the two shown hold {{pv.view_share}} of that variance. Spread at equal count or equal remaining distance is the across-width variance divided by the total variance of those cells in this view.</p>
+              <p>Of the {{pv.stops}} stops, {{pv.measured}} are measured states from <code>resid_mid.9</code> to <code>resid_post.13</code>. The state immediately before the layer-12 write is the measured state after it minus the stored mixer output. Movement between stops is interpolated. During the write each cell moves by a fraction of its stored update.</p>
+              <p>The corner arrows mark the two group-frame directions closest to the view. Successive groups carry {{pv.frame_carried}} of {{pv.frame_directions}} directions at cosines of {{pv.frame_cos_low}} to {{pv.frame_cos_high}}. A straight cut is shown when it reproduces every measured switching point within {{pv.cut_tolerance}} characters and adds no crossings. Other lines join measured switching points.</p>
+              <p>The clock head (layer 9, head {{demo.head}}) writes along the line-start key with strength {{lc.beta_first}}. The linear fit of cumulative log decay against count has R² {{lc.clock_r2}} at every width. Its within-width projection onto the whole mixer’s count curve gives a share of {{lc.h10_curve}}.</p>
+            </details></figcaption>
+        </figure>
+      </div>
+    </section>
+<!--endif trace-->
+
+    <h3>Where the transforms fire in a wrapped text</h3>
+<figure class="teaser band tint" id="fig-lead">
+  <div class="wrap">
+  <ul class="keys" aria-hidden="true">
+    <li><span class="swatch a"></span>L8 transform {{demo.l8_transform}} is on</li>
+    <li><span class="swatch b"></span>L9 transform {{demo.l9_transform_short}} is on</li>
+    <li><span class="swatch c"></span>L9 transform {{demo.l9_transform_long}} is on</li>
+    <li><span class="swatch last"></span>last token, where the model must choose</li>
+  </ul>
+  <div class="lead-body">
+    <div class="tscroll" tabindex="0" role="region" aria-label="The last lines of one wrapped text, with a mark at each token where one of the three transforms is on">
+{{lead}}
+    </div>
+    <p class="narrow-note">The text scrolls sideways. Each strip below is one of its lines, scaled to fit.</p>
+{{strips}}
+{{rates}}
+    <p class="axis-title">Characters already in the line. Bars: fraction of tokens at which the transform is on.</p>
+  </div>
+  </div>
+  <figcaption><b>Figure {{fig|lead}}.</b> The last {{demo.lead_lines}} lines of a text wrapped at 100 characters, with one mark per token. L8 transform {{demo.l8_transform}} is on at the first token of each line. L9 transform {{demo.l9_transform_short}} is on while the line is short, and L9 transform {{demo.l9_transform_long}} turns on near the end of the line. <span class="fine">The dashed rule is the wrapping width, and the number after each line is the number of characters the line holds. The bars below use the same horizontal scale. They give the fraction of tokens at which each L9 transform is on, by the number of characters already in the line, over the clean texts of the two count cells. Lines longer than 60 characters occur only in the texts wrapped at 100. The text is item {{demo.lead_item}} of the cell <code>{{demo.lead_cell}}</code>, chosen by hand as a readable example; it is a re-wrapped excerpt from <code>HuggingFaceFW/fineweb-edu</code>, licensed under ODC-By 1.0.</span></figcaption>
+</figure>
+
+<!--if trace-->
     <h3 id="evidence">Editing width memory shifts line-break preference earlier</h3>
     <div class="split even causal">
       <div>
@@ -111,73 +205,9 @@
 <!--endif trace-->
 
     <details class="fold" id="evidence-block">
-      <summary>Explore the counting pathway, token by token</summary>
+      <summary>Inspect the counting measurements and controls</summary>
       <div class="fold-body">
-        <p class="guide">Follow the clock and memory write through the layers, then inspect the token-level gates and the margins of individual text pairs.</p>
-<!--if trace-->
-    <div class="story" id="story">
-      <div class="story-text">
-        <article class="story-step" data-stage="a" tabindex="0">
-          <h3 id="count">The line start resets a clock</h3>
-          <p>The first token of each line starts a new counting signal in the character-clock head (layer 9, head {{demo.head}}). Its cumulative log decay falls by {{lc.clock_low}} to {{lc.clock_high}} per character. The count appears as a curve in state group {{lc.g9}}.</p>
-        </article>
-        <article class="story-step" data-stage="a" tabindex="0">
-          <h3 id="cut">Straight cuts select ranges of count</h3>
-          <p>Each transform reads the count curve along one direction and switches on when that reading crosses its threshold (Figure {{fig|read}}). The short-line transform ({{demo.l9_transform_short}}) switches on at about {{lc.t410_on_slope}} times the line width and off at {{lc.t410_off_low}} to {{lc.t410_off_high}} characters. The long-line transform ({{demo.l9_transform_long}}) switches on at {{lc.t1749_on_low}} to {{lc.t1749_on_high}} characters. Neither fires a fixed distance before the line end.</p>
-        </article>
-        <article class="story-step" data-stage="b" tabindex="0">
-          <h3 id="width">Width supplies the missing distance</h3>
-          <p>The model must combine width with count to obtain the distance to the line end. Width already displaces the count curves into a sheet: per character, the displacement across widths is {{lc.sheet_ratio_low}} to {{lc.sheet_ratio_high}} as large as the movement along a line. A memory head (layer 12, head 13) reads width information from earlier lines. Layers 10 and 11 carry the sheet on.</p>
-        </article>
-        <article class="story-step" data-stage="c" tabindex="0">
-          <h3 id="write">One write brings the line ends together</h3>
-          <p>The same memory head multiplies its width-dependent read by a gate that follows the count, then adds the result to the residual stream. Its share of this mixer’s count curve, using the same within-width projection, is {{lc.h13_curve}}. Before the mixer's write, tokens with equal count sit close together across widths: their spread is {{pv.s4_count}}, against {{pv.s4_remaining}} at equal remaining characters. After the write, tokens with equal remaining characters sit close together: their spread is {{pv.s5_remaining}}, against {{pv.s5_count}} at equal count. We infer that the product converts the count code into a code for the remaining characters.</p>
-        </article>
-        <article class="story-step" data-stage="d" tabindex="0">
-          <h3 id="line-end">A straight cut now marks the line end</h3>
-          <p>The line-end reader in the layer-13 MLP (transform {{lc.t2490}}) fires {{lc.t2490_rem_low}} to {{lc.t2490_rem_high}} characters before the end across all {{lc.n_widths}} widths, and its cut is the straight line drawn at <code>resid_mid.13</code> in Figure {{fig|path}}, within {{pv.t2490_error}} characters of its measured switching points. Before the write, at <code>resid_mid.9</code>, no cut fires a fixed distance before the line end. Layer-12 transform {{lc.t2069}} fires {{lc.t2069_rem_low}} to {{lc.t2069_rem_high}} characters before the end, and layer-20 transform 130 fires at {{lc.t130_rem_low}} to {{lc.t130_rem_high}} remaining characters. Swapping the layer-12 or layer-13 reader has little effect on the final margin. The total shares for the layer-13 reader are {{trace|6|1|0}}, {{trace|6|1|1}} and {{trace|6|1|2}} across the three conditions. The layer-12 reader rounds to {{trace|6|0|0}} in each.</p>
-          <p>Downstream, head 15 of the layer-21 mixer writes directly toward the line-break decision, with {{lc.h15_remaining}} of the reproducible variation in its margin-directed write explained by remaining character count across width/count cells. Its direct shares of the decision difference are {{lc.h15_direct.count60}}, {{lc.h15_direct.count100}} and {{lc.h15_direct.width100}} in <code>count:60</code>, <code>count:100</code> and <code>width:100</code>, respectively.</p>
-        </article>
-      </div>
-      <figure id="fig-path" class="story-figure" data-aria="A mesh follows count and width through the model as the layer-12 mixer's write brings positions with equal remaining characters together." data-play="Play" data-pause="Pause" data-spread-count="Spread at equal count" data-spread-remaining="Spread at equal remaining characters" <!--if frames-->data-frame-holds="Share of shape inside frame" data-frame-shared="{{pv.frame_carried}} of {{pv.frame_directions}} directions shared with previous group" data-write-inside="Layer-12 mixer write share inside frame"<!--endif frames--> data-stage-a="The clock writes the count" data-stage-b="The sheet is carried onward" data-stage-c="Layer-12 mixer write combines width and count" data-stage-d="Straight cut near the line end" data-stage-e="Remaining characters stay together">
-        <div class="needs-js">
-          <div class="figure-head">
-            <div class="controls">
-              <div class="control"><button type="button" class="quiet play" id="path-play" aria-pressed="false">Play</button>
-                <span class="stepper"><button type="button" class="quiet" id="path-prev" aria-label="Previous">&#8249;</button><button type="button" class="quiet" id="path-next" aria-label="Next">&#8250;</button></span></div>
-              <div class="control"><span class="label" id="path-colour-label">Colour by</span><div class="seg" role="group" aria-labelledby="path-colour-label" id="path-colour"><button type="button" data-value="count" aria-pressed="true">Characters so far</button><button type="button" data-value="remaining" aria-pressed="false">Characters remaining</button></div></div>
-            </div>
-          </div>
-          <div class="layer-readout" id="path-readout" aria-live="polite"></div>
-          <div class="plot" id="path-plot"></div>
-          <ul class="keys" aria-hidden="true">
-            <li><svg width="26" height="12"><path d="M2 6H24" class="mesh-end"/></svg>Last {{pv.highlight}} characters of each line</li>
-            <li><svg width="26" height="12"><path d="M2 6H24" class="mesh-connector"/></svg>Equal count across widths</li>
-            <li><svg width="26" height="12"><path d="M2 6H24" class="level-line"/><circle cx="13" cy="6" r="4" class="level-pt"/></svg>Joined measured switching points</li>
-            <!--if frames--><li><svg width="26" height="12"><path d="M2 1H24V11H2Z" class="level-side"/><path d="M2 11L24 1" class="level-line"/></svg>Straight cut with firing side shaded</li><!--endif frames-->
-            <li><svg width="26" height="12"><path d="M2 6H24" class="trail"/></svg>Line-end movement from the layer-12 mixer's write</li>
-            <!--if frames--><li><svg width="26" height="14"><path d="M4 12H22V2H4Z" class="frame-patch"/><path d="M4 12H22" class="frame-axis"/><path d="M4 12V2" class="frame-axis"/></svg>Frame directions and the plane between them</li><!--endif frames-->
-          </ul>
-        </div>
-        <p class="sample-note nojs-only">The static strip shows five stops along the path.</p>
-        <div class="path-strip nojs-only">
-          <figure class="strip-stop">{{pathstrip|0}}<figcaption>The clock writes the count</figcaption></figure>
-          <figure class="strip-stop">{{pathstrip|3}}<figcaption>The sheet is carried onward</figcaption></figure>
-          <figure class="strip-stop">{{pathstrip|5}}<figcaption>Layer-12 mixer write combines width and count</figcaption></figure>
-          <figure class="strip-stop">{{pathstrip|7}}<figcaption>Straight cut near the line end</figcaption></figure>
-          <figure class="strip-stop">{{pathstrip|8}}<figcaption>Remaining characters stay together</figcaption></figure>
-        </div>
-        <figcaption><b>Figure {{fig|path}}.</b> Follow the gold ends of the curves as the layer-12 mixer writes. Thin connectors join positions with equal character counts across line widths. Switch to “Characters remaining” to see how positions at the same distance from a line end move together.
-          <details class="measurement"><summary>Projection, interpolation and clock measurements</summary>
-            <p>We use the first two of three common residual directions. The three capture {{pv.common_low}} to {{pv.common_high}} of each stop’s variation over count and width, and the two shown hold {{pv.view_share}} of that variance. Spread at equal count or equal remaining distance is the across-width variance divided by the total variance of those cells in this view.</p>
-            <p>Of the {{pv.stops}} stops, {{pv.measured}} are measured states from <code>resid_mid.9</code> to <code>resid_post.13</code>. The state immediately before the layer-12 write is the measured state after it minus the stored mixer output. Movement between stops is interpolated. During the write each cell moves by a fraction of its stored update.</p>
-            <p>The corner arrows mark the two group-frame directions closest to the view. Successive groups carry {{pv.frame_carried}} of {{pv.frame_directions}} directions at cosines of {{pv.frame_cos_low}} to {{pv.frame_cos_high}}. A straight cut is shown when it reproduces every measured switching point within {{pv.cut_tolerance}} characters and adds no crossings. Other lines join measured switching points.</p>
-            <p>The clock head (layer 9, head {{demo.head}}) writes along the line-start key with strength {{lc.beta_first}}. The linear fit of cumulative log decay against count has R² {{lc.clock_r2}} at every width. Its within-width projection onto the whole mixer’s count curve gives a share of {{lc.h10_curve}}.</p>
-          </details></figcaption>
-      </figure>
-    </div>
-<!--endif trace-->
-
+        <p class="guide">Inspect the gate thresholds, compare the shares along the trace and check the margins of individual text pairs.</p>
 <!--if curve-->
     <p class="lead read-intro">Figure {{fig|read}} shows how the layer-9 transforms {{demo.l9_transform_short}} and {{demo.l9_transform_long}} read the count curve along different directions and compare each reading with a threshold.</p>
     <figure class="needs-js" id="fig-read" data-arrow="Read direction" data-aria-plane="The count curve lies in a plane, with an arrow showing the chosen transform’s read direction, shading showing its firing rate and a marker showing the chosen count." data-aria-lines="The chart shows the mean gate input and mean frame part by character count, with a horizontal threshold line and a marker at the chosen count." data-aria-rate="The chart shows the chosen transform’s firing rate by character count, with a marker at the chosen count." data-line-threshold="Threshold" data-axis-x="Characters in the line" data-count="Characters in the line" data-readout-gate="Mean gate input" data-readout-frame="Mean frame part" data-readout-threshold="Threshold" data-readout-rate="Firing rate">
@@ -224,26 +254,6 @@ The frame part gives most, but not all, of the movement of the gate input; the r
 <!--endif curve-->
 
         <p>In Figure {{fig|lead}}, layer-8 transform {{demo.l8_transform}} fires on {{demo.t189_line_first}} of first tokens, {{demo.t189_newline}} of line-break tokens and {{demo.t189_other}} of other tokens. Layer-9 transform {{demo.l9_transform_short}} fires on {{rate|L9 transform 410|40-49}} to {{rate|L9 transform 410|30-39}} of tokens at counts of 20 to 49 characters, falling to {{rate|L9 transform 410|70-79}} at 70 to 79 characters. Transform {{demo.l9_transform_long}} fires on {{rate|L9 transform 1749|60-69}} of tokens below 70 characters and {{rate|L9 transform 1749|90-99}} at 90 to 99 characters.</p>
-<figure class="teaser band tint" id="fig-lead">
-  <div class="wrap">
-  <ul class="keys" aria-hidden="true">
-    <li><span class="swatch a"></span>L8 transform {{demo.l8_transform}} is on</li>
-    <li><span class="swatch b"></span>L9 transform {{demo.l9_transform_short}} is on</li>
-    <li><span class="swatch c"></span>L9 transform {{demo.l9_transform_long}} is on</li>
-    <li><span class="swatch last"></span>last token, where the model must choose</li>
-  </ul>
-  <div class="lead-body">
-    <div class="tscroll" tabindex="0" role="region" aria-label="The last lines of one wrapped text, with a mark at each token where one of the three transforms is on">
-{{lead}}
-    </div>
-    <p class="narrow-note">The text scrolls sideways. Each strip below is one of its lines, scaled to fit.</p>
-{{strips}}
-{{rates}}
-    <p class="axis-title">Characters already in the line. Bars: fraction of tokens at which the transform is on.</p>
-  </div>
-  </div>
-  <figcaption><b>Figure {{fig|lead}}.</b> The last {{demo.lead_lines}} lines of a text wrapped at 100 characters, with one mark per token. L8 transform {{demo.l8_transform}} is on at the first token of each line. L9 transform {{demo.l9_transform_short}} is on while the line is short, and L9 transform {{demo.l9_transform_long}} turns on near the end of the line. <span class="fine">The dashed rule is the wrapping width, and the number after each line is the number of characters the line holds. The bars below use the same horizontal scale. They give the fraction of tokens at which each L9 transform is on, by the number of characters already in the line, over the clean texts of the two count cells. Lines longer than 60 characters occur only in the texts wrapped at 100. The text is item {{demo.lead_item}} of the cell <code>{{demo.lead_cell}}</code>, chosen by hand as a readable example; it is a re-wrapped excerpt from <code>HuggingFaceFW/fineweb-edu</code>, licensed under ODC-By 1.0.</span></figcaption>
-</figure>
 
 <!--if trace-->
     <h3 id="trace-table">Shares along the trace</h3>
