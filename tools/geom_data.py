@@ -11,6 +11,8 @@ every number that the page states in a sentence becomes a fact with the file and
   compare_357/  figure_g9719_plane.json, rank_own_outcome.json, rank_spectrum.json    -> data/geom-4b.json "compare"
   steer_9167/   s2_hash_control.json, figure_9167.json                                -> data/geom-4b.json "steer"
   steer_state/  figure_state.json, NOTES.md (sentences read by pattern)               -> data/geom-4b.json "state"
+                tasks_old.json and tasks_new.json supply the evaluation requests when available.
+                out/D1/nbase.json and n_g2879_d2.json supply the paired greedy acronym answers.
 """
 from __future__ import annotations
 
@@ -364,7 +366,29 @@ def state_unit(facts, root: str, source) -> dict:
         fact = facts.items[f"su.{key}"]
         pct = f"{float(fact['display']):.1%}".replace(".0%", "%")
         facts.add(f"su.{key}_pct", pct, fact["source"], fact["how"] + ", expressed as a percentage")
-    return {"series": series, "controls": controls, "instructed": fixed(real["guard_rate"], 3)}
+    state = {"series": series, "controls": controls, "instructed": fixed(real["guard_rate"], 3)}
+    task_files = ["steer_state/tasks_old.json", "steer_state/tasks_new.json"]
+    if any(os.path.isfile(os.path.join(root, name)) for name in task_files):
+        tasks = {}
+        for name in task_files:
+            for task in load(root, name):
+                if task["split"] in ("held", "new"):
+                    assert task["name"] not in tasks, task["name"]
+                    tasks[task["name"]] = task["spec"]
+            source(name)
+        assert len(tasks) == int(facts.items["su.tasks"]["display"])
+        state["tasks"] = dict(sorted(tasks.items()))
+    example_runs = {"baseline": "steer_state/out/D1/nbase.json", "edited": "steer_state/out/D1/n_g2879_d2.json"}
+    if any(os.path.isfile(os.path.join(root, name)) for name in example_runs.values()):
+        answers = {}
+        for condition, name in example_runs.items():
+            runs = load(root, name)["rows"]
+            row, = (r for r in runs if r["task"] == "acronym" and r["mode"] == "greedy")
+            assert row["closed"]
+            answers[condition] = row["text"].split("```", 1)[0].rstrip()
+            source(name)
+        state["acronym_answers"] = answers
+    return state
 
 
 def four_b_geometry(facts, root: str) -> dict:

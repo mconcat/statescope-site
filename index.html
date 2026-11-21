@@ -538,16 +538,76 @@ The frame part gives most, but not all, of the movement of the gate input; the r
 
 <section class="band" aria-labelledby="prompt-states">
   <div class="wrap mid">
-    <h2 id="prompt-states"><a href="#prompt-states">Editing prompt states changes later code generation</a></h2>
-    <p>We asked Qwen3.5-4B to write Python functions. Every task in the main comparison ended with the same sentence, “Describe the arguments at the start of the function and keep the code easy to read.” We edited one direction in a four-dimensional state group on the sentence’s 17 tokens. We chose group 2879 at <code>resid_post.10</code> because it carried the largest component of the mean shift between the neutral sentence and a length-matched instruction to validate arguments. The edit ended 11 tokens before the last prompt token. All subsequent prompt and generated tokens ran normally.</p>
-    <p>For the task <code>acronym</code>, the neutral and edited prompts contain exactly the same words. Here are excerpts from the paired greedy runs. We chose the first task alphabetically that gained the scored syntax at twice the mean dose.</p>
+    <h2 id="prompt-states"><a href="#prompt-states">Can a prompt-state edit elicit an input check in generated Python?</a></h2>
+    <p class="lead">One task asked Qwen3.5-4B to turn a phrase like “Hello World” into the acronym “HW”. The request specified how to form the acronym and left the handling of empty input up to the model. Could we make the model add a check for bad input by changing its state as it read the request?</p>
+    <h3>The request the model saw</h3>
+    <p>This was the full user message in both runs. We applied the state edit only while the model read the final sentence, shown in bold.</p>
+    <blockquote class="task-prompt">Write a Python function named <code>`acronym`</code> that takes a phrase of words separated by spaces and returns the upper-case first letters of the words joined together. <strong>Describe the arguments at the start of the function and keep the code easy to read.</strong></blockquote>
+    <p>We used the same final sentence on 72 programming tasks. Each asked for one named function. Other requests included finding the longest prefix shared by a list of strings, keeping the even numbers in a list in their original order, and converting Fahrenheit to Celsius.</p>
+    <h3>How we chose what to edit</h3>
+    <p>On a separate set of sixteen tasks, we gave the model two versions of each request. One ended with the neutral sentence above. The other replaced it with “Validate the arguments at the start of the function and raise an error for invalid ones.” Both endings occupied 17 tokens. We measured the difference in their hidden states and averaged it over the tasks and sentence positions.</p>
+    <p>At the output of layer 10, we projected that mean difference into each state group. Group 2879, a four-dimensional subspace, had the largest projection. We used this projected vector as our edit. Its direction tells us which way the state moved when we asked for validation. Its length gives us a reference for how far to move it.</p>
+    <p>For the evaluation, we used the neutral wording in both conditions. In the edited run we added the same vector at each of the final sentence’s 17 token positions at <code>resid_post.10</code>. A mean dose adds the vector once, and twice the dose doubles its length. The edit ended 11 tokens before the last prompt token. All later prompt tokens and the entire answer ran normally.</p>
+    <h3>What changed in the acronym function</h3>
+    <p>These excerpts show where each greedy answer starts processing the input, just after its docstring. We chose the first task alphabetically that gained a <code>raise</code> statement or an <code>isinstance()</code> call at twice the mean dose.</p>
     <div class="split even sample-code">
-      <div><h3>Neutral prompt</h3><pre><code># Split the phrase into individual words based on spaces
+      <div><h4>Neutral prompt, no edit</h4><pre><code># Split the phrase into individual words based on spaces
 words = phrase.split()</code></pre></div>
-      <div><h3>Same prompt, state edited</h3><pre><code>if not phrase or not phrase.strip():
+      <div><h4>Same prompt, twice the mean dose</h4><pre><code>if not phrase or not phrase.strip():
     raise ValueError("The phrase cannot be empty or contain only whitespace.")</code></pre></div>
     </div>
-    <p>Across 216 outputs per condition, the fraction containing a <code>raise</code> statement or an <code>isinstance()</code> call rose from 31.9% to 48.6% at the instruction’s mean shift, and to 72.7% at twice that shift. The main sentence was also used to identify the direction. On the two held-out neutral sentences, the mean dose produced smaller shifts. The single direction on the main sentence exceeded pooled size-matched controls by +0.14 and +0.38 in absolute fraction at those two doses. Applying the eight largest group shifts together at their individual mean sizes gave 95.4%.</p>
+    <p>For “Hello World”, both functions return “HW”. For an empty string, the original returns an empty string. The edited version raises <code>ValueError</code> before it tries to build an acronym.</p>
+    <details class="measurement"><summary>Read both complete generated functions</summary>
+      <div class="split even sample-code">
+        <div><h4>No edit</h4><pre><code>def acronym(phrase: str) -&gt; str:
+    &quot;&quot;&quot;
+    Returns the acronym of a given phrase.
+   &#32;
+    The function takes a string containing words separated by spaces,
+    extracts the first letter of each word, converts it to uppercase,
+    and joins them together to form the acronym.
+   &#32;
+    Args:
+        phrase (str): A string containing words separated by spaces.
+       &#32;
+    Returns:
+        str: The acronym formed by the first letters of each word in uppercase.
+       &#32;
+    Example:
+        &gt;&gt;&gt; acronym(&quot;Hello World&quot;)
+        &#x27;HW&#x27;
+        &gt;&gt;&gt; acronym(&quot;Python Is Awesome&quot;)
+        &#x27;PIA&#x27;
+    &quot;&quot;&quot;
+    # Split the phrase into individual words based on spaces
+    words = phrase.split()
+   &#32;
+    # Extract the first letter of each word, convert to uppercase, and join them
+    return &#x27;&#x27;.join(word[0].upper() for word in words)</code></pre></div>
+        <div><h4>Twice the mean dose</h4><pre><code>def acronym(phrase: str) -&gt; str:
+    &quot;&quot;&quot;
+    Returns the uppercase first letters of each word in the given phrase.
+
+    Args:
+        phrase (str): A string containing words separated by spaces.
+                      The phrase should not be empty.
+
+    Returns:
+        str: A string formed by the first letter of each word in uppercase.
+
+    Raises:
+        ValueError: If the input phrase is empty or contains only whitespace.
+    &quot;&quot;&quot;
+    if not phrase or not phrase.strip():
+        raise ValueError(&quot;The phrase cannot be empty or contain only whitespace.&quot;)
+
+    # Split the phrase into words, strip each word to remove leading/trailing spaces,
+    # and take the first character of each word, converting it to uppercase.
+    return &#x27;&#x27;.join(word[0].upper() for word in phrase.split() if word)</code></pre></div>
+      </div>
+    </details>
+    <h3>How often the pattern appeared across tasks</h3>
+    <p>We generated three answers per task, giving 216 outputs per condition. We counted an output once if its parsed Python contained a <code>raise</code> statement or an <code>isinstance()</code> call. The rate rose from <strong>31.9%</strong> with no edit to <strong>48.6%</strong> at the mean dose and <strong>72.7%</strong> at twice that dose. This score measures the presence of either construct. Establishing whether a function handles bad input correctly would require running it on test cases.</p>
         <figure class="needs-js" id="fig-su" data-aria="The chart compares rates of outputs containing a raise statement or an isinstance call across doses for the main neutral sentence, the plain prompt and two other neutral sentences, with grey control marks and a horizontal line for the real instruction." data-axis-x="Dose relative to the instruction’s mean level" data-axis-y="Outputs containing raise or isinstance (fraction)" data-line-neutral="Main neutral sentence" data-line-plain="Plain prompt" data-line-second="Second neutral sentence" data-line-third="Third neutral sentence" data-instructed="With the real instruction" data-dose="Dose">
           <ul class="keys" aria-hidden="true">
             <li class="c-c"><svg width="26" height="12"><path d="M1 6H25" class="series s-unit"/></svg>Main neutral sentence</li>
@@ -560,11 +620,87 @@ words = phrase.split()</code></pre></div>
           <div class="layer-readout" id="su-readout" aria-live="polite"></div>
           <figcaption><b>Figure 12.</b> The chart shows the fraction of outputs containing a <code>raise</code> statement or an <code>isinstance()</code> call. Grey marks show control directions at the same doses, bars on the main series show 95% bootstrap intervals over tasks, and the horizontal line shows the real instruction on a separate greedy run of 104 tasks.</figcaption>
         </figure>
-    <p>With the actual validation instruction, subtracting this group’s mean shift from the instruction tokens left the rate at 100%. The direction can elicit the scored syntax on neutral prompts. The instruction can still elicit it after this subtraction.</p>
-    <p>Among outputs with a scored site, the first site appeared a median of 113 to 122 tokens into the answer across the reported conditions. In the four-times-dose control, supplying just the first 3 generated tokens from the edited answer to the unedited prompt gave 31.9%. Copying that prefix did not reproduce the increase.</p>
+    <p>On the main sentence, the chosen direction exceeded pooled controls of the same length by +0.14 and +0.38 in absolute fraction at the two doses. These controls included a different direction in the same group. The main wording was also used to find the direction. On two other neutral endings, the mean dose produced smaller changes. A separate edit that moved the eight largest groups together, each by its own mean shift, gave 95.4%.</p>
+    <p>Among answers with either construct, the first occurrence was typically well into the code. Across the reported conditions its median position was 113 to 122 tokens into the answer. In a control at four times the mean dose, we copied the first 3 generated tokens from the edited answer onto the unedited prompt, then let generation continue. The rate was 31.9%, the baseline rate.</p>
+    <p>This direction can elicit the scored syntax on a neutral prompt. When the prompt explicitly asked for validation, subtracting the group’s mean shift from the instruction tokens still left the rate at 100%. The model could follow the written request even after that component was removed.</p>
     <aside class="aside-note" aria-label="Sampling and scoring"><h3>Sampling and scoring</h3>
-      <p>For each of 72 evaluation tasks (32 held and 40 new), we generated one greedy and two seeded sampled completions, up to 512 new tokens each. Sampling used temperature 0.7 and top-p 0.8 within the top 512 logits. We disabled thinking and supplied the opening Python code fence.</p>
-      <p>The scorer took the code before the closing fence and parsed its longest valid line prefix. Any Python raise statement or direct call to <code>isinstance</code> in the syntax tree counted once per output. Outputs without a parseable prefix scored zero. This measures syntax. Whether a function rejects invalid arguments correctly requires a separate test.</p>
+      <p>The evaluation combined 32 held-out tasks with 40 new ones. Each had one greedy completion and two seeded sampled completions, up to 512 new tokens each. Sampling used temperature 0.7 and top-p 0.8 within the top 512 logits. We disabled thinking and supplied the opening Python code fence.</p>
+      <p>The scorer took the code before the closing fence and parsed its longest valid line prefix. A Python <code>raise</code> statement or a direct call to <code>isinstance</code> anywhere in that syntax tree counted. Outputs without a parseable prefix scored zero.</p>
+      <details class="measurement"><summary>Read all 72 evaluation tasks</summary>
+        <p>Each prompt began “Write a Python function named … that …” and used the name and specification below. The main comparison appended the neutral sentence shown above.</p>
+        <dl class="python-tasks"><div><dt><code>acronym</code></dt><dd>takes a phrase of words separated by spaces and returns the upper-case first letters of the words joined together.</dd></div>
+<div><dt><code>argmax</code></dt><dd>takes a non-empty list of numbers and returns the index of the largest element (the first such index if it occurs several times).</dd></div>
+<div><dt><code>armstrong</code></dt><dd>takes a positive integer and returns True if it equals the sum of its digits each raised to the number of digits.</dd></div>
+<div><dt><code>average</code></dt><dd>takes a list of numbers and returns their arithmetic mean, or 0 for an empty list.</dd></div>
+<div><dt><code>between</code></dt><dd>takes three numbers x, low and high and returns True if x lies between low and high, both ends included.</dd></div>
+<div><dt><code>binary</code></dt><dd>takes a non-negative integer and returns its binary representation as a string without any prefix.</dd></div>
+<div><dt><code>bits</code></dt><dd>takes a string of 0 and 1 characters and returns the integer it represents in binary (an empty string gives 0).</dd></div>
+<div><dt><code>caesar</code></dt><dd>takes a string and a non-negative integer shift and returns the string with every letter moved forward in the alphabet by that many places (wrapping around from z to a and keeping the case); other characters stay unchanged.</dd></div>
+<div><dt><code>calc</code></dt><dd>takes a string with two non-negative integers separated by one of the operators +, - or * (with optional spaces, such as &#x27;3 + 4&#x27;) and returns the integer result.</dd></div>
+<div><dt><code>capitalize</code></dt><dd>takes a string of words separated by single spaces and returns it with the first letter of every word in upper case and the other letters unchanged.</dd></div>
+<div><dt><code>celsius</code></dt><dd>takes a temperature in degrees Fahrenheit and returns it in degrees Celsius, rounded to one decimal place.</dd></div>
+<div><dt><code>center</code></dt><dd>takes a string and a width and returns the string padded with spaces on both sides to that width (the extra space goes to the right if the padding is odd); strings longer than the width are returned unchanged.</dd></div>
+<div><dt><code>chunks</code></dt><dd>takes a list and a positive integer n and returns a list of consecutive chunks of length n (the last chunk may be shorter).</dd></div>
+<div><dt><code>collatz</code></dt><dd>takes a positive integer and returns the number of steps the Collatz process needs to reach 1 (an even number is halved, an odd number n is replaced by 3n + 1).</dd></div>
+<div><dt><code>common</code></dt><dd>takes a list of strings and returns the longest prefix shared by all of them (an empty string for an empty list).</dd></div>
+<div><dt><code>compress</code></dt><dd>takes a string and returns its run-length encoding: every run of the same character becomes the character followed by the length of the run (for example &#x27;aaabcc&#x27; becomes &#x27;a3b1c2&#x27;).</dd></div>
+<div><dt><code>consonants</code></dt><dd>takes a string and returns the number of letters in it that are not vowels (a, e, i, o, u; upper or lower case).</dd></div>
+<div><dt><code>csvrow</code></dt><dd>takes one line of comma-separated values (without quoting) and returns the list of the fields with surrounding whitespace removed.</dd></div>
+<div><dt><code>cumulative</code></dt><dd>takes a list of numbers and returns the list of the largest value seen so far at each position.</dd></div>
+<div><dt><code>digits</code></dt><dd>takes a non-negative integer and returns the sum of its decimal digits.</dd></div>
+<div><dt><code>digitsum</code></dt><dd>takes a non-negative integer and returns the sum of its decimal digits.</dd></div>
+<div><dt><code>evens</code></dt><dd>takes a list of integers and returns the list of the even ones in their original order.</dd></div>
+<div><dt><code>expand</code></dt><dd>takes a string such as &#x27;1-3,5,7-9&#x27; (comma-separated non-negative integers and inclusive ranges) and returns the list of all the integers, in the order written.</dd></div>
+<div><dt><code>extension</code></dt><dd>takes a file name and returns its extension without the dot in lower case, or an empty string if the name has no dot.</dd></div>
+<div><dt><code>factorial</code></dt><dd>takes a non-negative integer n and returns n factorial.</dd></div>
+<div><dt><code>factors</code></dt><dd>takes an integer greater than 1 and returns the list of its prime factors in ascending order, with repetition.</dd></div>
+<div><dt><code>fraction</code></dt><dd>takes a string such as &#x27;3/4&#x27; and returns the pair of its numerator and denominator as integers.</dd></div>
+<div><dt><code>frequent</code></dt><dd>takes a list of strings and a positive integer n and returns the n most frequent strings, most frequent first, ties broken by first occurrence.</dd></div>
+<div><dt><code>groups</code></dt><dd>takes a list of non-empty strings and returns a dictionary mapping each first letter to the list of the strings starting with that letter, in their original order.</dd></div>
+<div><dt><code>hamming</code></dt><dd>takes two strings of equal length and returns the number of positions at which they differ.</dd></div>
+<div><dt><code>initial</code></dt><dd>takes a string and returns the first character that occurs exactly once in it, or None if there is no such character.</dd></div>
+<div><dt><code>interleave</code></dt><dd>takes two strings and returns a string made by alternating their characters, starting with the first string; when one string runs out, the rest of the other is appended.</dd></div>
+<div><dt><code>ints</code></dt><dd>takes a string and returns the list of all non-negative integers (maximal runs of digits) that appear in it, in order, as integers.</dd></div>
+<div><dt><code>invert</code></dt><dd>takes a dictionary whose values are all different and returns a dictionary that maps each value to its key.</dd></div>
+<div><dt><code>isodate</code></dt><dd>takes a date written as &#x27;YYYY-MM-DD&#x27; and returns a tuple of three integers: year, month and day.</dd></div>
+<div><dt><code>isogram</code></dt><dd>takes a word and returns True if no letter occurs more than once in it, ignoring case.</dd></div>
+<div><dt><code>isqrt</code></dt><dd>takes a non-negative integer and returns the largest integer whose square is not larger than it, without using the math module.</dd></div>
+<div><dt><code>issorted</code></dt><dd>takes a list of numbers and returns True if it is in non-decreasing order.</dd></div>
+<div><dt><code>lastindex</code></dt><dd>takes a list and a value and returns the index of the last element equal to that value, or -1 if there is none.</dd></div>
+<div><dt><code>lcm</code></dt><dd>takes two positive integers and returns their least common multiple.</dd></div>
+<div><dt><code>mask</code></dt><dd>takes a string and returns it with every character except the last four replaced by &#x27;#&#x27;; strings of four characters or fewer are returned unchanged.</dd></div>
+<div><dt><code>mode</code></dt><dd>takes a non-empty list of integers and returns the value that occurs most often; if several values tie, the smallest of them.</dd></div>
+<div><dt><code>ordinal</code></dt><dd>takes a positive integer and returns it as a string with its English ordinal suffix (1st, 2nd, 3rd, 4th, 11th, 12th, 13th, 21st and so on).</dd></div>
+<div><dt><code>pairsum</code></dt><dd>takes a list of integers and a target and returns True if two elements at different positions add up to the target.</dd></div>
+<div><dt><code>palindrome</code></dt><dd>takes a string and returns True if it reads the same forwards and backwards, ignoring case and every character that is not a letter or a digit.</dd></div>
+<div><dt><code>parsetime</code></dt><dd>takes a time written as &#x27;HH:MM&#x27; on a 24-hour clock and returns the number of minutes since midnight.</dd></div>
+<div><dt><code>partition</code></dt><dd>takes a list of integers and returns a tuple of two lists: the even numbers and the odd numbers, each in their original order.</dd></div>
+<div><dt><code>percent</code></dt><dd>takes a part and a whole (the whole is not zero) and returns the part as a percentage of the whole, rounded to two decimal places.</dd></div>
+<div><dt><code>power</code></dt><dd>takes an integer base and a non-negative integer exponent and returns the base raised to the exponent without using the ** operator or pow.</dd></div>
+<div><dt><code>prime</code></dt><dd>takes an integer and returns True if it is a prime number (integers below 2 are not prime).</dd></div>
+<div><dt><code>product</code></dt><dd>takes a list of numbers and returns the product of all of them (1 for an empty list).</dd></div>
+<div><dt><code>query</code></dt><dd>takes a URL query string such as &#x27;a=1&amp;b=2&#x27; and returns a dictionary of its keys and values as strings (an empty string gives an empty dictionary).</dd></div>
+<div><dt><code>remove</code></dt><dd>takes a list and a value and returns a new list without any element equal to that value.</dd></div>
+<div><dt><code>repeat</code></dt><dd>takes a string and a non-negative integer n and returns the string repeated n times, with a single hyphen between the copies.</dd></div>
+<div><dt><code>roman</code></dt><dd>takes an integer between 1 and 3999 and returns its Roman numeral as a string.</dd></div>
+<div><dt><code>rotatelist</code></dt><dd>takes a list and a non-negative integer k and returns the list rotated to the right by k positions (k may be larger than the length; an empty list stays empty).</dd></div>
+<div><dt><code>running</code></dt><dd>takes a list of numbers and returns the list of running totals (the i-th element is the sum of the first i + 1 inputs).</dd></div>
+<div><dt><code>second</code></dt><dd>takes a list of integers with at least two distinct values and returns the second largest distinct value.</dd></div>
+<div><dt><code>shift</code></dt><dd>takes a list and a non-negative integer k and returns a new list rotated to the right by k positions (k may be larger than the length; an empty list stays empty).</dd></div>
+<div><dt><code>sign</code></dt><dd>takes a number and returns -1 if it is negative, 0 if it is zero and 1 if it is positive.</dd></div>
+<div><dt><code>slug</code></dt><dd>takes a title and returns it in lower case with every run of characters that are not letters or digits replaced by a single hyphen and with no hyphen at the start or the end.</dd></div>
+<div><dt><code>split</code></dt><dd>takes a list and an index i and returns a pair of lists: the first i elements and the rest.</dd></div>
+<div><dt><code>spread</code></dt><dd>takes a non-empty list of numbers and returns the difference between the largest and the smallest of them.</dd></div>
+<div><dt><code>swapcase</code></dt><dd>takes a string and returns it with every upper-case letter turned into lower case and every lower-case letter into upper case.</dd></div>
+<div><dt><code>triangle</code></dt><dd>takes three positive numbers and returns True if they can be the side lengths of a triangle with positive area.</dd></div>
+<div><dt><code>truthy</code></dt><dd>takes a string and returns True for &#x27;true&#x27;, &#x27;yes&#x27;, &#x27;on&#x27; or &#x27;1&#x27; and False for &#x27;false&#x27;, &#x27;no&#x27;, &#x27;off&#x27; or &#x27;0&#x27; (ignoring case and surrounding spaces); for any other input it returns None.</dd></div>
+<div><dt><code>unique</code></dt><dd>takes a string and returns True if no character occurs more than once in it.</dd></div>
+<div><dt><code>version</code></dt><dd>takes two version strings of dot-separated non-negative integers (such as &#x27;1.2.10&#x27;) and returns -1, 0 or 1 if the first is lower than, equal to or higher than the second; missing parts count as 0.</dd></div>
+<div><dt><code>window</code></dt><dd>takes a list of numbers and a positive integer k and returns the list of the sums of every window of k consecutive elements (an empty list if the list has fewer than k elements).</dd></div>
+<div><dt><code>wordcount</code></dt><dd>takes a string and returns a dictionary mapping each word (words are separated by whitespace and compared in lower case) to the number of times it occurs.</dd></div>
+<div><dt><code>zipdict</code></dt><dd>takes a list of keys and a list of values of the same length and returns a dictionary that maps each key to the value at the same position.</dd></div>
+<div><dt><code>zipsum</code></dt><dd>takes two lists of numbers of the same length and returns the list of the sums of the elements at the same positions.</dd></div></dl>
+      </details>
     </aside>
   </div>
 </section>

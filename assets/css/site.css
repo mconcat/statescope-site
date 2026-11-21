@@ -428,7 +428,19 @@ pre,
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 1rem;
 }
-.sample-code h3 {
+.task-prompt {
+  margin: 1.2rem 0;
+  padding: .85rem 1.25rem;
+  border-inline-start: 3px solid var(--u410);
+  background: var(--paper);
+}
+.python-tasks > div {
+  padding: .6rem 0;
+  border-bottom: 1px solid var(--line-soft);
+}
+.python-tasks dt { font-weight: 650; }
+.python-tasks dd { margin: .2rem 0 0; }
+.sample-code h4 {
   margin: 0 0 .5rem;
   font-size: 1rem;
 }

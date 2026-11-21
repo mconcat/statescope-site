@@ -13,6 +13,8 @@ Placeholders of the template (an unknown one stops the build):
   {{rates}}                    the firing-rate chart of the first figure, built from data/demo.json
   {{toc}}                      the list of sections (every <h2 id=...> of the page)
   {{fig|<name>}}               the number of <figure id="fig-<name>">, counted in page order
+  {{python_tasks}}             evaluation function names and specifications, when provided by the prompt-state analysis
+  {{python_answer|<condition>}}   the saved greedy acronym answer in the baseline or edited run
   {{steer|<cell>|<swap>|<dose>}}   share on all items of a cell at one dose, from data/steer.json
 Blocks:
   <!--if 4b--> ... <!--endif 4b-->        kept only when data/layers-4b.json exists
@@ -304,6 +306,9 @@ def main() -> None:
     page = conditional(page, "curve", exists("count-curve.json"))
     page = conditional(page, "trace", exists("trace.json"))
     page = conditional(page, "geom", exists("geom-4b.json"))
+    prompt_study = data("geom-4b.json")["state"] if exists("geom-4b.json") else {}
+    page = conditional(page, "python-tasks", bool(prompt_study.get("tasks")), inside="geom-4b.json")
+    page = conditional(page, "python-answers", bool(prompt_study.get("acronym_answers")), inside="geom-4b.json")
     trace = data("trace.json") if exists("trace.json") else None
     page = conditional(page, "frames", bool(trace) and "frame" in trace["path"]["stops"][0], inside="trace.json")
     steer = data("steer.json") if exists("steer.json") else None
@@ -336,6 +341,11 @@ def main() -> None:
             return data("splice.json")["rows"][-1]["state"]
         if key == "references":
             return references()
+        if key == "python_tasks":
+            return "\n".join(f"<div><dt><code>{esc(name)}</code></dt><dd>{esc(spec)}.</dd></div>" for name, spec in prompt_study["tasks"].items())
+        if parts[0] == "python_answer":
+            # Preserve whitespace inside the original docstrings without trailing spaces in the HTML source.
+            return esc(prompt_study["acronym_answers"][parts[1]]).replace(" \n", "&#32;\n")
         if parts[0] == "rate":
             return next(b["rate"] for b in demo["firing_rate"][parts[1]]["by_chars_in_line"] if b["bin"] == parts[2])
         if key == "lead":

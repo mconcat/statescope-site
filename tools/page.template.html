@@ -470,16 +470,33 @@ The frame part gives most, but not all, of the movement of the gate input; the r
 <!--if geom-->
 <section class="band" aria-labelledby="prompt-states">
   <div class="wrap mid">
-    <h2 id="prompt-states">Editing prompt states changes later code generation</h2>
-    <p>We asked Qwen3.5-4B to write Python functions. Every task in the main comparison ended with the same sentence, “Describe the arguments at the start of the function and keep the code easy to read.” We edited one direction in a four-dimensional state group on the sentence’s {{su.tokens}} tokens. We chose group {{su.group}} at <code>resid_post.{{su.layer}}</code> because it carried the largest component of the mean shift between the neutral sentence and a length-matched instruction to validate arguments. The edit ended {{su.gap}} tokens before the last prompt token. All subsequent prompt and generated tokens ran normally.</p>
-    <p>For the task <code>acronym</code>, the neutral and edited prompts contain exactly the same words. Here are excerpts from the paired greedy runs. We chose the first task alphabetically that gained the scored syntax at twice the mean dose.</p>
+    <h2 id="prompt-states">Can a prompt-state edit elicit an input check in generated Python?</h2>
+    <p class="lead">One task asked Qwen3.5-4B to turn a phrase like “Hello World” into the acronym “HW”. The request specified how to form the acronym and left the handling of empty input up to the model. Could we make the model add a check for bad input by changing its state as it read the request?</p>
+    <h3>The request the model saw</h3>
+    <p>This was the full user message in both runs. We applied the state edit only while the model read the final sentence, shown in bold.</p>
+    <blockquote class="task-prompt">Write a Python function named <code>`acronym`</code> that takes a phrase of words separated by spaces and returns the upper-case first letters of the words joined together. <strong>Describe the arguments at the start of the function and keep the code easy to read.</strong></blockquote>
+    <p>We used the same final sentence on {{su.tasks}} programming tasks. Each asked for one named function. Other requests included finding the longest prefix shared by a list of strings, keeping the even numbers in a list in their original order, and converting Fahrenheit to Celsius.</p>
+    <h3>How we chose what to edit</h3>
+    <p>On a separate set of sixteen tasks, we gave the model two versions of each request. One ended with the neutral sentence above. The other replaced it with “Validate the arguments at the start of the function and raise an error for invalid ones.” Both endings occupied {{su.tokens}} tokens. We measured the difference in their hidden states and averaged it over the tasks and sentence positions.</p>
+    <p>At the output of layer {{su.layer}}, we projected that mean difference into each state group. Group {{su.group}}, a four-dimensional subspace, had the largest projection. We used this projected vector as our edit. Its direction tells us which way the state moved when we asked for validation. Its length gives us a reference for how far to move it.</p>
+    <p>For the evaluation, we used the neutral wording in both conditions. In the edited run we added the same vector at each of the final sentence’s {{su.tokens}} token positions at <code>resid_post.{{su.layer}}</code>. A mean dose adds the vector once, and twice the dose doubles its length. The edit ended {{su.gap}} tokens before the last prompt token. All later prompt tokens and the entire answer ran normally.</p>
+    <h3>What changed in the acronym function</h3>
+    <p>These excerpts show where each greedy answer starts processing the input, just after its docstring. We chose the first task alphabetically that gained a <code>raise</code> statement or an <code>isinstance()</code> call at twice the mean dose.</p>
     <div class="split even sample-code">
-      <div><h3>Neutral prompt</h3><pre><code># Split the phrase into individual words based on spaces
+      <div><h4>Neutral prompt, no edit</h4><pre><code># Split the phrase into individual words based on spaces
 words = phrase.split()</code></pre></div>
-      <div><h3>Same prompt, state edited</h3><pre><code>if not phrase or not phrase.strip():
+      <div><h4>Same prompt, twice the mean dose</h4><pre><code>if not phrase or not phrase.strip():
     raise ValueError("The phrase cannot be empty or contain only whitespace.")</code></pre></div>
     </div>
-    <p>Across {{su.rows}} outputs per condition, the fraction containing a <code>raise</code> statement or an <code>isinstance()</code> call rose from {{su.rate0_pct}} to {{su.rate1_pct}} at the instruction’s mean shift, and to {{su.rate2_pct}} at twice that shift. The main sentence was also used to identify the direction. On the two held-out neutral sentences, the mean dose produced smaller shifts. The single direction on the main sentence exceeded pooled size-matched controls by {{su.minus1}} and {{su.minus2}} in absolute fraction at those two doses. Applying the eight largest group shifts together at their individual mean sizes gave {{su.eight_rate_pct}}.</p>
+    <p>For “Hello World”, both functions return “HW”. For an empty string, the original returns an empty string. The edited version raises <code>ValueError</code> before it tries to build an acronym.</p>
+    <!--if python-answers--><details class="measurement"><summary>Read both complete generated functions</summary>
+      <div class="split even sample-code">
+        <div><h4>No edit</h4><pre><code>{{python_answer|baseline}}</code></pre></div>
+        <div><h4>Twice the mean dose</h4><pre><code>{{python_answer|edited}}</code></pre></div>
+      </div>
+    </details><!--endif python-answers-->
+    <h3>How often the pattern appeared across tasks</h3>
+    <p>We generated three answers per task, giving {{su.rows}} outputs per condition. We counted an output once if its parsed Python contained a <code>raise</code> statement or an <code>isinstance()</code> call. The rate rose from <strong>{{su.rate0_pct}}</strong> with no edit to <strong>{{su.rate1_pct}}</strong> at the mean dose and <strong>{{su.rate2_pct}}</strong> at twice that dose. This score measures the presence of either construct. Establishing whether a function handles bad input correctly would require running it on test cases.</p>
         <figure class="needs-js" id="fig-su" data-aria="The chart compares rates of outputs containing a raise statement or an isinstance call across doses for the main neutral sentence, the plain prompt and two other neutral sentences, with grey control marks and a horizontal line for the real instruction." data-axis-x="Dose relative to the instruction’s mean level" data-axis-y="Outputs containing raise or isinstance (fraction)" data-line-neutral="Main neutral sentence" data-line-plain="Plain prompt" data-line-second="Second neutral sentence" data-line-third="Third neutral sentence" data-instructed="With the real instruction" data-dose="Dose">
           <ul class="keys" aria-hidden="true">
             <li class="c-c"><svg width="26" height="12"><path d="M1 6H25" class="series s-unit"/></svg>Main neutral sentence</li>
@@ -492,11 +509,16 @@ words = phrase.split()</code></pre></div>
           <div class="layer-readout" id="su-readout" aria-live="polite"></div>
           <figcaption><b>Figure {{fig|su}}.</b> The chart shows the fraction of outputs containing a <code>raise</code> statement or an <code>isinstance()</code> call. Grey marks show control directions at the same doses, bars on the main series show 95% bootstrap intervals over tasks, and the horizontal line shows the real instruction on a separate greedy run of {{su.reference_tasks}} tasks.</figcaption>
         </figure>
-    <p>With the actual validation instruction, subtracting this group’s mean shift from the instruction tokens left the rate at {{su.removed_pct}}. The direction can elicit the scored syntax on neutral prompts. The instruction can still elicit it after this subtraction.</p>
-    <p>Among outputs with a scored site, the first site appeared a median of {{su.first_low}} to {{su.first_high}} tokens into the answer across the reported conditions. In the four-times-dose control, supplying just the first {{su.forced_tokens}} generated tokens from the edited answer to the unedited prompt gave {{su.forced_rate_pct}}. Copying that prefix did not reproduce the increase.</p>
+    <p>On the main sentence, the chosen direction exceeded pooled controls of the same length by {{su.minus1}} and {{su.minus2}} in absolute fraction at the two doses. These controls included a different direction in the same group. The main wording was also used to find the direction. On two other neutral endings, the mean dose produced smaller changes. A separate edit that moved the eight largest groups together, each by its own mean shift, gave {{su.eight_rate_pct}}.</p>
+    <p>Among answers with either construct, the first occurrence was typically well into the code. Across the reported conditions its median position was {{su.first_low}} to {{su.first_high}} tokens into the answer. In a control at four times the mean dose, we copied the first {{su.forced_tokens}} generated tokens from the edited answer onto the unedited prompt, then let generation continue. The rate was {{su.forced_rate_pct}}, the baseline rate.</p>
+    <p>This direction can elicit the scored syntax on a neutral prompt. When the prompt explicitly asked for validation, subtracting the group’s mean shift from the instruction tokens still left the rate at {{su.removed_pct}}. The model could follow the written request even after that component was removed.</p>
     <aside class="aside-note" aria-label="Sampling and scoring"><h3>Sampling and scoring</h3>
-      <p>For each of {{su.tasks}} evaluation tasks (32 held and 40 new), we generated one greedy and two seeded sampled completions, up to 512 new tokens each. Sampling used temperature 0.7 and top-p 0.8 within the top 512 logits. We disabled thinking and supplied the opening Python code fence.</p>
-      <p>The scorer took the code before the closing fence and parsed its longest valid line prefix. Any Python raise statement or direct call to <code>isinstance</code> in the syntax tree counted once per output. Outputs without a parseable prefix scored zero. This measures syntax. Whether a function rejects invalid arguments correctly requires a separate test.</p>
+      <p>The evaluation combined 32 held-out tasks with 40 new ones. Each had one greedy completion and two seeded sampled completions, up to 512 new tokens each. Sampling used temperature 0.7 and top-p 0.8 within the top 512 logits. We disabled thinking and supplied the opening Python code fence.</p>
+      <p>The scorer took the code before the closing fence and parsed its longest valid line prefix. A Python <code>raise</code> statement or a direct call to <code>isinstance</code> anywhere in that syntax tree counted. Outputs without a parseable prefix scored zero.</p>
+      <!--if python-tasks--><details class="measurement"><summary>Read all {{su.tasks}} evaluation tasks</summary>
+        <p>Each prompt began “Write a Python function named … that …” and used the name and specification below. The main comparison appended the neutral sentence shown above.</p>
+        <dl class="python-tasks">{{python_tasks}}</dl>
+      </details><!--endif python-tasks-->
     </aside>
   </div>
 </section>
