@@ -52,7 +52,8 @@ Optional parts, each left out of the page when its option is not given:
   the analysis found to be straight there; without it the cuts are joined crossing points and no frame is drawn.
 - `tools/study_data.py` reads the subspace comparison and its intervals from the repository’s `docs/l9-state-subspaces.csv` into
   `data/state-subspaces.json`. With `--geom` it builds `width-edit.json` from the public width-demo table, M6 and the M7
-  document intervals, and `generated-lines.json` from M7 line lengths, histograms and the first paired continuations.
+  document intervals, and `generated-lines.json` from M7’s sampled continuations. It checks every measured line against the
+  preregistered line rule and ships per-document lengths for all 96 documents, with paired texts and prompt endings for the first 12.
   With the 4B set it builds `code-behaviour.json` from `steer_state/x1_out/tables.json`. The build also reads measured
   qualifications in `site_audit_2026-11-21/site_corrections.md` under the geometry root. Each dataset lists its sources.
 - `--steer`: the dose figure (`data/steer.json`), from one run of a script that scales the demonstration's swaps. The build

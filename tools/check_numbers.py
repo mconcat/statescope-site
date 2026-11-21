@@ -114,21 +114,35 @@ def check_study(args, page, facts):
               chart["counts"] == list(map(str, raw["count"])) and chart["arms"][key] == expected)
     gen = site("generated-lines.json")
     raw = source("line_count/m7_results.json")
+    texts = source("line_count/m7_texts.json")
+    main_arms = ["none", "head:40", "frame:40", "state:40", "ref:40"]
+    check("42. plotted arms and controls in comparison order",
+          main_arms + ["perm:40", "state_rand:40", "state_other:40"], list(gen["rows"]))
     bad = []
     for key, row in gen["rows"].items():
         sample = raw["arms"][key]["sampled"]
-        values = [x for doc in sample["line_lengths_by_document"] for x in doc]
+        # Count the original characters, including any leading/trailing spaces.
+        docs = [[len(s) for s in text.split("\n")[:-1] if s.strip()] for text in texts["arms"][key]["sampled"]["text"]]
+        values = [x for doc in docs for x in doc]
         bins = [sum(lo <= v < lo+10 for v in values) for lo in range(0, 120, 10)] + [sum(v >= 120 for v in values)]
         lo, hi = sample["median_ci95"]
         median = f"{statistics.median(values):g} [{round(lo, 1):g}, {round(hi, 1):g}]"
         expected = [bins, f"{len(values):,}", median, f"{statistics.mean(values):.1f}",
                     f"{sum(v <= 60 for v in values)/len(values):.1%}", f"{sum(v >= 80 for v in values)/len(values):.1%}"]
-        if expected != [row[k] for k in ("bins", "lines", "median", "mean", "short", "long")] or median not in page:
+        if (docs != sample["line_lengths_by_document"] or docs != row["line_lengths_by_document"]
+                or len(docs) != gen["documents"] or row["median_tick"] != statistics.median(values)
+                or expected != [row[k] for k in ("bins", "lines", "median", "mean", "short", "long")] or median not in page):
             bad.append(key)
     check("42. eight sampled length distributions, summaries and intervals from individual documents", [], bad)
-    texts = source("line_count/m7_texts.json")
-    check("43. both complete continuations and corpus line for the first document in recorded order", True,
-          texts["corpus_lines"][0] == gen["example"]["corpus_line"] and all(gen["example"][k] == texts["arms"][k]["sampled"]["text"][0] for k in ("none", "head:40")))
+    examples = []
+    for i in range(12):
+        examples.append({
+            "corpus_line": raw["corpus_lines"][i],
+            "prompt_ends": {w: "\n".join(texts["prompts"][w][i].removesuffix("\n").split("\n")[-2:]) for w in ("100", "40")},
+            "text": {key: texts["arms"][key]["sampled"]["text"][i] for key in main_arms},
+        })
+    check("43. five cut continuations and both prompt endings for the first twelve recorded documents", True,
+          raw["corpus_lines"] == texts["corpus_lines"] and gen["examples"] == examples)
     if not (Path(HERE) / "data/code-behaviour.json").exists():
         return
     scores = site("code-behaviour.json")

@@ -257,16 +257,35 @@
     <p>We gave the model the first eight lines of each of {{m|gen|documents}} new documents wrapped at width 100. We sampled {{m|gen|tokens}} tokens at temperature one, using the same random numbers across conditions and applying each edit throughout the run. We measured completed, non-empty lines in the continuation.</p>
     <p>The head edit shortened the median line by <strong>{{m|gen|reduction}} characters</strong> (95% bootstrap interval over documents). The in-frame part gave {{m|gen|retained}} times that reduction. The permuted control moved the median by {{m|gen|perm_delta}} characters, beyond the {{m|gen|allowed}} allowed by our advance rule, while the mean and the fraction of lines of at most 60 characters stayed close to their unedited values.</p>
     <figure id="fig-lengths">
-      {{lengths}}
-      <figcaption><b>Figure {{fig|lengths}}.</b> Each bar shows the fraction of lines in a ten-character bin, on the same scale in every row. The last bin includes all longer lines. Brackets give 95% intervals for the median. We used the same documents wrapped at 40 as the unedited reference. <a href="data/generated-lines.json">Line-length data</a></figcaption>
+      <div class="document-nav">
+        <div class="line-heading">
+          <h4>A · One document</h4>
+          <a href="#line-silhouettes">All {{m|gen|documents}} documents ↓</a>
+        </div>
+        <div class="document-picker">
+          <span aria-live="polite">Document <b id="line-document">1</b> of 12 <span class="corpus-label">corpus line <span id="line-corpus">{{m|gen|examples|0|corpus_line}}</span></span></span>
+          <div class="controls" id="line-stepper" hidden><div class="seg">
+            <button type="button" id="line-prev" disabled>Previous</button><button type="button" id="line-next">Next</button>
+          </div></div>
+        </div>
+      </div>
+      <p class="figure-sub">The first 12 documents in recorded order. Two muted lines end the prompt. An open circle marks the unfinished line. Scroll sideways for long lines.</p>
+      {{continuations}}
+      <div id="line-silhouettes">
+        <div class="figure-head">
+          <h4>B · All {{m|gen|documents}} documents</h4>
+          <label class="range-control"><input type="checkbox" id="line-full-range"> Show full range beyond 120 characters</label>
+        </div>
+        {{silhouettes}}
+      </div>
+      <figcaption><b>Figure {{fig|lengths}}.</b> Guides mark 40 and 100 characters. A shows Qwen3.5-0.8B continuations from <code>m7_texts.json</code>, cut before the first non-text token. The reference uses the same document wrapped at 40. In B each bar is one completed, non-empty line. Bars are sorted by length within each panel, longest at the top. Ticks mark medians. Brackets give 95% bootstrap intervals over documents. <a href="data/generated-lines.json">Texts and line lengths</a></figcaption>
     </figure>
     <p>Full lines and short paragraph ends both contribute to the unedited median. Under the head edit the most common lengths are 40 to 49 characters, against 30 to 39 in the width-40 reference. Of the first completed lines, {{m|gen|long_first}} still reach 80 characters, compared with {{m|gen|long_later}} from the fourth line onward.</p>
-    <details class="measurement" id="sampled-pair"><summary>Read the paired continuations and inspect the line counts</summary>
-      <p>We show the first document in recorded order (corpus line {{m|gen|example|corpus_line}}). Both runs saw this same prompt ending. Each numbered row is one generated line, including the unfinished final line.</p>
-      <blockquote class="task-prompt">{{m|gen|example|prompt_end}}</blockquote>
-      <div class="continuations">{{continuations}}</div>
+    <details class="measurement" id="sampled-pair"><summary>Inspect the line-length histograms and counts</summary>
+      <p>Each histogram shows the fraction of lines in each ten-character bin, on the same scale for all conditions. The last bin includes all longer lines. <a href="#fig-lengths">Read the paired continuations in part A of Figure {{fig|lengths}}.</a></p>
+      {{histograms}}
       {{table|lengths}}
-      <p>The sampled continuations remain prose on the prompt topic. Letters and spaces account for {{m|gen|letters|0}} of characters without the edit and {{m|gen|letters|1}} with it. Empty and repeated lines do not increase. The random in-frame direction (cosine {{width.random_cos}}) also shortens lines. Repeating the state edit in another group gives a median close to the unedited one.</p>
+      <p>In the first document, the unedited and head-edited continuations both take up the prompt’s discussion of angioplasty. ASCII letters and spaces account for {{m|gen|letters|0}} of characters without the edit and {{m|gen|letters|1}} with the head edit. The head edit lowers the rates of empty and repeated lines. The random in-frame direction (cosine {{width.random_cos}}) also shortens lines. Repeating the state edit in another group gives a median close to the unedited one.</p>
       <p>With width 60 as target, the median lengths for the head edit, its in-frame part, the state edit and the reference are {{m|gen|sixty}}. Greedy decoding loops in every condition. Its medians for no edit, the head edit, its in-frame part, the state edit and the permuted control are {{m|gen|greedy}} characters.</p>
     </details>
 <!--endif trace-->

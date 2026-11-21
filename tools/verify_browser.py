@@ -21,6 +21,7 @@ import argparse
 import asyncio
 import json
 import os
+import re
 import subprocess
 import sys
 import time
@@ -118,6 +119,131 @@ async def basic(page, name: str, width: int) -> None:
     expect(len(ids) == len(set(ids)), f"{name}: an id is used twice: {sorted(i for i in set(ids) if ids.count(i) > 1)}")
     numbers = await page.eval_on_selector_all("figure[id] > figcaption > b:first-child", "n => n.map(x => x.textContent)")
     expect(numbers == [f"Figure {i}." for i in range(1, len(numbers) + 1)] and len(numbers) >= 8, f"{name}: figure numbers {numbers}")
+
+
+async def line_document(page, example, number, comparison, name, expanded=()):
+    blocks = await page.locator("#fig-lengths .line-example:visible").evaluate_all(r"""blocks => blocks.map(b => {
+      const prompt = b.querySelector('.prompt-end');
+      const range = document.createRange();
+      const n = prompt.textContent.indexOf('\n');
+      range.setStart(prompt.firstChild, 0);
+      range.setEnd(prompt.firstChild, n);
+      const box = range.getBoundingClientRect();
+      const guides = [...b.querySelectorAll('.character-ruler i')].map(i => {
+        const tick = i.getBoundingClientRect();
+        return (tick.x + tick.width / 2 - box.x) / (box.width / n);
+      });
+      const lines = [...b.querySelector('.sample-text').children].filter(line => line.getClientRects().length);
+      const last = lines.at(-1);
+      const circle = last.matches('.unfinished') && getComputedStyle(last, '::after').borderTopStyle === 'solid';
+      return [b.dataset.arm, prompt.textContent, lines.map(line => line.textContent).join(''), lines.length,
+              circle, !!b.querySelector('.line-toggle').getClientRects().length, guides];
+    })""")
+    expect(await page.locator("#line-document").text_content() == str(number) and
+           await page.locator("#line-corpus").text_content() == str(example["corpus_line"]), f"{name}: document identity")
+    expect([b[0] for b in blocks] == ["none", comparison], f"{name}: baseline and selected comparison")
+    for arm, prompt, text, shown, circle, toggle, guides in blocks:
+        lines = example["text"][arm].split("\n")
+        expected = lines if arm in expanded else lines[:12]
+        expect(prompt == example["prompt_ends"]["40" if arm == "ref:40" else "100"] and text == "\n".join(expected) and
+               shown == len(expected), f"{name}: stored prompt and visible lines for {arm}")
+        expect(circle == (shown == len(lines)) and toggle == (len(lines) > 12), f"{name}: unfinished line and disclosure for {arm}")
+        expect(all(abs(x-y) < .3 for x, y in zip(guides, (40, 100), strict=True)), f"{name}: character ruler for {arm}: {guides}")
+
+
+async def line_figure(page, generation, name, interactive=True):
+    examples = generation["examples"]
+    fig = page.locator("#fig-lengths")
+    height = (await fig.bounding_box())["height"]
+    print(f"{name}: Figure 5 is {height:.0f} px tall")
+    if name.startswith("desktop"):
+        expect(height <= 1400, f"{name}: default figure height {height:.0f}px")
+    default = "head:40"
+    await line_document(page, examples[0], 1, default, name)
+    if name.startswith("phone"):
+        scroller = page.locator(".text-scroll").first
+        offset = await scroller.evaluate("e => (e.scrollLeft = 100, e.scrollLeft)")
+        expect(offset == 100 and await page.evaluate("window.scrollX") == 0, f"{name}: text scrolls inside its own panel")
+        await line_document(page, examples[0], 1, default, name)
+        await scroller.evaluate("e => e.scrollLeft = 0")
+    stepper = page.locator("#line-stepper")
+    tabs = fig.get_by_role("tab")
+    more_baseline = fig.locator("#line-baseline .line-toggle input")
+    more_comparison = fig.locator("#line-comparison .line-toggle input")
+    if interactive:
+        await stepper.wait_for()
+        prev, next_doc = page.locator("#line-prev"), page.locator("#line-next")
+        expect(await prev.is_disabled(), f"{name}: document picker starts at the first record")
+        arms = [key for key in examples[0]["text"] if key != "none"]
+        expect(await tabs.all_text_contents() == [generation["rows"][arm]["label"] for arm in arms], f"{name}: comparison tabs")
+        await tabs.first.press("End")
+        await line_document(page, examples[0], 1, arms[-1], name)
+        await tabs.last.press("ArrowRight")
+        await line_document(page, examples[0], 1, default, name)
+        for i, example in enumerate(examples):
+            context = f"{name} document {i+1}"
+            if i:
+                await next_doc.click()
+                await line_document(page, example, i+1, arms[-1], context)
+            expanded = set()
+            for j, arm in enumerate(arms):
+                tab = tabs.nth(j)
+                await tab.click()
+                expect(await tab.get_attribute("aria-selected") == "true" and
+                       await fig.get_by_role("tabpanel").get_attribute("aria-labelledby") == await tab.get_attribute("id"),
+                       f"{context}: selected tab for {arm}")
+                await line_document(page, example, i+1, arm, context, expanded)
+                if j == 0 and await more_baseline.is_visible():
+                    await more_baseline.check()
+                    expanded.add("none")
+                    await line_document(page, example, i+1, arm, context, expanded)
+                if await more_comparison.is_visible():
+                    await more_comparison.check()
+                    await line_document(page, example, i+1, arm, context, expanded | {arm})
+        expect(await next_doc.is_disabled(), f"{name}: end of the recorded examples")
+        for _ in examples[1:]:
+            await prev.click()
+        await tabs.first.click()
+        await line_document(page, examples[0], 1, default, name)
+    else:
+        expect(await stepper.is_hidden() and await tabs.count() == 0, f"{name}: static document and comparison")
+        await more_comparison.check()
+        await line_document(page, examples[0], 1, default, name, {default})
+        await more_comparison.uncheck()
+        await line_document(page, examples[0], 1, default, name)
+
+    panels = await page.locator(".silhouette:visible").evaluate_all("""panels => panels.map(p => {
+      const svg = p.querySelector('svg');
+      const plot = p.querySelector('.edge-plot').getBoundingClientRect();
+      const tick = p.querySelector('.median-tick').getBoundingClientRect();
+      return [p.dataset.arm, !!p.closest('.edge-controls'), p.innerText, svg.viewBox.baseVal.height,
+              [...svg.querySelectorAll('path')].map(path => path.getAttribute('d')).join(''),
+              [...svg.querySelectorAll('line')].map(l => [+l.getAttribute('x1'), +l.getAttribute('x2')]),
+              (tick.x + tick.width / 2 - plot.x) / svg.getScreenCTM().a];
+    })""")
+    expect([p[0] for p in panels] == list(generation["rows"]), f"{name}: visible silhouette order")
+    if name.startswith(("desktop", "phone")):
+        rows = await fig.locator(".edge-grid").evaluate_all("""grids => grids.map(grid => {
+          const top = [...grid.children].map(panel => panel.offsetTop);
+          return [...new Set(top)].map(y => top.filter(t => t === y).length);
+        })""")
+        expect(rows == ([[2, 2, 1], [2, 1]] if name.startswith("phone") else [[5], [3]]), f"{name}: panels per row {rows}")
+    for arm, control, label, height, path, guides, tick in panels:
+        row = generation["rows"][arm]
+        expect(control == (arm not in examples[0]["text"]) and row["label"] in label and row["median"] in label and
+               row["mean"] in label, f"{name}: group and summary for {arm}")
+        expect(guides == [[40, 40], [100, 100]] and abs(tick - row["median_tick"]) < .1, f"{name}: guides and median tick for {arm}")
+        # Read the actual drawn horizontal segments, including their vertical
+        # positions, independently of the labels, summaries and source texts.
+        lengths = sorted((n for doc in row["line_lengths_by_document"] for n in doc), reverse=True)
+        expect(height == len(lengths) and path == "".join(f"M0 {i}.5h{n}" for i, n in enumerate(lengths)),
+               f"{name}: lengths and descending order of every bar for {arm}")
+    full_range = page.locator("#line-full-range")
+    await full_range.check()
+    expanded = await page.locator(".edge-plot svg").evaluate_all(
+        "plots => plots.every(s => Math.abs(s.getBoundingClientRect().width - s.parentElement.clientWidth) < 1)")
+    expect(expanded, f"{name}: full range fits each panel")
+    await full_range.uncheck()
 
 
 async def rotate_path(page, trace: dict, name: str) -> None:
@@ -616,18 +742,18 @@ async def run(args) -> None:
                         await page.locator(box).screenshot(path=os.path.join(args.shots, f"{name}-{fig}.png"))
                     else:
                         later.append(box)
+            if lint_page.has("generated-lines.json"):
+                expect(await page.locator("#sampled-pair").get_attribute("open") is None, f"{name}: line measurements start closed")
+                await line_figure(page, data("generated-lines.json"), name)
             await open_folds(page)
             if lint_page.has("generated-lines.json"):
                 generation = data("generated-lines.json")
-                histograms = await page.locator("#fig-lengths .length-row").evaluate_all(
+                histograms = await page.locator("#sampled-pair .length-row:visible").evaluate_all(
                     "rows => rows.map(r => [r.dataset.arm, [...r.querySelectorAll('rect')].map(b => +b.dataset.lines), r.innerText])")
                 expect([r[0] for r in histograms] == list(generation["rows"]), f"{name}: order of generated conditions")
                 for key, bars, label in histograms:
                     result = generation["rows"][key]
                     expect(bars == result["bins"] and result["median"] in label and result["mean"] in label, f"{name}: distribution for {key}")
-                excerpts = await page.locator(".continuations ol").evaluate_all(
-                    "lists => lists.map(list => [...list.children].map(li => li.textContent).join('\\n'))")
-                expect(excerpts == [generation["example"][key] for key in ("none", "head:40")], f"{name}: paired continuation")
             await lead_figure(page, demo, name, width)
             if args.shots:
                 for box in later:
@@ -645,6 +771,9 @@ async def run(args) -> None:
         ctx = await browser.new_context(java_script_enabled=False, viewport={"width": 1280, "height": 900})
         page = await ctx.new_page()
         await page.goto(url + "index.html")
+        if lint_page.has("generated-lines.json"):
+            await page.evaluate("document.fonts.ready")
+            await line_figure(page, data("generated-lines.json"), "without JavaScript", interactive=False)
         for i in range(await page.locator("details.fold, #sampled-pair").count()):
             await page.locator("details.fold, #sampled-pair").nth(i).locator("> summary").click()
         for i in range(await page.locator("details.more:visible").count()):

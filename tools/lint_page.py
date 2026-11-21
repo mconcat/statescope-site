@@ -18,6 +18,8 @@ import re
 import sys
 from html.parser import HTMLParser
 
+import build_page
+
 HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 REL = "release/qwen35-08b-v2"
 SOURCES = ["README.md", f"{REL}/MODEL_CARD.md", "demo/line_count.py", "demo/width_memory.py", "docs/l9-state-subspaces.csv", f"{REL}/layers_table.md", f"{REL}/line_count_table.md",
@@ -162,6 +164,19 @@ def untraceable(text: str, corpus: str) -> list[str]:
     return sorted(w for w in set(words_with_digits(text)) if not occurs(w, corpus))
 
 
+def generated_figure_problems(page: str) -> list[str]:
+    figure = re.search(r'<figure id="fig-lengths">(.*?)</figure>', page, re.S)
+    archive = re.search(r'<details class="measurement" id="sampled-pair">(.*?)</details>', page, re.S)
+    generated = build_page.data("generated-lines.json")
+    problems = []
+    if not figure or not all(render(generated) in figure[1] for render in
+                             (build_page.continuation_blocks, build_page.silhouettes)):
+        problems.append("Figure 5: static text or silhouettes differ from generated-lines.json")
+    if not archive or build_page.length_histograms(generated) not in archive[1] or "<table>" not in archive[1]:
+        problems.append("Figure 5: missing histograms or table in the collapsed measurements")
+    return problems
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--repo", required=True)
@@ -199,7 +214,7 @@ def main() -> None:
     for s in own:
         print("   -", s)
 
-    problems = []
+    problems = generated_figure_problems(raw) if has("generated-lines.json") else []
     for root, dirs, files in os.walk(HERE):
         dirs[:] = [d for d in dirs if d not in ("__pycache__", ".git")]
         for name in files:

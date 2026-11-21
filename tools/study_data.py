@@ -1,6 +1,7 @@
 """Build the comparison tables and generated-line figure from the measured runs."""
 
 import csv
+import hashlib
 import json
 from decimal import Decimal, ROUND_HALF_UP
 
@@ -109,21 +110,28 @@ def width_edit(root, public_rows, facts):
 def generated_lines(root):
     folder = root / "line_count"
     results, texts, post = [read(folder / name) for name in ("m7_results.json", "m7_texts.json", "m7_posthoc.json")]
+    rule = folder / "m7_prereg.json"
+    assert hashlib.sha256(rule.read_bytes()).hexdigest() == texts["prereg_sha256"] == results["prereg_sha256"]
+    assert results["corpus_lines"] == texts["corpus_lines"]
     fmt = lambda x: f"{round(x, 1):g}"
     labels = {
         "none": "No edit",
-        "head:40": "Head edit",
-        "perm:40": "Permuted head edit",
-        "frame:40": "Inside the frame",
+        "head:40": "Head edit to width 40",
+        "frame:40": "In-frame part of the head edit",
         "state:40": "State edit",
-        "state_rand:40": "Random in-frame direction",
-        "state_other:40": "Another group",
-        "ref:40": "Width-40 prompt, no edit",
+        "ref:40": "Width-40 reference",
+        "perm:40": "Permuted head edit",
+        "state_rand:40": "Random direction in the frame",
+        "state_other:40": "State edit built for another group",
     }
     rows = {}
     for key, label in labels.items():
         sampled = results["arms"][key]["sampled"]
         docs = sampled["line_lengths_by_document"]
+        # Apply the preregistered rule to the cut, decoded generation. Whitespace
+        # decides whether a line is empty, but counts toward its measured length.
+        for text, measured in zip(texts["arms"][key]["sampled"]["text"], docs, strict=True):
+            assert [len(line) for line in text.split("\n")[:-1] if line.strip()] == measured
         lengths = [length for doc in docs for length in doc]
         assert len(docs) == results["documents"] and len(lengths) == sampled["lines"]
         bins = [0] * 13
@@ -133,6 +141,8 @@ def generated_lines(root):
         rows[key] = {
             "label": label,
             "bins": bins,
+            "line_lengths_by_document": docs,
+            "median_tick": sampled["median"],
             "lines": f"{len(lengths):,}",
             "median": interval(sampled["median"], sampled["median_ci95"], fmt),
             "mean": f"{sampled['mean']:.1f}",
@@ -142,23 +152,29 @@ def generated_lines(root):
     verdict = results["verdicts"]["the_edit_changes_generated_wrapping"]
     retained = results["verdicts"]["the_frame_carries_it"]
     perm = results["arms"]["perm:40"]["sampled"]
-    first = 0
-    assert results["corpus_lines"] == texts["corpus_lines"]
-    doc = {key: texts["arms"][key]["sampled"]["text"][first] for key in ("none", "head:40")}
+    examples = []
+    for i, corpus_line in enumerate(texts["corpus_lines"][:12]):
+        prompt_ends = {}
+        for width in ("100", "40"):
+            prompt = texts["prompts"][width][i]
+            assert prompt.endswith("\n")
+            prompt_ends[width] = "\n".join(prompt.split("\n")[-3:-1])
+        examples.append({
+            "corpus_line": corpus_line,
+            "prompt_ends": prompt_ends,
+            "text": {k: texts["arms"][k]["sampled"]["text"][i] for k in
+                     ("none", "head:40", "frame:40", "state:40", "ref:40")},
+        })
     head_docs = results["arms"]["head:40"]["sampled"]["line_lengths_by_document"]
     first_lines = [doc[0] for doc in head_docs if doc]
     later_lines = [v for doc in head_docs for v in doc[3:]]
     return {
-        "sources": ["line_count/m7_results.json", "line_count/m7_texts.json", "line_count/m7_posthoc.json"],
+        "sources": ["line_count/" + name for name in ("m7_results.json", "m7_texts.json", "m7_prereg.json", "m7_posthoc.json")],
         "overflow_bin": "120+",
         "rows": rows,
         "documents": results["documents"],
         "tokens": results["new_tokens"],
-        "example": {
-            **doc,
-            "corpus_line": texts["corpus_lines"][first],
-            "prompt_end": "\n".join(texts["prompts"]["100"][first].rstrip("\n").splitlines()[-2:]),
-        },
+        "examples": examples,
         "reduction": interval(verdict["reduction"], verdict["reduction_ci95"], fmt),
         "allowed": verdict["allowed_at_most_abs"],
         "retained": interval(

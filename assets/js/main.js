@@ -47,6 +47,11 @@ load("demo.json")
   .catch((error) => fail("load-error-demo", error));
 
 // Optional sections. tools/build_page.py writes their markup only when their data file exists, so nothing is fetched otherwise.
+if (document.getElementById("fig-lengths")) {
+  Promise.all([import("./generated-lines.js"), load("generated-lines.json")])
+    .then(([module, data]) => module.initGeneratedLines(data))
+    .catch((error) => console.error(error));
+}
 if (document.getElementById("fig-4b")) {
   load("layers-4b.json")
     .then(initFourB)

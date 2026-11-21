@@ -99,14 +99,6 @@ DETAILS_CAPTION_4B = ("This table lists the dictionary sizes, training settings,
 DETAILS_CAPTION_08B = ("This table lists the dictionary sizes, training settings, file counts, and file sizes for our Qwen3.5-0.8B set, using values from the "
                        "README, model card, and manifest.")
 
-GENERATED_EDIT_LABELS = {
-    "perm:40": "Permuted control",
-    "frame:40": "In-frame part",
-    "state_rand:40": "Random direction in the frame",
-    "state_other:40": "State edit in another group",
-}
-
-
 def tables(facts: dict) -> dict[str, str]:
     layers, splice, demo = data("layers.json"), data("splice.json"), data("demo.json")
     col = layers["columns"]
@@ -186,8 +178,8 @@ def tables(facts: dict) -> dict[str, str]:
         gen = data("generated-lines.json")
         out["lengths"] = table("Completed non-empty lines in the sampled continuations. The interval on the median resamples documents.",
                                ["Condition", "Lines", "Median [95% interval]", "Mean", "At most 60 characters", "At least 80 characters"],
-                               [[GENERATED_EDIT_LABELS.get(arm, r["label"]), r["lines"], r["median"], r["mean"], r["short"], r["long"]]
-                                for arm, r in gen["rows"].items()], True)
+                               [[r["label"], r["lines"], r["median"], r["mean"], r["short"], r["long"]]
+                                for r in gen["rows"].values()], True)
     if exists("code-behaviour.json"):
         scores = data("code-behaviour.json")
         out["behaviour"] = table("Generated Python on the main wording. Percentages with 95% bootstrap intervals over tasks. Rejection means a raise statement in the generated code fired.",
@@ -315,6 +307,83 @@ def path_strip(trace: dict, index: int) -> str:
     return f'<svg viewBox="0 0 {W} {H}" width="{W}" height="{H}">{"".join(out)}</svg>'
 
 
+def ruled_text(text: str) -> str:
+    """Keep runs drawn by fallback fonts on the same one-character grid as the Latin text."""
+    def run(match):
+        value = match.group()
+        return (f'<svg class="text-run" width="{len(value)}ch" height="1.4em">'
+                f'<text y="1em" textLength="100%" lengthAdjust="spacingAndGlyphs">{esc(value)}</text></svg>')
+
+    return re.sub(r"[^\x00-\x7f]+", run, esc(text)).replace(" \n", "&#32;\n")
+
+
+def continuation_blocks(generated: dict) -> str:
+    example = generated["examples"][0]
+    labels = {arm: esc(generated["rows"][arm]["label"]) for arm in example["text"]}
+
+    def block(arm, block_id):
+        width = "40" if arm == "ref:40" else "100"
+        prompt = example["prompt_ends"][width]
+        lines = example["text"][arm].split("\n")
+        sample = []
+        for i, line in enumerate(lines):
+            mark = ' class="unfinished"' if i == len(lines) - 1 else ""
+            prefix = "\n" if i else ""
+            sample.append(f'<span{mark}>{prefix}{ruled_text(line)}</span>')
+        return (
+            f'<div class="line-example" id="{block_id}" data-arm="{arm}">'
+            f'<h5>{labels[arm]}</h5><div class="text-scroll" role="region" aria-label="{labels[arm]} continuation" tabindex="0">'
+            '<div class="ruled-text"><div class="character-ruler" aria-hidden="true">'
+            '<span>Characters</span><i class="guide-40">40</i><i class="guide-100">100</i></div>'
+            f'<pre><span class="prompt-end">{esc(prompt)}</span>\n<span class="sample-text" id="{block_id}-text">'
+            f'{"".join(sample)}</span></pre></div></div>'
+            f'<label class="line-toggle"><input type="checkbox" aria-controls="{block_id}-text"> Show remaining lines</label></div>'
+        )
+
+    default = "head:40"
+    tabs = []
+    for arm, label in labels.items():
+        if arm == "none":
+            continue
+        selected = arm == default
+        tabs.append(
+            f'<button type="button" role="tab" id="line-tab-{arm.split(":")[0]}" data-arm="{arm}" '
+            f'aria-selected="{str(selected).lower()}" aria-controls="line-comparison" tabindex="{0 if selected else -1}">{label}</button>'
+        )
+    return (block("none", "line-baseline") +
+            '<div id="line-tabs" role="tablist" aria-label="Comparison" hidden>' + "".join(tabs) + '</div>' +
+            block(default, "line-comparison"))
+
+
+def silhouettes(generated: dict) -> str:
+    rows = generated["rows"]
+    main_arms = generated["examples"][0]["text"]
+    extent = max(n for row in rows.values() for doc in row["line_lengths_by_document"] for n in doc)
+
+    def panel(arm, row):
+        lengths = sorted((n for doc in row["line_lengths_by_document"] for n in doc), reverse=True)
+        y = len(lengths)
+        strokes = "".join(f"M0 {i}.5h{length}" for i, length in enumerate(lengths))
+        guides = "".join(f'<line x1="{x}" x2="{x}" y1="0" y2="{y}"/>' for x in (40, 100))
+        return (
+            f'<div class="silhouette" data-arm="{arm}" style="--median:{row["median_tick"]:g}">'
+            f'<h5>{esc(row["label"])}</h5><div class="edge-stats"><span>Median {esc(row["median"])}</span> '
+            f'<span>Mean {esc(row["mean"])}</span></div><div class="edge-plot" aria-hidden="true">'
+            '<div class="edge-axis"><span class="guide-40">40</span><span class="guide-100">100</span>'
+            f'<span class="axis-end">{extent}</span></div>'
+            f'<svg viewBox="0 0 {extent} {y}" preserveAspectRatio="none"><path d="{strokes}"/>{guides}</svg>'
+            '<i class="median-tick"></i></div></div>'
+        )
+
+    panels = {arm: panel(arm, row) for arm, row in rows.items()}
+    return (
+        f'<div class="edge-panels" style="--full-range:{extent}">'
+        '<div class="edge-grid">' + "".join(panels[k] for k in main_arms) + '</div>'
+        '<h5 class="controls-heading">Controls</h5><div class="edge-grid edge-controls">'
+        + "".join(panels[k] for k in rows if k not in main_arms) + '</div></div>'
+    )
+
+
 def length_histograms(generated: dict) -> str:
     """Small multiples with common bin edges and a common frequency scale."""
     rows = generated["rows"]
@@ -335,7 +404,7 @@ def length_histograms(generated: dict) -> str:
             height = 34 * count / n / peak
             bars.append(f'<rect x="{i * 10 + 0.5}" y="{35-height:.2f}" width="9" height="{height:.2f}" data-lines="{count}"/>')
         out.append(
-            f'<div class="length-row" data-arm="{esc(arm)}"><div class="length-summary"><b>{esc(GENERATED_EDIT_LABELS.get(arm, row["label"]))}</b>'
+            f'<div class="length-row" data-arm="{esc(arm)}"><div class="length-summary"><b>{esc(row["label"])}</b>'
             f'<span>Median {esc(row["median"])} · mean {esc(row["mean"])}</span></div>'
             f'<div class="length-chart" aria-hidden="true"><svg viewBox="0 0 {extent} 35" preserveAspectRatio="none">'
             f'{"".join(bars)}{guides}</svg><div class="length-scale">{"".join(ticks)}</div></div></div>'
@@ -399,13 +468,10 @@ def main() -> None:
                 value = value[int(field)] if isinstance(value, list) else value[field]
             return esc(str(value))
         if key == "continuations":
-            example = records["gen"]["example"]
-            out = []
-            for arm, label in (("none", "No edit"), ("head:40", "Head edit to width 40")):
-                lines = "".join(f"<li>{esc(line)}</li>" for line in example[arm].split("\n"))
-                out.append(f'<div><h4>{label}</h4><ol>{lines}</ol></div>')
-            return "\n".join(out)
-        if key == "lengths":
+            return continuation_blocks(records["gen"])
+        if key == "silhouettes":
+            return silhouettes(records["gen"])
+        if key == "histograms":
             return length_histograms(records["gen"])
         if parts[0] == "table":
             return built[parts[1]]
