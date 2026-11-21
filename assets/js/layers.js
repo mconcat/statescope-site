@@ -186,7 +186,7 @@ export function initLayers(layers, splice) {
       },
       {
         title: splice.columns.mlp,
-        sub: () => "Recorded at training, in nats.",
+        sub: () => "Increase in nats. The final layer comes from a separate measurement.",
         series: [{ label: splice.columns.mlp, cls: "s-n", shape: "circle", recorded: true, value: (r) => Number(r.mlp) }],
       },
     ],
@@ -235,7 +235,7 @@ export function initFourB(four) {
       },
       {
         title: "Write energy of the always-on transforms",
-        sub: () => "Share of the summed write energy carried by transforms on at 90% of tokens or more, web text. Recorded at training.",
+        sub: () => "Share of summed write energy from transforms active on at least 90% of tokens, measured after training on FineWeb-Edu.",
         series: [{ label: "share", cls: "s-n", shape: "circle", recorded: true, value: (r) => Number(r.always_energy) }],
       },
     ],

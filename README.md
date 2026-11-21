@@ -10,7 +10,7 @@ python -m http.server --directory . 8000      # then open http://127.0.0.1:8000/
 ## Layout
 
 - `index.html` is generated. Edit `tools/page.template.html` and run `tools/build_page.py`.
-- The overview pairs the 0.8B count-to-distance result with the 4B prompt edit. Both experiments and the other 4B examples precede the dictionary methods. The counting section has an expandable trace, token examples and controls.
+- The article follows line counting in Qwen3.5-0.8B from the recurrent clock to the width edit, generated continuations, subspace comparison and demonstrations. Four short 4B examples precede the methods and appendix.
 - `assets/css/site.css` holds the design tokens (light and dark) and all styles.
 - `assets/js/` holds `main.js` (loading), `demo.js` (the line-count demonstration: pair viewer, chain, one swap item by item, link
   comparison), `curve.js` (the count as a curve in one group's frame, and how two transforms read it), `path.js` (the animated path and
@@ -43,19 +43,24 @@ Optional parts, each left out of the page when its option is not given:
 
 - `--weights-4b`: the per-layer numbers of the 4B set (`data/layers-4b.json`) and facts read by pattern from the 4B model card.
 - `--geom`: the trace of the line-count example (`data/trace.json`: the stops of the animated figure, the trace table, the
-  causal test) and the planes of the 4B examples (`data/geom-4b.json`), read by `tools/geom_data.py` from the JSON files of six
+  causal test) and the planes of the 4B examples (`data/geom-4b.json`), read by `tools/geom_data.py` from the measurement files of the
   analyses made with the published reader and weights. The animated figure draws the (count, width) mesh in one fixed view
   (the first two of the analysis's three common directions) from `resid_mid.9` to `resid_post.13`: eight measured states and
   the state before the layer-12 mixer's write (the state after it minus the stored write). The movement between two stops is
   interpolated, except during that write, which moves each cell by a fraction of the stored write. When
   `line_count/f_frames_in_common.json` is there, each stop also carries its main group's frame in the view and the cuts that
   the analysis found to be straight there; without it the cuts are joined crossing points and no frame is drawn.
+- `tools/study_data.py` reads the subspace comparison and its intervals from the repository’s `docs/l9-state-subspaces.csv` into
+  `data/state-subspaces.json`. With `--geom` it builds `width-edit.json` from the public width-demo table, M6 and the M7
+  document intervals, and `generated-lines.json` from M7 line lengths, histograms and the first paired continuations.
+  With the 4B set it builds `code-behaviour.json` from `steer_state/x1_out/tables.json`. The build also reads measured
+  qualifications in `site_audit_2026-11-21/site_corrections.md` under the geometry root. Each dataset lists its sources.
 - `--steer`: the dose figure (`data/steer.json`), from one run of a script that scales the demonstration's swaps. The build
   compares dose 0 with the clean run and dose 1 with the demonstration's swap, string for string.
 - `--count-curve`: the two count figures (`data/count-curve.json`, `data/count-readout.json`), from runs of two scripts that use
   the published reader and weights.
 
-To refresh the social preview after building the page, run `python -B tools/build_card.py` with Playwright Chromium installed. The card uses the two result panels from the overview.
+To refresh the social preview after building the page, run `python -B tools/build_card.py` with Playwright Chromium installed. The card shows the single overview figure, using the same projection before and after the layer-12 write.
 
 ## Checking
 

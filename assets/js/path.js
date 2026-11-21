@@ -512,6 +512,9 @@ export function initCausal(trace) {
     ["shift40", "series s-unit c-c", figure.getAttribute("data-line-40")],
     ["shift60", "series s-unit c-b", figure.getAttribute("data-line-60")],
     ["perm40", "series s-r recorded", words.linePerm],
+    ["inside", "series inside", words.lineInside],
+    ["rest", "series outside", words.lineRest],
+    ["state", "series state-edit", words.lineState],
   ];
   let at = xs.indexOf(50) >= 0 ? xs.indexOf(50) : Math.floor(xs.length / 2);
   let width = 0;
@@ -535,6 +538,7 @@ export function initCausal(trace) {
     titles.append(svg("text", { x: (M.l + width - M.r) / 2, y: height - 4, "text-anchor": "middle", class: "axis-label" }, words.axisX));
     titles.append(svg("text", { x: 0, y: 10, class: "axis-label" }, words.axisY));
     root.append(titles);
+    root.append(svg("path", { d: `M${M.l} ${y(Number(words.level))}H${width - M.r}`, class: "margin-level" }));
     for (const [key, cls] of arms) root.append(svg("path", { d: "M" + c.arms[key].map((v, i) => `${x(xs[i])} ${y(Number(v))}`).join("L"), class: cls, "data-arm": key }));
     root.append(svg("path", { d: `M${x(xs[at])} ${M.t}V${height - M.b}`, class: "chosen-line" }));
     for (const [key, cls] of arms) root.append(svg("circle", { cx: x(xs[at]), cy: y(Number(c.arms[key][at])), r: 3.6, class: `mark ${cls.replace("series ", "")}` }));

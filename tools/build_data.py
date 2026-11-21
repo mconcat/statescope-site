@@ -39,6 +39,8 @@ import json
 import os
 import re
 
+from pathlib import Path
+import statistics
 import sys
 
 import torch
@@ -941,10 +943,32 @@ def main() -> None:
             if os.path.exists(os.path.join(DATA, name)):
                 os.remove(os.path.join(DATA, name))
         print("no count-curve figure: --count-curve was not given")
-    for name in ("trace.json", "geom-4b.json"):
-        if not args.geom and os.path.exists(os.path.join(DATA, name)):
-            os.remove(os.path.join(DATA, name))
+    import study_data
+    write("state-subspaces.json", study_data.state_subspaces(Path(args.repo)))
+    for prefix, rel in (("small", REL), ("large", REL4)):
+        if prefix == "large" and not (has_4b and args.weights_4b):
+            continue
+        source = f"{rel}/reader_fvu.json"
+        rows = json.loads(facts.read(source))["layers"]
+        values = [row[f"{site}.{layer}"]["position_0_dropped"] for layer, row in rows.items() for site in ("resid_mid", "resid_post")]
+        after = [row[f"resid_post.{layer}"]["position_0_dropped"] for layer, row in rows.items()]
+        facts.add(f"fvu.{prefix}_pooled", f"{statistics.median(values):.4f}", source, "median pooled across both state sites, position 0 dropped")
+        for key, value in (("median", statistics.median(after)), ("max", max(values))):
+            facts.add(f"fvu.{prefix}_{key}", f"{value:.2f}", source, "post-MLP median or maximum over both state sites, position 0 dropped")
+        row = rows["0"]
+        facts.add(f"fvu.{prefix}_tokens", f"{row['tokens'] - row['position_0_tokens']:,}", source, "tokens minus position_0_tokens per layer")
+    with_4b_geometry = args.geom and has_4b and args.weights_4b
+    for name, enabled in (("trace.json", args.geom), ("width-edit.json", args.geom), ("generated-lines.json", args.geom),
+                          ("geom-4b.json", with_4b_geometry), ("code-behaviour.json", with_4b_geometry)):
+        if not enabled:
+            (Path(DATA) / name).unlink(missing_ok=True)
     if args.geom:
+        root = Path(args.geom)
+        study_data.audit_facts(facts, root)
+        write("width-edit.json", study_data.width_edit(root, md_table(facts.read(README), "Edit"), facts))
+        write("generated-lines.json", study_data.generated_lines(root))
+        if has_4b and args.weights_4b:
+            write("code-behaviour.json", study_data.code_behaviour(root))
         import geom_data
         write("trace.json", geom_data.line_count(facts, os.path.join(args.geom, "line_count"), demo))
         if has_4b and args.weights_4b:

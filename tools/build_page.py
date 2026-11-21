@@ -113,7 +113,7 @@ def tables(facts: dict) -> dict[str, str]:
         [[str(r["layer"]), r["dropped"]["state_mid"], r["dropped"]["state_post"], r["dropped"]["mlp"], r["mlp_train"], r["on_per_token"],
           r["alive_text"], r["penalty"]] for r in layers["rows"]])
     out["splice"] = table(
-        "Spliced-in loss: increase in cross-entropy in nats, recorded at training and not re-measured with the published reader.",
+        "Spliced-in loss: increase in cross-entropy in nats, from the training evaluation. The final-layer MLP value comes from a separate measurement on the same kind of text.",
         ["Layer", splice["columns"]["state"], splice["columns"]["mlp"]],
         [[str(r["layer"]), r["state"], r["mlp"]] for r in splice["rows"]])
     main = [a for a in demo["arms"] if a["group"] == "main"]
@@ -151,10 +151,32 @@ def tables(facts: dict) -> dict[str, str]:
         col = four["columns"]
         out["layers4b"] = table(
             "Qwen3.5-4B set, numbers per layer. The first three value columns were re-measured with the published reader with position 0 dropped. "
-            "The others were recorded at training.",
+            "Training records supply MLP FVU, transforms on per token and transforms alive. The last two columns were measured after training. The counts use FineWeb-Edu and held-out training-mix tokens respectively. The write energy uses FineWeb-Edu.",
             ["Layer", col["state_mid"], col["state_post"], col["mlp"], col["mlp_train"], col["on_per_token"], col["alive"], col["always"], col["always_energy"]],
             [[str(r["layer"]), r["dropped"]["state_mid"], r["dropped"]["state_post"], r["dropped"]["mlp"], r["mlp_train"], r["on_per_token"],
               r["alive_text"], r["always_text"], r["always_energy"]] for r in four["rows"]])
+    comparison = data("state-subspaces.json")
+    conditions = comparison["conditions"]
+    out["subspaces"] = table("Percentage of the full mixer effect retained through the six transforms, with paired 95% bootstrap intervals over new document pairs.",
+                            ["Subspace", *conditions], [[label, *(values[c] for c in conditions)] for label, values in comparison["rows"].items()], True)
+    if exists("width-edit.json"):
+        widths = data("width-edit.json")
+        out["width"] = table("Fixed-text edits. Size is the RMS of the edit divided by the RMS of the mixer output. Brackets give 95% bootstrap intervals over documents where measured.",
+                             ["Edit", "Relative size", "First crossing (characters)", "Mean margin at counts 48–50", "Margin before a line break"],
+                             [[row[k] for k in ("label", "size", "crossing", "margin", "end")] for row in widths["rows"]], True)
+    if exists("generated-lines.json"):
+        gen = data("generated-lines.json")
+        out["lengths"] = table("Completed non-empty lines in the sampled continuations. The interval on the median resamples documents.",
+                               ["Condition", "Lines", "Median [95% interval]", "Mean", "At most 60 characters", "At least 80 characters"],
+                               [[r[k] for k in ("label", "lines", "median", "mean", "short", "long")] for r in gen["rows"].values()], True)
+    if exists("code-behaviour.json"):
+        scores = data("code-behaviour.json")
+        out["behaviour"] = table("Generated Python on the main wording. Percentages with 95% bootstrap intervals over tasks. Rejection means a raise statement in the generated code fired.",
+                                 ["Condition", "Contains raise or isinstance", "Wrong types rejected", "Wrong values rejected", "Passes every valid case"],
+                                 [[r[k] for k in ("label", "guard", "type_rej", "value_rej", "valid_all")] for r in scores["rows"].values()], True)
+        out["behaviour-changes"] = table("Change in percentage points with 95% paired bootstrap intervals over tasks. Each prompt is compared with its own unedited run. The last two rows compare the main edit with pooled control directions at its dose.",
+                                         ["Condition", "Wrong types rejected", "Wrong values rejected", "Passes every valid case"],
+                                         [[r[k] for k in ("label", "type_rej", "value_rej", "valid_all")] for r in scores["changes"].values()], True)
     return out
 
 
@@ -274,6 +296,34 @@ def path_strip(trace: dict, index: int) -> str:
     return f'<svg viewBox="0 0 {W} {H}" width="{W}" height="{H}">{"".join(out)}</svg>'
 
 
+def length_histograms(generated: dict) -> str:
+    """Small multiples with common bin edges and a common frequency scale."""
+    rows = generated["rows"]
+    peak = max(max(r["bins"]) / sum(r["bins"]) for r in rows.values())
+    overflow = generated["overflow_bin"]
+    overflow_start = int(overflow.removesuffix("+"))
+    extent = overflow_start + 10
+    guides = "".join(f'<line x1="{x}" x2="{x}" y1="0" y2="35"/>' for x in (40, 100))
+    ticks = []
+    for x in (0, 40, 60, 100, overflow_start):
+        label = overflow if x == overflow_start else str(x)
+        ticks.append(f'<span style="left:{x / extent:.4%}">{esc(label)}</span>')
+    out = []
+    for arm, row in rows.items():
+        n = sum(row["bins"])
+        bars = []
+        for i, count in enumerate(row["bins"]):
+            height = 34 * count / n / peak
+            bars.append(f'<rect x="{i * 10 + 0.5}" y="{35-height:.2f}" width="9" height="{height:.2f}" data-lines="{count}"/>')
+        out.append(
+            f'<div class="length-row" data-arm="{esc(arm)}"><div class="length-summary"><b>{esc(row["label"])}</b>'
+            f'<span>Median {esc(row["median"])} · mean {esc(row["mean"])}</span></div>'
+            f'<div class="length-chart" aria-hidden="true"><svg viewBox="0 0 {extent} 35" preserveAspectRatio="none">'
+            f'{"".join(bars)}{guides}</svg><div class="length-scale">{"".join(ticks)}</div></div></div>'
+        )
+    return "\n".join(out)
+
+
 def references() -> str:
     """the list of works the page refers to, from tools/references.json; an entry with "needs" is listed only when that data file exists"""
     with open(os.path.join(HERE, "tools", "references.json")) as f:
@@ -318,9 +368,26 @@ def main() -> None:
     sections = re.findall(r'<h2 id="([a-z0-9-]+)">(.*?)</h2>', page, flags=re.S)
     built, used = tables(facts), set()
 
+    records = {key: data(file) for key, file in (("width", "width-edit.json"), ("gen", "generated-lines.json"),
+               ("comparison", "state-subspaces.json"), ("code", "code-behaviour.json")) if exists(file)}
+
     def fill(match: re.Match) -> str:
         key = match.group(1)
         parts = key.split("|")
+        if parts[0] == "m":
+            value = records[parts[1]]
+            for field in parts[2:]:
+                value = value[int(field)] if isinstance(value, list) else value[field]
+            return esc(str(value))
+        if key == "continuations":
+            example = records["gen"]["example"]
+            out = []
+            for arm, label in (("none", "No edit"), ("head:40", "Head edit to width 40")):
+                lines = "".join(f"<li>{esc(line)}</li>" for line in example[arm].split("\n"))
+                out.append(f'<div><h4>{label}</h4><ol>{lines}</ol></div>')
+            return "\n".join(out)
+        if key == "lengths":
+            return length_histograms(records["gen"])
         if parts[0] == "table":
             return built[parts[1]]
         if parts[0] == "fig":
@@ -335,6 +402,9 @@ def main() -> None:
         if parts[0] == "link_random":
             row = next(r for r in demo["link_table"]["even"] if r["base"] == "mix" and r["part"] == "random")
             return row["cells"][parts[1]]["F2"]
+        if parts[0] == "causal":
+            c = trace["causal"]
+            return c["arms"][parts[1]][c["counts"].index(parts[2])]
         if parts[0] == "pathstrip":
             return path_strip(trace, int(parts[1]))
         if key == "last_state_loss":

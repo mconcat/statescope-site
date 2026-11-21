@@ -370,26 +370,9 @@ pre,
 .research-overview {
   padding-bottom: 3rem;
 }
-.research-overview > h2 {
-  font-size: clamp(1.25rem, 3vw, 1.7rem);
-  margin: 0 auto .6rem;
-}
-.research-intro {
-  max-width: 65ch;
-  margin: 0 auto 1.4rem;
-  text-align: center;
-  text-wrap: balance;
-}
-.result-pair {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 24rem), 1fr));
-  gap: 1rem;
-}
-.result-pair .result {
-  display: flex;
-  flex-direction: column;
-  margin: 0;
-  background: var(--paper);
+#fig-overview {
+  margin: 0 auto;
+  max-width: var(--text-w);
 }
 .result-model {
   font: .82rem var(--mono);
@@ -404,22 +387,11 @@ pre,
 }
 .result h3 a { color: inherit; }
 .result figcaption { margin-top: auto; }
-.overview-pair, .rate-preview { padding-bottom: 1rem; }
-.rate-preview h4, .overview-pair h4 {
+.overview-pair { padding-bottom: 1rem; }
+.overview-pair h4 {
   margin: 0 0 .6rem;
   font-size: .95rem;
 }
-.rate-preview > div {
-  display: grid;
-  grid-template-columns: 7.5em minmax(2rem, 1fr) 4em;
-  align-items: center;
-  gap: .65rem;
-  margin: .65rem 0;
-  font-size: .94rem;
-}
-.rate-preview i { height: .55rem; background: var(--line-soft); }
-.rate-preview i::before { content: ""; display: block; height: 100%; width: var(--rate); background: var(--u410); }
-.rate-preview b { text-align: right; font-variant-numeric: tabular-nums; }
 .measurement { margin: .85rem 0; }
 .measurement > summary { cursor: pointer; text-decoration: underline; }
 .measurement p { margin: .7rem 0; }
@@ -460,6 +432,66 @@ pre,
   overflow-wrap: anywhere;
   padding: 1rem;
   background: var(--paper);
+}
+
+/* Reading width for the study, appendix examples and the measured distributions. */
+.study > :is(p, h3, .measurement, .codeblock), .short-example {
+  max-width: var(--text-w);
+  margin-inline: auto;
+}
+.study > h3, .short-example > h3 { text-align: left; margin-top: 3rem; }
+.study > :is(.table-wrap, #fig-causal, #fig-lengths) { max-width: var(--mid-w); margin-inline: auto; }
+.short-example + .short-example { margin-top: 3rem; border-top: 1px solid var(--line); }
+.short-example > figure { margin-block: 1.2rem; }
+.study > .table-wrap :is(th, td), .short-example table :is(th, td), #sampled-pair table :is(th, td) {
+  white-space: normal;
+}
+.length-row {
+  padding: .65rem 0;
+  border-bottom: 1px solid var(--line-soft);
+}
+.length-summary { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 .9rem; margin-bottom: .35rem; }
+.length-summary span { color: var(--muted); font-size: .86rem; }
+.length-chart svg { display: block; width: 100%; height: 3.5rem; fill: var(--u410); }
+.length-chart line { stroke: var(--ref); stroke-dasharray: 3 3; vector-effect: non-scaling-stroke; }
+.length-scale { position: relative; height: 1.4rem; border-top: 1px solid var(--line); }
+.length-scale span {
+  position: absolute;
+  padding-top: .3rem;
+  transform: translateX(-50%);
+  color: var(--muted);
+  font: .74rem var(--mono);
+}
+.length-scale span::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 50%;
+  height: .21rem;
+  border-left: 1px solid var(--ref);
+}
+.length-scale span:first-child { transform: none; }
+.length-scale span:first-child::before { left: 0; }
+.length-row[data-arm="none"] rect, .length-row[data-arm="perm:40"] rect,
+.length-row[data-arm="ref:40"] rect { fill: var(--muted); }
+.continuations { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(min(100%, 20rem), 1fr)); }
+.continuations > div { min-width: 0; }
+.continuations ol {
+  margin-block: .6rem;
+  padding: .6rem .7rem .6rem 2.45rem;
+  background: var(--paper);
+  font: .83rem/1.55 var(--mono);
+}
+.continuations li { white-space: pre-wrap; overflow-wrap: anywhere; padding-block: .22rem; }
+.continuations li::marker { color: var(--faint); font-size: .75em; }
+#sampled-pair blockquote { white-space: pre-line; }
+#fig-causal .inside { stroke: var(--u1749); stroke-dasharray: 7 3; }
+#fig-causal .outside { stroke: var(--muted); stroke-dasharray: 3 4; }
+#fig-causal .state-edit { stroke: var(--u189); stroke-dasharray: 10 3 2 3; }
+#fig-causal .margin-level { stroke: var(--muted); stroke-dasharray: 1 4; }
+@media (max-width: 540px) {
+  .study > .table-wrap th, .short-example .table-wrap th, #sampled-pair .table-wrap th { overflow-wrap: anywhere; }
+  .study > .table-wrap :is(th, td), .short-example table :is(th, td), #sampled-pair table :is(th, td) { padding-right: .35rem; }
 }
 
 /* ------------------------------------------------------------------ figures */

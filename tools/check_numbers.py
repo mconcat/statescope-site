@@ -11,6 +11,10 @@ Exit status 1 if any check fails.
 from __future__ import annotations
 
 import argparse
+import csv
+import statistics
+from decimal import Decimal, ROUND_HALF_UP
+from pathlib import Path
 import json
 import os
 import re
@@ -50,6 +54,100 @@ def share(m_clean, m_patched, m_corrupt, n_boot=1000):
     draw = torch.randint(0, len(num), (n_boot, len(num)), generator=torch.Generator().manual_seed(0))
     ratio = num[draw].mean(1) / den[draw].mean(1)
     return [float(num.mean() / den.mean()), float(ratio.quantile(0.025)), float(ratio.quantile(0.975))]
+
+
+def check_study(args, page, facts):
+    """Read the source tables independently and check the formatted values and plotted samples."""
+    checkout = Path(args.repo)
+    with (checkout / "docs/l9-state-subspaces.csv").open() as f:
+        csv_rows = list(csv.DictReader(f))
+    baseline = site("state-subspaces.json")
+    bad = []
+    for row in csv_rows:
+        point, low, high = [100 * float(row[key]) for key in ("fraction_retained", "paired_bootstrap_95_low", "paired_bootstrap_95_high")]
+        expected = f"{point:.1f} [{low:.1f}, {high:.1f}]"
+        if baseline["rows"][row["subspace"]][row["condition"]] != expected or expected not in page:
+            bad.append((row["subspace"], row["condition"]))
+    check("38. all CSV comparison estimates and paired intervals in the published table", [], bad)
+    for name, rel in (("small", REL), ("large", "release/qwen35-4b")):
+        if name == "large" and not (Path(HERE) / "data/layers-4b.json").exists():
+            continue
+        fvu = json.loads((checkout / rel / "reader_fvu.json").read_text())["layers"]
+        post = [r[f"resid_post.{k}"]["position_0_dropped"] for k, r in fvu.items()]
+        both = post + [r[f"resid_mid.{k}"]["position_0_dropped"] for k, r in fvu.items()]
+        n_tokens = sum(v["position_0_dropped"] for v in fvu["0"]["tokens_per_split"].values())
+        check(f"39. {name} held-out state reconstruction and position-0-dropped token count",
+              [f"{statistics.median(post):.2f}", f"{statistics.median(both):.4f}", f"{max(both):.2f}", f"{n_tokens:,}"],
+              [facts[f"fvu.{name}_{key}"]["display"] for key in ("median", "pooled", "max", "tokens")])
+    if not (Path(HERE) / "data/width-edit.json").exists():
+        return
+    root = Path(args.geom)
+    def source(rel):
+        return json.loads((root / rel).read_text())
+    width = site("width-edit.json")
+    research = source("line_count/m6_frame_edit.json")
+    bounds = source("line_count/m7_extra.json")["arms"]
+    script = source("line_count/public_demo/run_output/result.json")["arms"]
+    bad = []
+    for row, arm in zip(width["rows"], ("none", "head", "head_permuted", "head_in_frame", "head_rest", "state", "state_random"), strict=True):
+        output = script[arm]
+        def measured(field, ci, digits):
+            result = f"{output[field]:.{digits}f}"
+            if row["arm"] in bounds:
+                quantum = Decimal(1).scaleb(-digits)
+                lo, hi = [Decimal(str(v)).quantize(quantum, rounding=ROUND_HALF_UP) for v in bounds[row["arm"]][ci]]
+                result += f" [{lo}, {hi}]"
+            return result
+        expected = [f"{output['size']:.3f}" if output["size"] else "0",
+                    measured("crossing", "c_star_ci95_over_resamples_with_a_crossing", 1),
+                    measured("mean_margin_counts_48_50", "mean_margin_48_50_ci95", 2),
+                    f"{output['mean_margin_before_line_break']:.2f}"]
+        if expected != [row[k] for k in ("size", "crossing", "margin", "end")] or any(f"<td>{v}</td>" not in page for v in expected):
+            bad.append(arm)
+    check("40. seven public width-demo rows with available M7 document intervals", [], bad)
+    chart = site("trace.json")["causal"]
+    for arm, key in (("clean", "clean"), ("shift:40", "shift40"), ("shift:60", "shift60"), ("perm:40", "perm40"),
+                     ("in_frame:40", "inside"), ("rest:40", "rest"), ("state_gated:40", "state")):
+        raw = research["arms"][arm]["curve"]
+        expected = [f2(v) for v in raw["mean_margin_smoothed"]]
+        check(f"41. M6 mean margin at every drawn count for {arm}", True,
+              chart["counts"] == list(map(str, raw["count"])) and chart["arms"][key] == expected)
+    gen = site("generated-lines.json")
+    raw = source("line_count/m7_results.json")
+    bad = []
+    for key, row in gen["rows"].items():
+        sample = raw["arms"][key]["sampled"]
+        values = [x for doc in sample["line_lengths_by_document"] for x in doc]
+        bins = [sum(lo <= v < lo+10 for v in values) for lo in range(0, 120, 10)] + [sum(v >= 120 for v in values)]
+        lo, hi = sample["median_ci95"]
+        median = f"{statistics.median(values):g} [{round(lo, 1):g}, {round(hi, 1):g}]"
+        expected = [bins, f"{len(values):,}", median, f"{statistics.mean(values):.1f}",
+                    f"{sum(v <= 60 for v in values)/len(values):.1%}", f"{sum(v >= 80 for v in values)/len(values):.1%}"]
+        if expected != [row[k] for k in ("bins", "lines", "median", "mean", "short", "long")] or median not in page:
+            bad.append(key)
+    check("42. eight sampled length distributions, summaries and intervals from individual documents", [], bad)
+    texts = source("line_count/m7_texts.json")
+    check("43. both complete continuations and corpus line for the first document in recorded order", True,
+          texts["corpus_lines"][0] == gen["example"]["corpus_line"] and all(gen["example"][k] == texts["arms"][k]["sampled"]["text"][0] for k in ("none", "head:40")))
+    if not (Path(HERE) / "data/code-behaviour.json").exists():
+        return
+    scores = site("code-behaviour.json")
+    executed = source("steer_state/x1_out/tables.json")
+    execution = executed["cells"]
+    comparison_controls = executed["unit_minus_controls"]
+    bad = []
+    for name, measures, prefix in (("rows", ("guard", "type_rej", "value_rej", "valid_all"), ""), ("changes", ("type_rej", "value_rej", "valid_all"), "d_")):
+        for key, row in scores[name].items():
+            for metric in measures:
+                if key.endswith("_controls"):
+                    raw_triplet = comparison_controls[key.removesuffix("_controls")][metric]
+                else:
+                    raw_triplet = execution[key][prefix+metric]
+                point, lo, hi = [format(v*100, "+.1f" if prefix else ".1f") for v in raw_triplet]
+                expected = f"{point} [{lo}, {hi}]"
+                if row[metric] != expected or expected not in page:
+                    bad.append((key, metric))
+    check("44. syntax, executed functions and paired changes with every task-bootstrap interval", [], bad)
 
 
 def main() -> None:
@@ -357,6 +455,7 @@ def main() -> None:
               ([f3(p["guard_rate"]) for p in main], [f"{dose['unit_minus_pooled_controls_at_the_same_dose'][f'n_g2879_d{d}']['diff'][0]:+.2f}" for d in (1, 2)], f3(dose["natural_prompts"][0]["guard_rate"])),
               ([p["rate"] for p in held["state"]["series"][0]["points"]], [facts["su.minus1"]["display"], facts["su.minus2"]["display"]], held["state"]["instructed"]))
 
+    check_study(args, page, facts)
     print(f"\n{sum(results)} of {len(results)} checks passed")
     sys.exit(0 if all(results) else 1)
 

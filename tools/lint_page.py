@@ -20,11 +20,12 @@ from html.parser import HTMLParser
 
 HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 REL = "release/qwen35-08b-v2"
-SOURCES = ["README.md", f"{REL}/MODEL_CARD.md", "demo/line_count.py", f"{REL}/layers_table.md", f"{REL}/line_count_table.md",
+SOURCES = ["README.md", f"{REL}/MODEL_CARD.md", "demo/line_count.py", "demo/width_memory.py", "docs/l9-state-subspaces.csv", f"{REL}/layers_table.md", f"{REL}/line_count_table.md",
            f"{REL}/line_count_link_table.md"]
 SOURCES_4B = ["release/qwen35-4b/layers_table.md", "release/qwen35-4b/MODEL_CARD.md"]                            # read when the page has the Qwen3.5-4B section
 PAGE_DATA = ["facts.json", "layers.json", "splice.json", "demo.json"]          # the item texts are data, not claims of the page
-OPTIONAL_DATA = ["layers-4b.json", "steer.json", "count-curve.json", "count-readout.json", "trace.json", "geom-4b.json"]
+OPTIONAL_DATA = ["layers-4b.json", "steer.json", "count-curve.json", "count-readout.json", "trace.json", "geom-4b.json",
+                 "width-edit.json", "generated-lines.json", "state-subspaces.json", "code-behaviour.json"]
 REFERENCES = os.path.join("tools", "references.json")                          # bibliographic data of the works the page refers to
 ALLOWED_LINKS = ("https://github.com/mconcat/statescope", "https://huggingface.co/mconcat/statescope-qwen3.5-0.8b",
                  "https://huggingface.co/mconcat/statescope-qwen3.5-4b", "https://arxiv.org/abs/2601.04480", "https://arxiv.org/abs/2502.20332",
@@ -53,7 +54,9 @@ class Text(HTMLParser):
                 self.skip += 1
         if tag in ("script", "style"):
             self.skip += 1
-        described = tag == "meta" and dict(attrs).get("name") == "description"
+        attributes = dict(attrs)
+        described = tag == "meta" and (attributes.get("name") in {"description", "twitter:title", "twitter:description"}
+                                       or attributes.get("property") in {"og:title", "og:description", "og:image:alt"})
         for key, value in attrs:
             if value and (key in ("aria-label", "alt", "title") or (key == "content" and described)):
                 self.parts.append(value)
@@ -156,7 +159,7 @@ def page_data() -> list[str]:
 
 
 def untraceable(text: str, corpus: str) -> list[str]:
-    return sorted({w for w in words_with_digits(text) if not occurs(w, corpus)})
+    return sorted(w for w in set(words_with_digits(text)) if not occurs(w, corpus))
 
 
 def main() -> None:
@@ -213,7 +216,10 @@ def main() -> None:
                 for url in re.findall(r"https?://[^\s\"'<>)]+", text):
                     if not url.startswith(ALLOWED_LINKS) and not url.startswith("http://www.w3.org/"):
                         problems.append(f"{rel}: external address {url}")
+    anchors = set(re.findall(r'\bid="([^"]+)"', raw))
     for link in parser.links:
+        if link.startswith("#") and link[1:] not in anchors:
+            problems.append(f"index.html: missing anchor {link}")
         if link.startswith(("http://", "https://", "//")) and not link.startswith(ALLOWED_LINKS):
             problems.append(f"index.html: link or resource {link}")
         if link.startswith("/"):

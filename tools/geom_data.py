@@ -40,7 +40,8 @@ def load(folder: str, *rel: str) -> dict:
 TRACE_ROWS = [(0, (0, 2, 7)), (1, (2,)), (2, (0, 4)), (3, (0, 1, 3)), (4, (6, 7)), (5, (0, 1, 2, 8)), (6, (0, 3)), (7, (0,)), (8, (0, 2)), (9, (2, 4, 5))]
 # the stops of the animation: every key frame of the file is a measured state; the two mixer writes stored inside a key frame
 # (before + write = after) give one more stop each, the state before the write seen in the same frame
-CAUSAL_ARMS = {"clean": "clean", "shift40": "shift:40", "shift60": "shift:60", "perm40": "perm:40"}
+CAUSAL_ARMS = {"clean": "clean", "shift40": "shift:40", "shift60": "shift:60", "perm40": "perm:40",
+               "inside": "in_frame:40", "rest": "rest:40", "state": "state_gated:40"}
 
 
 # the stops of the animated figure, all in ONE coordinate system: the file's fixed 3-dimensional basis of the residual space
@@ -294,9 +295,14 @@ def line_count(facts, folder: str, demo: dict) -> dict:
     add("lc.cz_cstar_shift60", fixed(t100["shift:60"]["c_star"], 0), "m3_causal.json", "targets.100.arms['shift:60'].c_star")
     add("lc.cz_cstar_perm", fixed(t100["perm:40"]["c_star"], 0), "m3_causal.json", "targets.100.arms['perm:40'].c_star")
     add("lc.cz_read_const_end", fixed(t100["own_mean"]["mean_margin_remaining_0_2"], 1), "m3_causal.json", "targets.100.arms.own_mean.mean_margin_remaining_0_2")
-    xs = sorted(int(v) for v in t100["clean"]["mean_margin_by_count_every5"])
-    causal = {"counts": [str(v) for v in xs], "arms": {k: [fixed(t100[a]["mean_margin_by_count_every5"][str(v)], 2) for v in xs] for k, a in CAUSAL_ARMS.items()},
-              "width": "100", "donors": {"shift40": "40", "shift60": "60", "perm40": "40"}}
+    frame_edit = load(folder, "m6_frame_edit.json")["arms"]
+    xs = frame_edit["clean"]["curve"]["count"]
+    series = {}
+    for key, arm in CAUSAL_ARMS.items():
+        curve = frame_edit[arm]["curve"]
+        assert curve["count"] == xs
+        series[key] = [fixed(v, 2) for v in curve["mean_margin_smoothed"]]
+    causal = {"counts": list(map(str, xs)), "arms": series, "width": "100", "donors": {"shift40": "40", "shift60": "60", "perm40": "40"}}
     t130 = f7["units"]["mlp20/t130"]
     add("lc.t130_rem_low", fixed(min(t130["crossing_fit"]["remaining_at_crossing"]), 1), "f7_late_readouts.json", "units['mlp20/t130'].crossing_fit.remaining_at_crossing, smallest")
     add("lc.t130_rem_high", fixed(max(t130["crossing_fit"]["remaining_at_crossing"]), 1), "f7_late_readouts.json", "largest")
@@ -306,7 +312,7 @@ def line_count(facts, folder: str, demo: dict) -> dict:
         add(f"lc.{name.split('/')[1]}", name.split("/t")[1], "f7_late_readouts.json", f"units['{name}']")
     add("lc.h15_remaining", fixed(f4["units"]["L21h15"]["r_only"], 2), "f4_decision.json", "units.L21h15.r_only")
     print(f"trace: {len(path['stops'])} stops in one fixed view, {sum(len(v) for v in counts.values())} cells per stop, {sum(len(r['entries']) for r in table)} table entries")
-    return {"sources": [src(n) for n in ("f_animation_keyframes.json", "f_trace.json", "m3_causal.json")], "widths": widths,
+    return {"sources": [src(n) for n in ("f_animation_keyframes.json", "f_trace.json", "m3_causal.json", "m6_frame_edit.json")], "widths": widths,
             "counts": {w: [str(counts[w][0]), str(counts[w][-1])] for w in widths}, "path": path, "table": table, "cells": cells, "causal": causal}
 
 
@@ -458,6 +464,12 @@ def four_b_geometry(facts, root: str) -> dict:
     add("aba.move_high", fixed(max(moved), 2), "largest", "aba_abb/run3_shares.json")
     add("aba.move_random_low", fixed(min(rand), 2), "the same for a random 4-dimensional frame: smallest", "aba_abb/run3_shares.json")
     add("aba.move_random_high", fixed(max(rand), 2), "largest", "aba_abb/run3_shares.json")
+    for i, (group, value) in enumerate(sorted(heads[1]["write_share_inside_destination_frames"].items(), key=lambda item: -item[1])[:3]):
+        add(f"aba.dest_{i}", group, "destination frame of the which-item direction")
+        add(f"aba.dest_share_{i}", fixed(value, 2), "write share in that frame")
+    full = [v["change_along_supervised"] / v["natural_along_supervised"] for k, v in shares.items() if k.startswith(rules) and k.endswith("|group 12487")]
+    add("aba.full_low", fixed(min(full), 2), "share along the full rule direction", "aba_abb/run3_shares.json")
+    add("aba.full_high", fixed(max(full), 2), "share along the full rule direction", "aba_abb/run3_shares.json")
     out["aba"] = {"group": 12487, "site": "resid_post.14", "conditions": conds,
                   "reads": [{"common": fixed(h["read_direction_on_common_axis"], 3), "rule": fixed(h["read_direction_on_rule_axis"], 3), "gain": fixed(h["gain"], 3)} for h in heads]}
 
@@ -473,6 +485,10 @@ def four_b_geometry(facts, root: str) -> dict:
     add("avg.count_distance", fixed(explained["count distance"], 2), "inside_the_examples['fin|mid.15'].explained['count distance']")
     add("avg.shared_suffix", fixed(explained["shared suffix length"], 2), "inside_the_examples['fin|mid.15'].explained['shared suffix length']")
     h14 = bel["head14"]
+    variation = h14["share_of_variation_at_resid_mid15_carried_by"]
+    for name, key in (("head", "head 14, whole write"), ("mix", "whole layer-15 mixer write")):
+        add("avg."+name, fixed(variation[key], 2), key+" share of between-history variation")
+    add("avg.prior", fixed(1 - variation["whole layer-15 mixer write"], 2), "share arriving from the preceding layer")
     add("avg.attention_third", fixed(h14["attention_to_third_items_total"]["mean"], 2), "head14.attention_to_third_items_total.mean")
     add("avg.mixture_r2", fixed(h14["mixture_r2_for_head14_third_item_write_heldout"], 2), "head14.mixture_r2_for_head14_third_item_write_heldout")
     add("avg.equal_r2", fixed(h14["equal_attention_r2_for_head14_third_item_write_heldout"], 2), "head14.equal_attention_r2_for_head14_third_item_write_heldout")
@@ -589,4 +605,15 @@ def four_b_geometry(facts, root: str) -> dict:
         facts.add(f"st.hash_dose{dose[0]}", fixed(path[dose], 2), source("steer_9167/figure_9167.json"), f"move_path_code_only_prompts, dose {dose}: first_choice_hash")
     out["steer"] = {"bars": bars}
     out["state"] = state_unit(facts, root, source)
+    spectrum = load(root, "compare_357", "rank_spectrum.json")["gate_directions"]["cos_of_gate_read_directions_r"]
+    facts.add("cmp.full_cos", signed(spectrum["357_472"], 2), source("compare_357/rank_spectrum.json"), "cosine of the full gate read directions")
+    directions = load(root, "compare_357", "checks.json")["d_read_directions_and_frames"]
+    units = load(root, "compare_357", "results.json")["groups"]
+    for unit in ("357", "472"):
+        facts.add(f"cmp.proj_{unit}", fixed(directions[unit]["share_of_read_direction_squared_length"]["g9719"], 2),
+                  source("compare_357/checks.json"), "fraction of squared length in group 9719")
+        for row in units[unit]["top3_all_list"]:
+            for dataset in ("list", "js"):
+                facts.add(f"cmp.var_{unit}_{row['group']}_{dataset}", fixed(row["share_"+dataset], 2),
+                          source("compare_357/results.json"), f"groups.{unit}.top3_all_list, gate-input variance")
     return out

@@ -92,8 +92,8 @@ async def open_page(browser, url: str, width: int, height: int, scheme: str, log
 async def open_folds(page) -> None:
     """the blocks that stay closed until asked for (evidence and numbers of the worked example, training details, numbers per layer,
     what was checked) are opened by their summaries; the figures inside them are drawn once they are visible"""
-    for i in range(await page.locator("details.fold").count()):
-        d = page.locator("details.fold").nth(i)
+    for i in range(await page.locator("details.fold, #sampled-pair").count()):
+        d = page.locator("details.fold, #sampled-pair").nth(i)
         if await d.get_attribute("open") is None:
             await d.locator("> summary").click()
     await page.wait_for_selector("#layer-panels svg")
@@ -545,8 +545,8 @@ async def new_figures(page, demo: dict) -> list[str]:
         for i in (0, len(c["counts"]) // 2, len(c["counts"]) - 1):
             await page.locator("#causal-plot svg").hover(position={"x": 44 + i / (len(c["counts"]) - 1) * (box["width"] - 56), "y": box["height"] / 2})
             got = await page.eval_on_selector_all("#causal-readout b", "n => n.map(x => x.textContent)")
-            expect(got == [c["counts"][i]] + [c["arms"][k][i] for k in ("clean", "shift40", "shift60", "perm40")], f"causal figure at {c['counts'][i]}: {got}")
-        expect(await page.locator("#causal-plot path[data-arm]").count() == 4, "causal figure: four lines")
+            expect(got == [c["counts"][i]] + [c["arms"][k][i] for k in ("clean", "shift40", "shift60", "perm40", "inside", "rest", "state")], f"causal figure at {c['counts'][i]}: {got}")
+        expect(await page.locator("#causal-plot path[data-arm]").count() == len(c["arms"]), "causal figure: all measured lines")
         seen.append(await page.evaluate(VISIBLE_TEXT))
     if os.path.exists(os.path.join(HERE, "data", "geom-4b.json")):
         geom = data("geom-4b.json")
@@ -617,6 +617,17 @@ async def run(args) -> None:
                     else:
                         later.append(box)
             await open_folds(page)
+            if lint_page.has("generated-lines.json"):
+                generation = data("generated-lines.json")
+                histograms = await page.locator("#fig-lengths .length-row").evaluate_all(
+                    "rows => rows.map(r => [r.dataset.arm, [...r.querySelectorAll('rect')].map(b => +b.dataset.lines), r.innerText])")
+                expect([r[0] for r in histograms] == list(generation["rows"]), f"{name}: order of generated conditions")
+                for key, bars, label in histograms:
+                    result = generation["rows"][key]
+                    expect(bars == result["bins"] and result["median"] in label and result["mean"] in label, f"{name}: distribution for {key}")
+                excerpts = await page.locator(".continuations ol").evaluate_all(
+                    "lists => lists.map(list => [...list.children].map(li => li.textContent).join('\\n'))")
+                expect(excerpts == [generation["example"][key] for key in ("none", "head:40")], f"{name}: paired continuation")
             await lead_figure(page, demo, name, width)
             if args.shots:
                 for box in later:
@@ -634,13 +645,14 @@ async def run(args) -> None:
         ctx = await browser.new_context(java_script_enabled=False, viewport={"width": 1280, "height": 900})
         page = await ctx.new_page()
         await page.goto(url + "index.html")
-        for i in range(await page.locator("details.fold").count()):
-            await page.locator("details.fold").nth(i).locator("> summary").click()
+        for i in range(await page.locator("details.fold, #sampled-pair").count()):
+            await page.locator("details.fold, #sampled-pair").nth(i).locator("> summary").click()
         for i in range(await page.locator("details.more:visible").count()):
             await page.locator("details.more:visible").nth(i).locator("summary").click()
         tables = await page.locator("table:visible").count()
         # shares, rates, link, layers, spliced-in loss, details; 4B: layers, details; the trace table
         want = 6 + 2 * os.path.exists(os.path.join(HERE, "data", "layers-4b.json")) + os.path.exists(os.path.join(HERE, "data", "trace.json"))
+        want += sum(n for file, n in (("state-subspaces.json", 1), ("width-edit.json", 1), ("generated-lines.json", 1), ("code-behaviour.json", 2)) if lint_page.has(file))
         if os.path.exists(os.path.join(HERE, "data", "trace.json")):
             expect(await page.locator(".path-strip svg:visible").count() == 5, "without JavaScript: the strip of stops is not there")
             expect(await page.locator("#story .story-step:visible").count() == 5, "without JavaScript: the paragraphs of the story are not there")
