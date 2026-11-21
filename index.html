@@ -111,12 +111,12 @@
             </article>
             <article class="story-step" data-stage="d" tabindex="0">
               <h3 id="line-end"><a href="#line-end">A straight cut now marks the line end</a></h3>
-              <p>The line-end reader in the layer-13 MLP (transform 2490) fires 2 to 8 characters before the end across all five widths, and its cut is the straight line drawn at <code>resid_mid.13</code> in Figure 3, within 0.7 characters of its measured switching points. Before the write, at <code>resid_mid.9</code>, no cut fires a fixed distance before the line end. Layer-12 transform 2069 fires 2 to 6 characters before the end, and layer-20 transform 130 fires at 9.9 to 11.0 remaining characters. Swapping the layer-12 or layer-13 reader has little effect on the final margin. The total shares for the layer-13 reader are 0.04, 0.02 and 0.03 across the three conditions. The layer-12 reader rounds to 0.00 in each.</p>
+              <p>The line-end reader in the layer-13 MLP (transform 2490) fires 2 to 8 characters before the end across all five widths, and its cut is the straight line in the front view at <code>resid_mid.13</code> in Figure 3, within 0.7 characters of its measured switching points. Before the write, at <code>resid_mid.9</code>, no cut fires a fixed distance before the line end. Layer-12 transform 2069 fires 2 to 6 characters before the end, and layer-20 transform 130 fires at 9.9 to 11.0 remaining characters. Swapping the layer-12 or layer-13 reader has little effect on the final margin. The total shares for the layer-13 reader are 0.04, 0.02 and 0.03 across the three conditions. The layer-12 reader rounds to 0.00 in each.</p>
               <p>Downstream, head 15 of the layer-21 mixer writes directly toward the line-break decision, with 0.97 of the reproducible variation in its margin-directed write explained by remaining character count across width/count cells. Its direct shares of the decision difference are 0.71, 0.76 and 0.81 in <code>count:60</code>, <code>count:100</code> and <code>width:100</code>, respectively.</p>
             </article>
           </details>
         </div>
-        <figure id="fig-path" class="story-figure" data-aria="A mesh follows count and width through the model as the layer-12 mixer's write brings positions with equal remaining characters together." data-play="Play" data-pause="Pause" data-spread-count="Spread at equal count" data-spread-remaining="Spread at equal remaining characters" data-frame-holds="Share of shape inside frame" data-frame-shared="2 of 4 directions shared with previous group" data-write-inside="Layer-12 mixer write share inside frame" data-stage-a="The clock writes the count" data-stage-b="The sheet is carried onward" data-stage-c="Layer-12 mixer write combines width and count" data-stage-d="Straight cut near the line end" data-stage-e="Remaining characters stay together">
+        <figure id="fig-path" class="story-figure" data-aria="A mesh follows count and width through the model as the layer-12 mixer's write brings positions with equal remaining characters together." data-play="Play" data-pause="Pause" data-spread-count="Front-view spread at equal count" data-spread-remaining="At equal remaining characters" data-frame-holds="Share of shape inside frame" data-frame-shared="2 of 4 directions shared with previous group" data-write-inside="Layer-12 mixer write share inside frame" data-stage-a="The clock writes the count" data-stage-b="The sheet is carried onward" data-stage-c="Layer-12 mixer write combines width and count" data-stage-d="Straight cut near the line end" data-stage-e="Remaining characters stay together">
           <div class="needs-js">
             <div class="figure-head">
               <div class="controls">
@@ -126,12 +126,16 @@
               </div>
             </div>
             <div class="layer-readout" id="path-readout" aria-live="polite"></div>
-            <div class="plot" id="path-plot"></div>
+            <div class="path-view" id="path-view" hidden>
+              <span id="path-rotate-hint">Drag to rotate or use the arrow keys.</span>
+              <button type="button" class="quiet" id="path-reset" disabled>Reset view</button>
+            </div>
+            <div class="plot" id="path-plot" role="group" aria-label="State geometry" aria-describedby="path-rotate-hint"></div>
             <ul class="keys" aria-hidden="true">
               <li><svg width="26" height="12"><path d="M2 6H24" class="mesh-end"/></svg>Last 10 characters of each line</li>
               <li><svg width="26" height="12"><path d="M2 6H24" class="mesh-connector"/></svg>Equal count across widths</li>
               <li><svg width="26" height="12"><path d="M2 6H24" class="level-line"/><circle cx="13" cy="6" r="4" class="level-pt"/></svg>Joined measured switching points</li>
-              <li><svg width="26" height="12"><path d="M2 1H24V11H2Z" class="level-side"/><path d="M2 11L24 1" class="level-line"/></svg>Straight cut with firing side shaded</li>
+              <li><svg width="26" height="12"><path d="M2 1H24V11H2Z" class="level-side"/><path d="M2 11L24 1" class="level-line"/></svg>Gate threshold (shaded firing side in the front view)</li>
               <li><svg width="26" height="12"><path d="M2 6H24" class="trail"/></svg>Line-end movement from the layer-12 mixer's write</li>
               <li><svg width="26" height="14"><path d="M4 12H22V2H4Z" class="frame-patch"/><path d="M4 12H22" class="frame-axis"/><path d="M4 12V2" class="frame-axis"/></svg>Frame directions and the plane between them</li>
             </ul>
@@ -146,9 +150,9 @@
           </div>
           <figcaption><b>Figure 3.</b> Thin connectors join positions with equal character counts across widths. After the write, the line ends lie closer together. The animation interpolates between stops in a common projection.
             <details class="measurement"><summary>Projection, interpolation and clock measurements</summary>
-              <p>We use the first two of three common residual directions. The three capture 0.79 to 0.86 of each stop’s variation over count and width, and the two shown hold 0.89 of that variance. Spread at equal count or equal remaining distance is the across-width variance divided by the total variance of those cells in this view.</p>
+              <p>The mesh uses the first three principal components of the residual states, fitted across layers after centring each layer’s count-by-width cell means. Together they capture 0.79 to 0.86 of the measured stops’ variation over count and width. The front view uses the first two directions, which hold 0.89 of the variation in the three directions across stops. Both reported spreads use that fixed front view and divide the across-width variance by the total variance of the corresponding cells.</p>
               <p>Of the 9 stops, 8 are measured states from <code>resid_mid.9</code> to <code>resid_post.13</code>. The state immediately before the layer-12 write is the measured state after it minus the stored mixer output. Movement between stops is interpolated. During the write each cell moves by a fraction of its stored update.</p>
-              <p>The corner arrows mark the two group-frame directions closest to the view. Successive groups carry 2 of 4 directions at cosines of 0.90 to 0.98. A straight cut is shown when it reproduces every measured switching point within 2 characters and adds no crossings. Other lines join measured switching points.</p>
+              <p>The corner arrows mark the two group-frame directions closest to the front view. Successive groups carry 2 of 4 directions at cosines of 0.90 to 0.98. The shaded line in the front view and the threshold plane in a rotated view each use the fit validated in that space. Each fit reproduces the measured switching points within 2 characters and adds no crossings. Other lines join measured switching points.</p>
               <p>The clock head (layer 9, head 10) writes along the line-start key with strength 0.996. The linear fit of cumulative log decay against count has R² 1.000 at every width. Its within-width projection onto the whole mixer’s count curve gives a share of 0.97.</p>
             </details></figcaption>
         </figure>

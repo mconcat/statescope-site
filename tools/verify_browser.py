@@ -120,6 +120,39 @@ async def basic(page, name: str, width: int) -> None:
     expect(numbers == [f"Figure {i}." for i in range(1, len(numbers) + 1)] and len(numbers) >= 8, f"{name}: figure numbers {numbers}")
 
 
+async def rotate_path(page, trace: dict, name: str) -> None:
+    plot = page.locator("#path-plot")
+    reset = page.locator("#path-reset")
+    end = plot.locator(".mesh-end").first
+    front = await end.get_attribute("d")
+    await plot.scroll_into_view_if_needed()
+    box = await plot.bounding_box()
+    x, y = box["x"] + box["width"] / 2, box["y"] + box["height"] / 2
+    await page.mouse.move(x, y)
+    await page.mouse.down()
+    await page.mouse.move(x + 52, y + 20, steps=3)
+    await page.mouse.up()
+    expect(await end.get_attribute("d") != front and await reset.is_enabled(), f"{name}: dragging must rotate the mesh")
+    await reset.click()
+    expect(await end.get_attribute("d") == front and await reset.is_disabled(), f"{name}: reset must restore the front view")
+    # A quarter turn puts the measured third coordinate on the screen's horizontal axis.
+    for _ in range(9):
+        await plot.press("ArrowRight")
+    a, b = trace["widths"][0], trace["widths"][-1]
+    curves = trace["path"]["stops"][0]["curves"]
+    scale = float(await page.get_attribute("#fig-path", "data-scale"))
+    async def end_x(w):
+        path = await plot.locator(f'.mesh-end[data-width="{w}"]').get_attribute("d")
+        return float(path.split("L")[-1].split()[0])
+    difference = await end_x(b) - await end_x(a)
+    delta_z = float(curves[b]["z"][-1]) - float(curves[a]["z"][-1])
+    expect(abs(difference - delta_z * scale) < 0.5, f"{name}: the side view must show the recorded depth")
+    if any(c.get("plane3d") for c in trace["path"]["stops"][0]["cuts"]):
+        expect(await plot.locator(".threshold-plane").count() > 0, f"{name}: the rotated threshold plane is missing")
+    await plot.press("Home")
+    expect(await end.get_attribute("d") == front, f"{name}: keyboard reset must restore the mesh")
+
+
 async def lead_figure(page, demo: dict, name: str, width: int) -> None:
     """the first figure against the item file: tokens, gates, character counts, and the scale of one character"""
     lead, c = demo["lead"], demo["constants"]
@@ -570,6 +603,7 @@ async def run(args) -> None:
             if os.path.exists(os.path.join(HERE, "data", "trace.json")):
                 await page.wait_for_selector("#path-plot svg")
                 expect(await page.locator("#path-play").is_visible(), f"{name}: geometry controls start hidden")
+                await rotate_path(page, data("trace.json"), name)
             expect(await page.locator("#evidence-block").get_attribute("open") is None,
                    f"{name}: detailed counting evidence starts expanded")
             if args.shots:                                                    # before the interactions: the page as a reader first sees it

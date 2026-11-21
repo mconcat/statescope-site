@@ -1331,15 +1331,67 @@ html.js .nojs-only {
   stroke: var(--c, var(--ink));
   stroke-width: 2;
 }
-button.play {
-  min-width: 5.2rem;
-  background: var(--solid);
-  color: var(--on-solid);
-  border-color: var(--solid);
-  font-weight: 620;
+#path-play {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  min-width: 5.6rem;
+  min-height: 2.15rem;
+  background: var(--u1749);
+  color: var(--ground);
+  border-color: var(--u1749);
+  font-weight: 700;
 }
-button.play:hover {
-  background: var(--ink);
+#path-play::before {
+  content: "";
+  width: 0.65rem;
+  height: 0.75rem;
+  background: currentColor;
+  clip-path: polygon(0 0, 100% 50%, 0 100%);
+}
+#path-play[aria-pressed="true"]::before {
+  clip-path: polygon(0 0, 35% 0, 35% 100%, 65% 100%, 65% 0, 100% 0, 100% 100%, 0 100%);
+}
+#path-play:hover {
+  background: color-mix(in srgb, var(--u1749) 85%, var(--ink));
+}
+@media (prefers-reduced-motion: no-preference) {
+  #path-play[aria-pressed="false"] {
+    animation: play-glow 3.6s ease-in-out infinite;
+  }
+  @keyframes play-glow {
+    0%, 100% { box-shadow: 0 0 0 1px transparent; }
+    50% { box-shadow: 0 0 0 4px color-mix(in srgb, var(--u1749) 20%, transparent); }
+  }
+}
+.path-view:not([hidden]) {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.4rem;
+  margin: 0.35rem 0 0.5rem;
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+#path-reset:disabled {
+  color: var(--muted);
+  border-color: var(--line-soft);
+  cursor: default;
+}
+#path-plot.rotatable {
+  cursor: grab;
+  touch-action: pan-y pinch-zoom;
+  user-select: none;
+}
+#path-plot.dragging { cursor: grabbing; }
+.threshold-plane {
+  fill: var(--u410);
+  fill-opacity: 0.11;
+  stroke: var(--u410);
+  stroke-opacity: 0.65;
+  stroke-width: 1;
 }
 .path-labels {
   margin: 1rem 0 0;

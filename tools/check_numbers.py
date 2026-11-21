@@ -299,19 +299,24 @@ def main() -> None:
         after = next(x for x in path["stops"] if x["id"] == "resid_mid.12" and x["kind"] == "state")
         j = 40 - int(held["counts"]["80"][0])
         basis, centre = [[float(v) for v in r] for r in path["basis_in_common"]], [float(v) for v in path["centre_in_common"]]
-        place = lambda xyz: [f3(sum((xyz[k] - centre[k]) * basis[d][k] for k in range(3))) for d in (0, 1)]
+        place = lambda xyz: [f3(sum((xyz[k] - centre[k]) * basis[d][k] for k in range(3))) for d in range(3)]
         wr = frame["write"]["cells"]["80"]["write_xyz_common"][i]
         prior = next(x for x in path["stops"] if x["kind"] == "before")
         close = lambda a, b: all(abs(float(x) - float(y)) <= 0.0015 for x, y in zip(a, b))      # the stored basis is rounded to four decimals
         check("31. trace: the cell (40 characters, width 80) in the fixed view after the write of the layer-12 mixer, and before it (the state minus the stored write)",
-              True, close(place(cell["xyz_common"][i]), [after["curves"]["80"]["x"][j], after["curves"]["80"]["y"][j]]) and
-              close(place([cell["xyz_common"][i][k] - wr[k] for k in range(3)]), [prior["curves"]["80"]["x"][j], prior["curves"]["80"]["y"][j]]))
+              True, close(place(cell["xyz_common"][i]), [after["curves"]["80"][d][j] for d in "xyz"]) and
+              close(place([cell["xyz_common"][i][k] - wr[k] for k in range(3)]), [prior["curves"]["80"][d][j] for d in "xyz"]))
         if os.path.exists(os.path.join(args.geom, "line_count", "f_frames_in_common.json")) and "frame" in after:
             fr = {k["id"]: k for k in g("line_count", "f_frames_in_common.json")["keyframes"]}
             cut = next(c for x in path["stops"] if x["id"] == "resid_mid.13" for c in x["cuts"])
-            plane = next(r for r in fr["resid_mid.13"]["readouts"] if r["transform"] == cut["transform"])["plane"]["xy"]
+            planes = next(r for r in fr["resid_mid.13"]["readouts"] if r["transform"] == cut["transform"])["plane"]
+            plane = planes["xy"]
+            spatial = planes["xyz"]
+            check("31c. trace: the rotated gate plane from the validated three-dimensional fit",
+                  (True, [f"{v:.4f}" for v in spatial["unit_direction"]], f"{spatial['offset']:.4f}"),
+                  (spatial["faithful"], cut["plane3d"]["normal"], cut["plane3d"]["offset"]))
             check("31b. trace: the frame of group 15458 in the view, the share of the shape it holds, and the straight cut of the layer-13 transform (direction, offset, and the analyst's verdict)",
-                  ([[f3(v) for v in row[:2]] for row in fr["resid_mid.12"]["aligned_axes_in_common"][:2]], f2(fr["resid_mid.12"]["share_of_common_structure_inside_frame"]),
+                  ([[f3(v) for v in row] for row in fr["resid_mid.12"]["aligned_axes_in_common"][:2]], f2(fr["resid_mid.12"]["share_of_common_structure_inside_frame"]),
                    [f"{v:.4f}" for v in plane["unit_direction"]], f"{plane['offset']:.4f}", True),
                   (after["frame"]["axes"], after["frame"]["holds"], cut["direction"], cut["offset"], plane["faithful"] and cut["shape"] == "line"))
         row = tr["rows"][5]["numbers"]

@@ -44,7 +44,7 @@ CAUSAL_ARMS = {"clean": "clean", "shift40": "shift:40", "shift60": "shift:60", "
 
 
 # the stops of the animated figure, all in ONE coordinate system: the file's fixed 3-dimensional basis of the residual space
-# (xyz_common), drawn in its first two directions; no stop is re-aligned or re-scaled. "before" is the state after the layer-12
+# (xyz_common), initially viewed along its third axis; no stop is re-aligned or re-scaled. "before" is the state after the layer-12
 # mixer's write minus the stored write. CUTS: the read-out transforms drawn at a stop (a straight line where the analysis found
 # one faithful in this view, joined crossing points otherwise)
 PATH_STOPS = ["resid_mid.9", "resid_post.9", "resid_post.10", "resid_post.11", "before", "resid_mid.12", "resid_post.12", "resid_mid.13", "resid_post.13"]
@@ -79,7 +79,7 @@ def common_path(add, kf: dict, by_id: dict, widths: list[str], frames_file: dict
     write = cells("resid_mid.12", "write_xyz_common", by_id["resid_mid.12"]["write"]["cells"])
     xyz["before"] = {w: xyz["resid_mid.12"][w] - write[w] for w in widths}    # the state before the layer-12 mixer's write, in the same coordinates
     # the drawn view: the first two of the three common directions, in the file's own coordinates (each key frame centred on its cells)
-    basis = torch.eye(3, dtype=torch.float64)[:2]
+    basis = torch.eye(3, dtype=torch.float64)
     mu = torch.zeros(3, dtype=torch.float64)
     view = {s: {w: xyz[s][w][:, :2] for w in widths} for s in PATH_STOPS}
     centred = [torch.cat([xyz[s][w] for w in widths]) for s in PATH_STOPS]
@@ -101,8 +101,9 @@ def common_path(add, kf: dict, by_id: dict, widths: list[str], frames_file: dict
         if i < 0 or i > len(counts[w]) - 1:
             return None
         lo = min(int(i), len(counts[w]) - 2)
-        p = view[site][w][lo] + (view[site][w][lo + 1] - view[site][w][lo]) * (i - lo)
-        return {"x": fixed(float(p[0]), 3), "y": fixed(float(p[1]), 3), "count": fixed(count, 1), "remaining": fixed(int(w) - count, 1)}
+        curve = xyz[site][w]
+        p = curve[lo] + (curve[lo + 1] - curve[lo]) * (i - lo)
+        return {"x": fixed(float(p[0]), 3), "y": fixed(float(p[1]), 3), "z": fixed(float(p[2]), 3), "count": fixed(count, 1), "remaining": fixed(int(w) - count, 1)}
 
     stops = []
     for i, s in enumerate(PATH_STOPS):
@@ -110,7 +111,8 @@ def common_path(add, kf: dict, by_id: dict, widths: list[str], frames_file: dict
         cuts = []
         for t in CUTS.get(s, ()):
             r = next(x for x in by_id[s]["readouts"] if x["transform"] == t)
-            plane = next(x for x in frame_of[s]["readouts"] if x["transform"] == t)["plane"]["xy"] if frame_of else None
+            planes = next(x for x in frame_of[s]["readouts"] if x["transform"] == t)["plane"] if frame_of else None
+            plane = planes["xy"] if planes else None
             if plane and plane["faithful"]:
                 # a straight line reproduces the measured crossings (the analyst's test, in this view): the cut is drawn as that line
                 u, off = torch.tensor(plane["unit_direction"], dtype=torch.float64), plane["offset"]
@@ -120,6 +122,9 @@ def common_path(add, kf: dict, by_id: dict, widths: list[str], frames_file: dict
                         assert float(view[s][w][j - 3] @ u) < off < float(view[s][w][j + 3] @ u), (t, w)
                 cuts.append({"transform": t, "shape": "line", "direction": [fixed(float(u[0]), 4), fixed(float(u[1]), 4)], "offset": fixed(off, 4),
                              "error": fixed(plane["largest_error_in_characters"], 1)})
+                if planes["xyz"]["faithful"]:
+                    spatial = planes["xyz"]
+                    cuts[-1]["plane3d"] = {"normal": [fixed(v, 4) for v in spatial["unit_direction"]], "offset": fixed(spatial["offset"], 4)}
                 add(f"pv.t{t}_error", fixed(plane["largest_error_in_characters"], 1), "f_frames_in_common.json",
                     f"readout of transform {t} at {s}: plane.xy.largest_error_in_characters")
                 continue
@@ -130,13 +135,13 @@ def common_path(add, kf: dict, by_id: dict, widths: list[str], frames_file: dict
                     cuts.append({"transform": t, "shape": "points", "kind": kind, "points": pts})
         state_id = "resid_post.11" if s == "before" else s                       # the state before the write is resid_post.11
         entry = {"id": state_id, "kind": "before" if s == "before" else "state", "group": by_id[state_id]["view"]["group"],
-                 "curves": {w: {"x": [fixed(float(p[0]), 3) for p in view[s][w]], "y": [fixed(float(p[1]), 3) for p in view[s][w]]} for w in widths},
+                 "curves": {w: {axis: [fixed(float(v), 3) for v in xyz[s][w][:, d]] for d, axis in enumerate("xyz")} for w in widths},
                  "spread": {"count": fixed(spread(s, "count"), 2), "remaining": fixed(spread(s, "remaining"), 2)}, "cuts": cuts}
         if frame_of:
             # the frame of the state's main group: its two directions closest to the plane of the view, in the view's coordinates
             fr = frame_of[state_id]
             assert fr["group"] == entry["group"] and fr["in_common_range"], state_id
-            entry["frame"] = {"axes": [[fixed(v[0], 3), fixed(v[1], 3)] for v in fr["aligned_axes_in_common"][:2]],
+            entry["frame"] = {"axes": [[fixed(component, 3) for component in axis] for axis in fr["aligned_axes_in_common"][:2]],
                               "holds": fixed(fr["share_of_common_structure_inside_frame"], 2)}
             wp = fr["with_previous"]
             if stops and stops[-1]["group"] != entry["group"]:              # a new group: what its frame shares with the previous one's
