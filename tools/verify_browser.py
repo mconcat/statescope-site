@@ -650,8 +650,8 @@ async def run(args) -> None:
         for i in range(await page.locator("details.more:visible").count()):
             await page.locator("details.more:visible").nth(i).locator("summary").click()
         tables = await page.locator("table:visible").count()
-        # shares, rates, link, layers, spliced-in loss, details; 4B: layers, details; the trace table
-        want = 6 + 2 * os.path.exists(os.path.join(HERE, "data", "layers-4b.json")) + os.path.exists(os.path.join(HERE, "data", "trace.json"))
+        # terminology, shares, rates, link, layers, spliced-in loss, details; 4B: layers, details; the trace table
+        want = 7 + 2 * os.path.exists(os.path.join(HERE, "data", "layers-4b.json")) + os.path.exists(os.path.join(HERE, "data", "trace.json"))
         want += sum(n for file, n in (("state-subspaces.json", 1), ("width-edit.json", 1), ("generated-lines.json", 1), ("code-behaviour.json", 2)) if lint_page.has(file))
         if os.path.exists(os.path.join(HERE, "data", "trace.json")):
             expect(await page.locator(".path-strip svg:visible").count() == 5, "without JavaScript: the strip of stops is not there")

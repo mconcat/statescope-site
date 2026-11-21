@@ -9,20 +9,20 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>statescope: How does a hybrid language model count characters to the end of a line?</title>
-<meta name="description" content="A recurrent head counts characters. A later head combines that count with line width. We edit its read and measure where generated lines end.">
+<meta name="description" content="A recurrent head counts characters. A later head combines that count with line width. We change what that head reads from memory and measure where generated lines end.">
 <meta property="og:type" content="website">
 <meta property="og:title" content="statescope: How does a hybrid language model count characters to the end of a line?">
-<meta property="og:description" content="A recurrent head counts characters. A later head combines that count with line width. We edit its read and measure where generated lines end.">
+<meta property="og:description" content="A recurrent head counts characters. A later head combines that count with line width. We change what that head reads from memory and measure where generated lines end.">
 <meta property="og:site_name" content="statescope">
 <meta property="og:url" content="https://statescope.ai/">
 <meta property="og:image" content="https://statescope.ai/assets/og-card.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
-<meta property="og:image:alt" content="Count curves at five wrapping widths before and after the layer-12 mixer writes. Cell means at equal distance from the line end converge in the two directions shown.">
+<meta property="og:image:alt" content="Mean residual-stream vectors at five wrapping widths before and after the recurrent head outputs are added in layer 12. Points at equal distances from the line end move closer together in the two directions shown.">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:image" content="https://statescope.ai/assets/og-card.png">
 <meta name="twitter:title" content="statescope: How does a hybrid language model count characters to the end of a line?">
-<meta name="twitter:description" content="A recurrent head counts characters. A later head combines that count with line width. We edit its read and measure where generated lines end.">
+<meta name="twitter:description" content="A recurrent head counts characters. A later head combines that count with line width. We change what that head reads from memory and measure where generated lines end.">
 <meta name="color-scheme" content="light dark">
 <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
 <link rel="preload" href="assets/fonts/site-sans-var.woff2" as="font" type="font/woff2" crossorigin>
@@ -37,7 +37,7 @@
 <header class="hero" id="top">
   <p class="project-name">statescope</p>
   <h1>How does a hybrid language model count characters to the end of a line?</h1>
-  <p class="sets">Gurnee et al. traced how an attention model turns a character count into the distance to a line end. How does Qwen3.5-0.8B do it when most of its mixers are recurrent? With statescope, we release a reader and two dictionaries for every layer of Qwen3.5-0.8B and Qwen3.5-4B, one that represents residual-stream states with groups of four learned directions and one that describes the MLP’s operations. We trace a recurrent head’s character clock as a curve in one learned state group, then follow a layer-12 head that combines count with a width read from earlier lines. Moving just the part of that head’s width edit inside another group’s frame brings the line-break margin to its threshold earlier and shortens the lines the model generates.</p>
+  <p class="sets">Qwen3.5-0.8B is a hybrid language model with attention in some layers and recurrent memory in most. Gurnee et al. traced how an attention model combines a character count with line width. In Qwen3.5-0.8B, we find that one recurrent head tracks the count. A second head, in layer 12, combines it with the width of earlier lines. We shift this head’s output toward what it writes for narrower lines, keeping only the change along four learned directions in the residual stream. On fixed text, the model reaches the same mean logit preference for a line break at an earlier character count. When it generates text, its median line gets shorter. We release two learned dictionaries per layer, one for the residual stream and one for the MLP, and a reader to inspect their activations in Qwen3.5-0.8B and Qwen3.5-4B.</p>
   <nav class="links" aria-label="Code and weights">
     <a class="pill" href="https://github.com/mconcat/statescope"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M5.6 3.6 1.6 8l4 4.4M10.4 3.6l4 4.4-4 4.4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>Code</a>
     <a class="pill" href="https://huggingface.co/mconcat/statescope-qwen3.5-4b"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M8 1.8 14 5 8 8.2 2 5zM2 8l6 3.2L14 8M2 11l6 3.2 6-3.2" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>Weights for <span class="nw">Qwen3.5-4B</span></a>
@@ -48,33 +48,58 @@
 <main id="main">
 
 <!--if trace-->
-<section class="wrap research-overview" aria-label="Count curves before and after the width write" id="abstract">
+<section class="wrap research-overview" aria-label="Character counts before and after the recurrent sublayer in layer 12" id="abstract">
     <figure id="fig-overview" class="result">
       <p class="result-model">Qwen3.5-0.8B</p>
       <h3><a href="#story">From characters counted to characters remaining</a></h3>
       <div class="overview-pair">
-        <div><h4>Before the layer-12 write</h4>{{pathstrip|4}}<p>Spread at equal distance <b>{{pv.s4_remaining}}</b></p></div>
-        <div><h4>After the layer-12 write</h4>{{pathstrip|5}}<p>Spread at equal distance <b>{{pv.s5_remaining}}</b></p></div>
+        <div><h4>Before layer 12 adds its recurrent output</h4>{{pathstrip|4}}<p>Across-width variance / total variance <b>{{pv.s4_remaining}}</b></p></div>
+        <div><h4>After layer 12 adds its recurrent output</h4>{{pathstrip|5}}<p>Across-width variance / total variance <b>{{pv.s5_remaining}}</b></p></div>
       </div>
-      <figcaption><b>Figure {{fig|overview}}.</b> Each curve joins mean states at successive character counts for one wrapping width across {{lc.documents}} documents. Gold marks the last {{pv.highlight}} characters. Spread measures how far apart the means at equal remaining distance lie across widths, in the two directions drawn. <a href="#story">Explore the measured states.</a></figcaption>
+      <figcaption><b>Figure {{fig|overview}}.</b> Each curve joins mean normalized residual-stream vectors by character count at one width across {{lc.documents}} documents. Gold marks the last {{pv.highlight}} characters. Spread is the fraction of total variance in the two directions shown that lies between widths at equal distance from the line end. <a href="#story">Follow the curves through the model.</a></figcaption>
     </figure>
 </section>
 <!--endif trace-->
 <section class="band" aria-labelledby="example">
   <div class="wrap study">
     <h2 id="example">Where does the model keep the count?</h2>
-    <p class="lead">Fifty characters almost fill a narrow line. A wide line still has room. In Claude 3.5 Haiku, attention heads track the count and combine it with line width. We follow the same task through the GatedDeltaNet layers of Qwen3.5-0.8B. <a href="https://arxiv.org/abs/2601.04480">Gurnee et al., When Models Manipulate Manifolds</a></p>
-    <!--if trace--><p>The first token of each line resets the clock in layer 9, head {{demo.head}}. Its cumulative log decay falls linearly with the number of characters since line start (R² {{lc.clock_r2}} at every width). Group {{demo.l9_group}} holds the count as a curve in its frame, a set of four learned directions. As the state travels along the curve, MLP transforms {{demo.l9_transform_short}} and {{demo.l9_transform_long}} respond to different stretches of it.</p>
-    <p>We trained the dictionaries without the counting task. To choose the group, we ranked all {{state.groups}} layer-9 groups by the fraction of the squared change in mixer output between paired texts that lay inside each frame. Group {{demo.l9_group}} came first in each condition on both halves of the pairs, with {{pick.min}} to {{pick.max}} of the change, against {{pick.next_min}} to {{pick.next_max}} for the runner-up.</p><!--endif trace-->
-    <p>We ranked the early-chain units on odd-numbered pairs, tested the swaps on the {{demo.items_per_half}} even-numbered pairs per condition and tested the selected subspaces again on new documents. Earlier work had identified head {{demo.head}}. In the count conditions we move the last line start and keep the wrapping width fixed. In the width condition we keep the last line start and rewrap the preceding text more widely.</p>
-    <p>For example, at width 60, swapping that head’s read accounts for {{ci|count:60|head_o}} of the clean-to-corrupt difference in the mean line-break margin. Swapping the whole mixer accounts for {{ci|count:60|layer_y}}. Parentheses give bootstrap intervals over pairs.</p>
+    <div class="table-wrap" id="terms">
+      <table>
+        <caption><strong>Terms on this page</strong></caption>
+        <thead><tr><th scope="col">Term</th><th scope="col">Meaning</th></tr></thead>
+        <tbody>
+          <tr><th scope="row">Mixer</th><td>The attention or recurrent sublayer that combines information across tokens.</td></tr>
+          <tr><th scope="row">GatedDeltaNet head and its memory</th><td>A recurrent head that updates and queries a key–value memory matrix per token.</td></tr>
+          <tr><th scope="row">State</th><td>The residual stream at one token and one place in a layer.</td></tr>
+          <tr><th scope="row">Group</th><td>Four learned directions selected together. Our sparse state dictionary keeps the {{state.active}} groups contributing most to reconstruction.</td></tr>
+          <tr><th scope="row">Frame</th><td>A group’s four learned directions. “Inside the frame” means in their span.</td></tr>
+          <tr><th scope="row">Code</th><td>A token’s four coordinates in the frame.</td></tr>
+          <tr><th scope="row">Transform</th><td>A transcoder-like unit with a low-rank, input-dependent MLP write.</td></tr>
+          <tr><th scope="row">Gate and threshold</th><td>The gate opens when a reading along one input direction (the gate input) exceeds a learned threshold.</td></tr>
+          <tr><th scope="row">Cut</th><td>The hyperplane where the gate input equals the threshold, drawn as a straight line.</td></tr>
+          <tr><th scope="row"><code>resid_mid.L</code> / <code>resid_post.L</code></th><td>Layer L’s residual stream between mixer and MLP / after the MLP.</td></tr>
+          <tr><th scope="row">Line-break margin</th><td>Logit preference for breaking the line over continuing it.</td></tr>
+          <!--if trace--><tr><th scope="row">Crossing</th><td>First count from ten onward where the smoothed mean margin rises to the chosen level of {{m|width|level}}.</td></tr><!--endif trace-->
+          <tr><th scope="row">Patch share</th><td>Fraction of the mean margin gap between paired texts reproduced by one activation patch.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="lead">Fifty characters almost fill a narrow line. A wide line still has room. In Claude 3.5 Haiku, attention heads track the count and combine it with line width. <a href="https://arxiv.org/abs/2601.04480">Gurnee et al., When Models Manipulate Manifolds</a></p>
+    <p>In Qwen3.5 the mixer, the sublayer that combines information across tokens, uses attention in some layers and a recurrent network called GatedDeltaNet in most. At each token a head decays its memory matrix and writes a value along a key direction, with the token determining both the decay factor and the write strength. The head queries the matrix to retrieve a vector, its memory read, which it normalizes and multiplies by the head’s output gate from the current token before writing to the residual stream. <a href="https://arxiv.org/abs/2412.06464">Yang, Kautz and Hatamizadeh, Gated Delta Networks</a></p>
+    <!--if trace--><p>The first token of each line resets a counting signal in layer 9, head {{demo.head}}. We call it the character clock because the head’s cumulative log decay, the sum of the logarithms of its decay factors since line start, falls linearly with character count (R² {{lc.clock_r2}} at every width).</p><!--endif trace-->
+    <p>Our state dictionary works like a sparse autoencoder with groups for units. At each token it selects the {{state.active}} groups whose decoded contributions have the largest norms. Each selected group has four activation coordinates, its code, along the four learned directions of its frame. <!--if trace-->The code of group {{demo.l9_group}} traces a curve as the count increases.<!--endif trace--></p>
+    <p>Our MLP dictionary plays the part of a transcoder for one MLP. Each transform reads the input along one direction. This reading is its gate input, and the contribution from one group’s code is the frame part. When the gate input exceeds a learned threshold, the transform’s gate opens. A conventional transcoder feature writes along a fixed vector. An open transform writes a low-rank linear function of the input into the MLP output. <!--if trace-->Transforms {{demo.l9_transform_short}} and {{demo.l9_transform_long}} fire on different stretches of the count curve.<!--endif trace--></p>
+    <p>We compare pairs of texts ending on the same words. A line break is due in the clean text and more words would fit in the corrupt text. In the <code>count:60</code> and <code>count:100</code> conditions, the wrapping width stays at 60 or 100 characters, respectively, and the last line starts later in the corrupt text. In <code>width:100</code> the clean width is 100 and the last line starts at the same word in both texts, but the preceding lines are wrapped more widely in the corrupt text.</p>
+    <!--if trace--><p>We trained the dictionaries without the counting task. To choose the group to study, we ranked all {{state.groups}} layer-9 groups by the fraction of the squared change in mixer output between paired texts that lay inside each frame. Group {{demo.l9_group}} came first in each condition on both halves of the pairs, with {{pick.min}} to {{pick.max}} of the change, against {{pick.next_min}} to {{pick.next_max}} for the runner-up.</p><!--endif trace-->
+    <p>We ranked the units in the early layers on odd-numbered pairs, tested them on the {{demo.items_per_half}} even-numbered pairs per condition and tested the chosen subspaces again on new documents. Earlier work had identified head {{demo.head}}. To test a component we use activation patching, which we also call a swap. We replace its clean-run activation with its corrupt-run value at matching token positions. When we scale this change, the multiplier is the dose.</p>
+    <p>For these pairs we measure the line-break margin at the last token using the logsumexp of newline-token logits minus the logsumexp for tokens starting with a space. A patch’s share is the fraction of the clean-to-corrupt difference in mean margin it produces. At width 60, patching the head’s memory read gives a share of {{ci|count:60|head_o}}. Patching the whole mixer output gives {{ci|count:60|layer_y}}. Parentheses give bootstrap intervals over pairs.</p>
     <h3>Where the transforms fire in a wrapped text</h3>
 <figure class="teaser band tint" id="fig-lead">
   <div class="wrap">
   <ul class="keys" aria-hidden="true">
-    <li><span class="swatch a"></span>L8 transform {{demo.l8_transform}} is on</li>
-    <li><span class="swatch b"></span>L9 transform {{demo.l9_transform_short}} is on</li>
-    <li><span class="swatch c"></span>L9 transform {{demo.l9_transform_long}} is on</li>
+    <li><span class="swatch a"></span>Layer 8 transform {{demo.l8_transform}} is on</li>
+    <li><span class="swatch b"></span>Layer 9 transform {{demo.l9_transform_short}} is on</li>
+    <li><span class="swatch c"></span>Layer 9 transform {{demo.l9_transform_long}} is on</li>
     <li><span class="swatch last"></span>last token, where the model must choose</li>
   </ul>
   <div class="lead-body">
@@ -84,18 +109,18 @@
     <p class="narrow-note">The text scrolls sideways. Each strip below is one of its lines, scaled to fit.</p>
 {{strips}}
 {{rates}}
-    <p class="axis-title">Characters already in the line. Bars: fraction of tokens at which the transform is on.</p>
+    <p class="axis-title">Characters already in the line. Each bar gives the firing rate, the fraction of tokens at which the transform is on.</p>
   </div>
   </div>
-  <figcaption><b>Figure {{fig|lead}}.</b> The last {{demo.lead_lines}} lines of a text wrapped at 100 characters, with one mark per token. L8 transform {{demo.l8_transform}} is on at the first token of each line. L9 transform {{demo.l9_transform_short}} is on while the line is short, and L9 transform {{demo.l9_transform_long}} turns on near the end of the line. <span class="fine">The dashed rule is the wrapping width, and the number after each line is the number of characters the line holds. The bars below use the same horizontal scale. They give the fraction of tokens at which each L9 transform is on, by the number of characters already in the line, over the clean texts of the two count cells. Lines longer than 60 characters occur only in the texts wrapped at 100. The text is item {{demo.lead_item}} of the cell <code>{{demo.lead_cell}}</code>, chosen by hand as a readable example; it is a re-wrapped excerpt from <code>HuggingFaceFW/fineweb-edu</code>, licensed under ODC-By 1.0.</span></figcaption>
+  <figcaption><b>Figure {{fig|lead}}.</b> The last {{demo.lead_lines}} lines of a text wrapped at 100 characters, with one mark per token. The layer-8 (L8) transform {{demo.l8_transform}} is on at the first token of each line. L9 transform {{demo.l9_transform_short}} is on while the line is short, and L9 transform {{demo.l9_transform_long}} turns on near the end of the line. <span class="fine">The dashed rule is the wrapping width, and the number after each line is the number of characters the line holds. The bars below use the same horizontal scale. They give the fraction of tokens at which each L9 transform is on, by the number of characters already in the line, over the clean texts of the two count conditions. Lines longer than 60 characters occur only in the texts wrapped at 100. The text is item {{demo.lead_item}} of the condition <code>{{demo.lead_cell}}</code>, chosen by hand as a readable example; it is a re-wrapped excerpt from <code>HuggingFaceFW/fineweb-edu</code>, licensed under ODC-By 1.0.</span></figcaption>
 </figure>
 <!--if trace-->
     <section id="story" aria-labelledby="geometry-heading">
       <h3 id="geometry-heading">How does the head combine width with count?</h3>
       <div class="story">
         <div class="story-text">
-          <p>Width displaces the count curves into a sheet. At layer 12, head 13 reads a width-dependent value from earlier lines, multiplies it by a gate that follows the current count and adds the result to the residual stream. In the two directions drawn, the spread of the cell means at equal remaining distance falls from {{pv.s4_remaining}} to {{pv.s5_remaining}} across widths.</p>
-          <p>Each curve follows a different line width. The gold segments mark the last {{pv.highlight}} characters. <span class="needs-js">Press Play to follow the gold ends as the layer-12 mixer writes, or step through the layers one at a time.</span></p>
+          <p>The count curves for different wrapping widths lie side by side, forming a sheet with count along one direction and width along the other. Layer 12, head 13 is a memory head that reads the width of earlier lines from its memory matrix. The head’s output gate scales that read according to the current count before the head writes to the residual stream. In the two directions drawn, the spread of the mean states at equal remaining distance falls from {{pv.s4_remaining}} to {{pv.s5_remaining}} across widths.</p>
+          <p>The sheet is carried onward through layers 10 and 11, where the states still vary with count and width. The gold segments mark the last {{pv.highlight}} characters. <span class="needs-js">Press Play to follow the gold ends as the layer-12 mixer writes, or step through the layers one at a time.</span></p>
           <p class="needs-js">Switch from “Characters so far” to “Characters remaining” to see which positions across the different widths move together.</p>
           <details class="fold">
             <summary>Follow the path layer by layer</summary>
@@ -109,20 +134,20 @@
             </article>
             <article class="story-step" data-stage="b" tabindex="0">
               <h3 id="width">Width supplies the missing distance</h3>
-              <p>The model must combine width with count to obtain the distance to the line end. Width already displaces the count curves into a sheet: per character, the displacement across widths is {{lc.sheet_ratio_low}} to {{lc.sheet_ratio_high}} as large as the movement along a line. A memory head (layer 12, head 13) reads width information from earlier lines. Layers 10 and 11 carry the sheet on.</p>
+              <p>The model must combine width with count to obtain the distance to the line end. Width already displaces the count curves into a sheet: per character, the displacement across widths is {{lc.sheet_ratio_low}} to {{lc.sheet_ratio_high}} as large as the movement along a line. Layers 10 and 11 preserve the sheet through to the memory head in layer 12, head 13.</p>
             </article>
             <article class="story-step" data-stage="c" tabindex="0">
               <h3 id="write">One write brings the line ends together</h3>
-              <p>The same memory head multiplies its width-dependent read by a gate that follows the count, then adds the result to the residual stream. Its share of this mixer’s count curve, using the same within-width projection, is {{lc.h13_curve}}. In the two directions drawn, the means at equal count have a spread of {{pv.s4_count}}, against {{pv.s4_remaining}} at equal remaining characters. After the write, the spread at equal remaining distance is {{pv.s5_remaining}}, against {{pv.s5_count}} at equal count. We infer that the product converts the count code into a code for the remaining characters.</p>
+              <p>The head’s output gate scales the width-dependent memory read according to the count. Projecting the head’s write onto the mixer’s count curve within each width gives a fraction of {{lc.h13_curve}}. In the two directions drawn, the means at equal count have a spread of {{pv.s4_count}}, against {{pv.s4_remaining}} at equal remaining characters. After the write, the spread at equal remaining distance is {{pv.s5_remaining}}, against {{pv.s5_count}} at equal count. We infer that the product converts the count code into a code for the remaining characters.</p>
             </article>
             <article class="story-step" data-stage="d" tabindex="0">
               <h3 id="line-end">A straight cut now marks the line end</h3>
-              <p>The line-end reader in the layer-13 MLP (transform {{lc.t2490}}) crosses its mean gate threshold {{lc.t2490_rem_low}} to {{lc.t2490_rem_high}} characters before the end across all {{lc.n_widths}} widths, and its cut is the straight line in the front view at <code>resid_mid.13</code> in Figure {{fig|path}}, within {{pv.t2490_error}} characters of its measured switching points. Before the write, at <code>resid_mid.9</code>, no cut fires a fixed distance before the line end. The mean input for transform {{lc.t2069}} crosses {{lc.t2069_rem_low}} to {{lc.t2069_rem_high}} characters before the end at widths 40, 60 and 80. There is no crossing at widths 100 and 120. Layer-20 transform 130 crosses at {{lc.t130_rem_low}} to {{lc.t130_rem_high}} remaining characters. Swapping the layer-12 or layer-13 reader has little effect on the final margin. The total shares for the layer-13 reader are {{trace|6|1|0}}, {{trace|6|1|1}} and {{trace|6|1|2}} across the three conditions. The layer-12 reader rounds to {{trace|6|0|0}} in each.</p>
-              <p>Downstream, head 15 of the layer-21 mixer writes directly toward the line-break decision, with {{lc.h15_remaining}} of the reproducible variation in its margin-directed write explained by remaining character count across width/count cells. Its direct shares of the decision difference are {{lc.h15_direct.count60}}, {{lc.h15_direct.count100}} and {{lc.h15_direct.width100}} in <code>count:60</code>, <code>count:100</code> and <code>width:100</code>, respectively. With all downstream responses included its shares are {{trace|8|1|0}}, {{trace|8|1|1}} and {{trace|8|1|2}}.</p>
+              <p>We call a transform that switches on near the end of a line a line-end reader. The mean gate input of the layer-13 reader (transform {{lc.t2490}}) passes its threshold {{lc.t2490_rem_low}} to {{lc.t2490_rem_high}} characters before the end across all {{lc.n_widths}} widths, and its cut is the straight line in the front view at <code>resid_mid.13</code> in Figure {{fig|path}}, within {{pv.t2490_error}} characters of its measured switching points. Before the write, at <code>resid_mid.9</code>, no transform switches on a fixed distance before the line end. The mean input for transform {{lc.t2069}} crosses {{lc.t2069_rem_low}} to {{lc.t2069_rem_high}} characters before the end at widths 40, 60 and 80. Its mean gate input does not pass the threshold at widths 100 and 120. Layer-20 transform 130 crosses at {{lc.t130_rem_low}} to {{lc.t130_rem_high}} remaining characters. Swapping the layer-12 or layer-13 reader has little effect on the final margin. Including all downstream responses gives the total effect. The resulting patch shares for the layer-13 reader are {{trace|6|1|0}}, {{trace|6|1|1}} and {{trace|6|1|2}} across the three conditions. The layer-12 reader rounds to {{trace|6|0|0}} in each.</p>
+              <p>Downstream, head 15 of the layer-21 mixer writes directly toward the line-break decision. Remaining character count explains {{lc.h15_remaining}} of the reproducible variation in this contribution to the margin across combinations of width and count. Measuring only the head’s own write at the last token gives its direct effect. The corresponding shares are {{lc.h15_direct.count60}}, {{lc.h15_direct.count100}} and {{lc.h15_direct.width100}} in <code>count:60</code>, <code>count:100</code> and <code>width:100</code>, respectively. With all downstream responses included its shares are {{trace|8|1|0}}, {{trace|8|1|1}} and {{trace|8|1|2}}.</p>
             </article>
           </details>
         </div>
-        <figure id="fig-path" class="story-figure" data-aria="A mesh follows count and width through the model as the layer-12 mixer's write brings positions with equal remaining characters together." data-play="Play" data-pause="Pause" data-spread-count="Front-view spread at equal count" data-spread-remaining="At equal remaining characters" <!--if frames-->data-frame-holds="Share of shape inside frame" data-frame-shared="{{pv.frame_carried}} of {{pv.frame_directions}} directions shared with previous group" data-write-inside="Layer-12 mixer write share inside frame"<!--endif frames--> data-stage-a="The clock writes the count" data-stage-b="The sheet is carried onward" data-stage-c="Layer-12 mixer write combines width and count" data-stage-d="Straight cut near the line end" data-stage-e="Remaining characters stay together">
+        <figure id="fig-path" class="story-figure" data-aria="A mesh follows count and width through the model as the layer-12 mixer's write brings positions with equal remaining characters together." data-play="Play" data-pause="Pause" data-spread-count="Front-view spread at equal count" data-spread-remaining="At equal remaining characters" <!--if frames-->data-frame-holds="Fraction of plotted count-by-width variation inside the frame" data-frame-shared="{{pv.frame_carried}} of {{pv.frame_directions}} directions shared with previous group" data-write-inside="Fraction of plotted layer-12 write variation inside the frame"<!--endif frames--> data-stage-a="The clock writes the count" data-stage-b="The sheet is carried onward" data-stage-c="Layer-12 mixer write combines width and count" data-stage-d="Straight cut near the line end" data-stage-e="Remaining characters stay together">
           <div class="needs-js">
             <div class="figure-head">
               <div class="controls">
@@ -143,7 +168,7 @@
               <li><svg width="26" height="12"><path d="M2 6H24" class="level-line"/><circle cx="13" cy="6" r="4" class="level-pt"/></svg>Joined measured switching points</li>
               <!--if frames--><li><svg width="26" height="12"><path d="M2 1H24V11H2Z" class="level-side"/><path d="M2 11L24 1" class="level-line"/></svg>Gate threshold (shaded firing side in the front view)</li><!--endif frames-->
               <li><svg width="26" height="12"><path d="M2 6H24" class="trail"/></svg>Line-end movement from the layer-12 mixer's write</li>
-              <!--if frames--><li><svg width="26" height="14"><path d="M4 12H22V2H4Z" class="frame-patch"/><path d="M4 12H22" class="frame-axis"/><path d="M4 12V2" class="frame-axis"/></svg>Frame directions and the plane between them</li><!--endif frames-->
+              <!--if frames--><li><svg width="26" height="14"><path d="M4 12H22V2H4Z" class="frame-patch"/><path d="M4 12H22" class="frame-axis"/><path d="M4 12V2" class="frame-axis"/></svg>Frame directions and the plane they span</li><!--endif frames-->
             </ul>
           </div>
           <p class="sample-note nojs-only">The static strip shows five stops along the path.</p>
@@ -156,10 +181,10 @@
           </div>
           <figcaption><b>Figure {{fig|path}}.</b> Thin connectors join positions with equal character counts across widths. After the write, the line ends lie closer together. The animation interpolates between stops in a common projection.
             <details class="measurement"><summary>Projection, interpolation and clock measurements</summary>
-              <p>The mesh uses the first three principal components of the residual states, fitted across layers after centring each layer’s count-by-width cell means. Together they capture {{pv.common_low}} to {{pv.common_high}} of the measured stops’ variation over count and width. The front view uses the first two directions, which hold {{pv.view_share}} of the variation in the three directions across stops. The spread divides across-width variance by total variance for the corresponding cells. In all three common directions the equal-distance spread falls from {{spread.three_before}} to {{spread.three_after}}. In the full residual, over the narrower range of {{spread.start}} to {{spread.stop}} characters remaining, it is {{spread.full_before}} at <code>resid_post.11</code>, {{spread.full_mid}} at <code>resid_mid.12</code> and {{spread.full_post}} at <code>resid_post.13</code>. The stored cell means pool documents, so these spreads have no document-level interval.</p>
-              <p>Of the {{pv.stops}} stops, {{pv.measured}} are measured states from <code>resid_mid.9</code> to <code>resid_post.13</code>. The state immediately before the layer-12 write is the measured state after it minus the stored mixer output. Movement between stops is interpolated. During the write each cell moves by a fraction of its stored update.</p>
-              <p>The corner arrows mark the two group-frame directions closest to the front view. Successive groups carry {{pv.frame_carried}} of {{pv.frame_directions}} directions at cosines of {{pv.frame_cos_low}} to {{pv.frame_cos_high}}. The shaded line in the front view and the threshold plane in a rotated view each use the fit validated in that space. Each fit reproduces the measured switching points within {{pv.cut_tolerance}} characters and adds no crossings. Other lines join measured switching points.</p>
-              <p>The clock head (layer 9, head {{demo.head}}) writes along the line-start key with strength {{lc.beta_first}}. The linear fit of cumulative log decay against count has R² {{lc.clock_r2}} at every width. Its within-width projection onto the whole mixer’s count curve gives a share of {{lc.h10_curve}}.</p>
+              <p>The mesh uses the first three principal components of the residual states, fitted across layers after centring each layer’s mean states for the different combinations of count and width. Together they capture {{pv.common_low}} to {{pv.common_high}} of the measured stops’ variation over count and width. The front view uses the first two directions, which hold {{pv.view_share}} of the variation in the three directions across stops. The spread divides across-width variance by total variance for those same points. In all three common directions the equal-distance spread falls from {{spread.three_before}} to {{spread.three_after}}. In the full residual, over the narrower range of {{spread.start}} to {{spread.stop}} characters remaining, it is {{spread.full_before}} at <code>resid_post.11</code>, {{spread.full_mid}} at <code>resid_mid.12</code> and {{spread.full_post}} at <code>resid_post.13</code>. The stored means pool documents at each count and width, so these spreads have no document-level interval.</p>
+              <p>Of the {{pv.stops}} stops, {{pv.measured}} are measured states from <code>resid_mid.9</code> to <code>resid_post.13</code>. The state immediately before the layer-12 write is the measured state after it minus the stored mixer output. Movement between stops is interpolated. During the write each mean moves by a fraction of its stored update.</p>
+              <p>The corner arrows mark the two directions of the group’s frame closest to the front view. Successive groups carry {{pv.frame_carried}} of {{pv.frame_directions}} directions at cosines of {{pv.frame_cos_low}} to {{pv.frame_cos_high}}. The shaded line in the front view and the threshold plane in a rotated view each use the fit validated in that space. Each fit reproduces the measured switching points within {{pv.cut_tolerance}} characters and introduces no extra switches. Other lines join measured switching points.</p>
+              <p>The clock head (layer 9, head {{demo.head}}) stores a value at the key supplied by the first token of the line with strength {{lc.beta_first}}. The linear fit of cumulative log decay against count has R² {{lc.clock_r2}} at every width. Projecting its write onto the whole mixer’s count curve within each width gives a fraction of {{lc.h10_curve}}.</p>
             </details></figcaption>
         </figure>
       </div>
@@ -167,70 +192,73 @@
 <!--endif trace-->
 <!--if trace-->
     <h3 id="trace-table">Shares along the trace</h3>
+    <p>A line-end reader is a transform whose gate opens near the line end. “Carried onward” means a later group still represents the number of characters remaining. We call the head output that directly favours a line break the decision write. The take-back is the last MLP’s write that offsets part of that push toward a break.</p>
     <div class="table-wrap trace-table">
       <table>
-        <caption>We measure each piece’s share of the line-break preference difference on all {{demo.items_per_cell}} pairs per condition in <code>count:60</code>, <code>count:100</code> and <code>width:100</code>: total includes everything downstream after a swap, while direct counts only the piece’s own write at the last token. Totals along a chain overlap and do not add up.</caption>
+        <caption>We report patch shares on all {{demo.items_per_cell}} pairs per condition in <code>count:60</code>, <code>count:100</code> and <code>width:100</code>. The total effect includes all downstream responses to the patch. The direct effect measures only the component’s own write at the last token. Total effects along a chain can overlap.</caption>
         <thead><tr><th scope="col">Step</th><th scope="col">Piece</th><th scope="col"><code>count:60</code></th><th scope="col"><code>count:100</code></th><th scope="col"><code>width:100</code></th></tr></thead>
         <tbody>
-          <tr class=first><th scope="rowgroup" rowspan="3" class="step"><b>1</b> The line start</th><th scope="row">layer-8 head 12, read and gate, total</th><td>{{trace|0|0|0}}</td><td>{{trace|0|0|1}}</td><td>{{trace|0|0|2}}</td></tr>
+          <tr class=first><th scope="rowgroup" rowspan="3" class="step"><b>1</b> The line start</th><th scope="row">layer-8 head 12, read and the head’s output gate, total effect</th><td>{{trace|0|0|0}}</td><td>{{trace|0|0|1}}</td><td>{{trace|0|0|2}}</td></tr>
           <tr><th scope="row">head 12 through transform {{demo.l8_transform}}’s write</th><td>{{trace|0|1|0}}</td><td>{{trace|0|1|1}}</td><td>{{trace|0|1|2}}</td></tr>
-          <tr><th scope="row">group {{demo.l8_group}} at <code>resid_post.8</code>, total</th><td>{{trace|0|2|0}}</td><td>{{trace|0|2|1}}</td><td>{{trace|0|2|2}}</td></tr>
-          <tr class=first><th scope="rowgroup" rowspan="1" class="step"><b>2</b> Count within the line</th><th scope="row">group {{lc.g8}} at <code>resid_post.8</code>, total</th><td>{{trace|1|0|0}}</td><td>{{trace|1|0|1}}</td><td>{{trace|1|0|2}}</td></tr>
-          <tr class=first><th scope="rowgroup" rowspan="2" class="step"><b>3</b> The character clock</th><th scope="row">layer-9 head {{demo.head}}, memory read, total</th><td>{{trace|2|0|0}}</td><td>{{trace|2|0|1}}</td><td>{{trace|2|0|2}}</td></tr>
-          <tr><th scope="row">group {{lc.g9}} at <code>resid_mid.9</code>, total</th><td>{{trace|2|1|0}}</td><td>{{trace|2|1|1}}</td><td>{{trace|2|1|2}}</td></tr>
-          <tr class=first><th scope="rowgroup" rowspan="3" class="step"><b>4</b> First reads of the sheet</th><th scope="row">layer-9 transform {{demo.l9_transform_short}}, total</th><td>{{trace|3|0|0}}</td><td>{{trace|3|0|1}}</td><td>{{trace|3|0|2}}</td></tr>
-          <tr><th scope="row">layer-9 transform {{demo.l9_transform_long}}, total</th><td>{{trace|3|1|0}}</td><td>{{trace|3|1|1}}</td><td>{{trace|3|1|2}}</td></tr>
-          <tr><th scope="row">whole layer-9 MLP, total</th><td>{{trace|3|2|0}}</td><td>{{trace|3|2|1}}</td><td>{{trace|3|2|2}}</td></tr>
-          <tr class=first><th scope="rowgroup" rowspan="2" class="step"><b>5</b> The sheet reaches layer 12</th><th scope="row">group {{lc.g10}} at <code>resid_post.10</code>, total</th><td>{{trace|4|0|0}}</td><td>{{trace|4|0|1}}</td><td>{{trace|4|0|2}}</td></tr>
-          <tr><th scope="row">group {{lc.g11}} at <code>resid_post.11</code>, total</th><td>{{trace|4|1|0}}</td><td>{{trace|4|1|1}}</td><td>{{trace|4|1|2}}</td></tr>
-          <tr class=first><th scope="rowgroup" rowspan="4" class="step"><b>6</b> Count meets width</th><th scope="row">layer-12 head 13, read and gate, total</th><td>{{trace|5|0|0}}</td><td>{{trace|5|0|1}}</td><td>{{trace|5|0|2}}</td></tr>
-          <tr><th scope="row">head 13 through its count gate</th><td>{{trace|5|1|0}}</td><td>{{trace|5|1|1}}</td><td>{{trace|5|1|2}}</td></tr>
-          <tr><th scope="row">head 13 through its width memory</th><td>{{trace|5|2|0}}</td><td>{{trace|5|2|1}}</td><td>{{trace|5|2|2}}</td></tr>
-          <tr><th scope="row">group {{lc.g12}} at <code>resid_mid.12</code>, total</th><td>{{trace|5|3|0}}</td><td>{{trace|5|3|1}}</td><td>{{trace|5|3|2}}</td></tr>
-          <tr class=first><th scope="rowgroup" rowspan="2" class="step"><b>7</b> Reads carrying little decision share</th><th scope="row">layer-12 transform {{lc.t2069}}, total</th><td>{{trace|6|0|0}}</td><td>{{trace|6|0|1}}</td><td>{{trace|6|0|2}}</td></tr>
-          <tr><th scope="row">layer-13 transform {{lc.t2490}}, total</th><td>{{trace|6|1|0}}</td><td>{{trace|6|1|1}}</td><td>{{trace|6|1|2}}</td></tr>
-          <tr class=first><th scope="rowgroup" rowspan="1" class="step"><b>8</b> Remaining characters carried onward</th><th scope="row">group {{lc.g13}} at <code>resid_post.13</code>, total</th><td>{{trace|7|0|0}}</td><td>{{trace|7|0|1}}</td><td>{{trace|7|0|2}}</td></tr>
-          <tr class=first><th scope="rowgroup" rowspan="2" class="step"><b>9</b> The decision write</th><th scope="row">layer-21 head 15, direct</th><td>{{trace|8|0|0}}</td><td>{{trace|8|0|1}}</td><td>{{trace|8|0|2}}</td></tr>
-          <tr><th scope="row">head 15, read and gate, total</th><td>{{trace|8|1|0}}</td><td>{{trace|8|1|1}}</td><td>{{trace|8|1|2}}</td></tr>
-          <tr class=first><th scope="rowgroup" rowspan="3" class="step"><b>10</b> Late writes and the take-back</th><th scope="row">layer-20 transform 130, direct</th><td>{{trace|9|0|0}}</td><td>{{trace|9|0|1}}</td><td>{{trace|9|0|2}}</td></tr>
-          <tr><th scope="row">layer-23 transform 2369, direct</th><td>{{trace|9|1|0}}</td><td>{{trace|9|1|1}}</td><td>{{trace|9|1|2}}</td></tr>
-          <tr><th scope="row">whole layer-23 MLP, total</th><td>{{trace|9|2|0}}</td><td>{{trace|9|2|1}}</td><td>{{trace|9|2|2}}</td></tr>
+          <tr><th scope="row">group {{demo.l8_group}} at <code>resid_post.8</code>, total effect</th><td>{{trace|0|2|0}}</td><td>{{trace|0|2|1}}</td><td>{{trace|0|2|2}}</td></tr>
+          <tr class=first><th scope="rowgroup" rowspan="1" class="step"><b>2</b> Count within the line</th><th scope="row">group {{lc.g8}} at <code>resid_post.8</code>, total effect</th><td>{{trace|1|0|0}}</td><td>{{trace|1|0|1}}</td><td>{{trace|1|0|2}}</td></tr>
+          <tr class=first><th scope="rowgroup" rowspan="2" class="step"><b>3</b> The character clock</th><th scope="row">layer-9 head {{demo.head}}, memory read, total effect</th><td>{{trace|2|0|0}}</td><td>{{trace|2|0|1}}</td><td>{{trace|2|0|2}}</td></tr>
+          <tr><th scope="row">group {{lc.g9}} at <code>resid_mid.9</code>, total effect</th><td>{{trace|2|1|0}}</td><td>{{trace|2|1|1}}</td><td>{{trace|2|1|2}}</td></tr>
+          <tr class=first><th scope="rowgroup" rowspan="3" class="step"><b>4</b> First reads of the sheet</th><th scope="row">layer-9 transform {{demo.l9_transform_short}}, total effect</th><td>{{trace|3|0|0}}</td><td>{{trace|3|0|1}}</td><td>{{trace|3|0|2}}</td></tr>
+          <tr><th scope="row">layer-9 transform {{demo.l9_transform_long}}, total effect</th><td>{{trace|3|1|0}}</td><td>{{trace|3|1|1}}</td><td>{{trace|3|1|2}}</td></tr>
+          <tr><th scope="row">whole layer-9 MLP, total effect</th><td>{{trace|3|2|0}}</td><td>{{trace|3|2|1}}</td><td>{{trace|3|2|2}}</td></tr>
+          <tr class=first><th scope="rowgroup" rowspan="2" class="step"><b>5</b> The sheet reaches layer 12</th><th scope="row">group {{lc.g10}} at <code>resid_post.10</code>, total effect</th><td>{{trace|4|0|0}}</td><td>{{trace|4|0|1}}</td><td>{{trace|4|0|2}}</td></tr>
+          <tr><th scope="row">group {{lc.g11}} at <code>resid_post.11</code>, total effect</th><td>{{trace|4|1|0}}</td><td>{{trace|4|1|1}}</td><td>{{trace|4|1|2}}</td></tr>
+          <tr class=first><th scope="rowgroup" rowspan="4" class="step"><b>6</b> Count meets width</th><th scope="row">layer-12 head 13, read and the head’s output gate, total effect</th><td>{{trace|5|0|0}}</td><td>{{trace|5|0|1}}</td><td>{{trace|5|0|2}}</td></tr>
+          <tr><th scope="row">head 13 through the head’s output gate (count)</th><td>{{trace|5|1|0}}</td><td>{{trace|5|1|1}}</td><td>{{trace|5|1|2}}</td></tr>
+          <tr><th scope="row">head 13 through its memory (width)</th><td>{{trace|5|2|0}}</td><td>{{trace|5|2|1}}</td><td>{{trace|5|2|2}}</td></tr>
+          <tr><th scope="row">group {{lc.g12}} at <code>resid_mid.12</code>, total effect</th><td>{{trace|5|3|0}}</td><td>{{trace|5|3|1}}</td><td>{{trace|5|3|2}}</td></tr>
+          <tr class=first><th scope="rowgroup" rowspan="2" class="step"><b>7</b> Line-end readers switch on near the end but have small patch shares</th><th scope="row">layer-12 transform {{lc.t2069}}, total effect</th><td>{{trace|6|0|0}}</td><td>{{trace|6|0|1}}</td><td>{{trace|6|0|2}}</td></tr>
+          <tr><th scope="row">layer-13 transform {{lc.t2490}}, total effect</th><td>{{trace|6|1|0}}</td><td>{{trace|6|1|1}}</td><td>{{trace|6|1|2}}</td></tr>
+          <tr class=first><th scope="rowgroup" rowspan="1" class="step"><b>8</b> Remaining count carried onward in a later group</th><th scope="row">group {{lc.g13}} at <code>resid_post.13</code>, total effect</th><td>{{trace|7|0|0}}</td><td>{{trace|7|0|1}}</td><td>{{trace|7|0|2}}</td></tr>
+          <tr class=first><th scope="rowgroup" rowspan="2" class="step"><b>9</b> The decision write directly favours a line break</th><th scope="row">layer-21 head 15, direct effect</th><td>{{trace|8|0|0}}</td><td>{{trace|8|0|1}}</td><td>{{trace|8|0|2}}</td></tr>
+          <tr><th scope="row">head 15, read and the head’s output gate, total effect</th><td>{{trace|8|1|0}}</td><td>{{trace|8|1|1}}</td><td>{{trace|8|1|2}}</td></tr>
+          <tr class=first><th scope="rowgroup" rowspan="3" class="step"><b>10</b> Late writes and the take-back by the last MLP</th><th scope="row">layer-20 transform 130, direct effect</th><td>{{trace|9|0|0}}</td><td>{{trace|9|0|1}}</td><td>{{trace|9|0|2}}</td></tr>
+          <tr><th scope="row">layer-23 transform 2369, direct effect</th><td>{{trace|9|1|0}}</td><td>{{trace|9|1|1}}</td><td>{{trace|9|1|2}}</td></tr>
+          <tr><th scope="row">whole layer-23 MLP, total effect</th><td>{{trace|9|2|0}}</td><td>{{trace|9|2|1}}</td><td>{{trace|9|2|2}}</td></tr>
         </tbody>
       </table>
     </div>
 <!--endif trace-->
 <!--if trace-->
-    <h3 id="evidence">What changes when we edit the width read?</h3>
-    <p>We held the text fixed at width 100 and shifted head 13’s memory read by the mean read at width 40 minus the mean at width 100. On {{lc.cz_tokens}} word-final tokens from the third line onward in {{m|width|documents}} documents, we measured the newline token’s logit minus the logsumexp for space-starting tokens that contain no line break. We smoothed the mean margin over three neighbouring counts and recorded its first upward crossing from count ten onward at {{m|width|level}} logits.</p>
-    <p>The crossing moved from <strong>{{m|width|rows|0|crossing}}</strong> characters to <strong>{{m|width|rows|1|crossing}}</strong> under the head edit, with 95% intervals over documents. Keeping just the change inside group {{lc.g12}}’s frame at <code>resid_mid.12</code> gave {{m|width|rows|3|crossing}}. The rest gave {{m|width|rows|4|crossing}}, and permuting the head’s channels gave {{m|width|rows|2|crossing}}.</p>
-      <figure class="needs-js" id="fig-causal" data-aria="Mean line-break preference across the line for the clean run, memory reads shifted to narrower widths, the permuted control, the in-frame change, the rest and the state edit." data-level="{{m|width|level}}" data-line-inside="Inside the frame" data-line-rest="Outside the frame" data-line-state="State edit" data-line-clean="Clean run" data-line-40="Memory read shifted to width 40" data-line-60="Memory read shifted to width 60" data-line-perm="Width-40 shift with permuted channels" data-axis-x="Characters in the line" data-axis-y="Mean line-break margin in logits">
+    <h3 id="evidence">What changes when we edit what the head reads from memory?</h3>
+    <p>We held the text fixed at width 100. We added the mean read at width 40 minus the mean at width 100 to layer-12 head 13’s normalized memory read. We call this the head edit. Shuffling that shift vector across channels (the dimensions of the head’s read) before computing the write gives the permuted control.</p>
+    <p>We projected the head edit’s change in the residual stream onto the frame of group {{lc.g12}} at <code>resid_mid.12</code>. This projection is the in-frame part. Subtracting it from the full change gives the rest. We tested each part on its own. Shifting the group’s code directly by the difference between its mean codes at the two widths, matched by character count, is the state edit. Shifting the code by the same length at each count along a single randomly chosen direction in that frame gives the random direction control.</p>
+    <p>Here we measure the margin at word-final tokens, those followed by a space-starting token or a line break. On {{lc.cz_tokens}} such tokens from the third line onward in {{m|width|documents}} documents, we took the newline token’s logit minus the logsumexp for space-starting tokens that contain no line break. We smoothed the mean margin over three neighbouring counts. The crossing is the first character count from ten onward where this curve rises to the level of {{m|width|level}} logits, interpolating between counts.</p>
+    <p>The crossing moved from <strong>{{m|width|rows|0|crossing}}</strong> characters to <strong>{{m|width|rows|1|crossing}}</strong> under the head edit, with 95% intervals over documents. The in-frame part alone gave {{m|width|rows|3|crossing}}, the rest gave {{m|width|rows|4|crossing}} and the permuted control gave {{m|width|rows|2|crossing}}.</p>
+      <figure class="needs-js" id="fig-causal" data-aria="Mean line-break preference across the line for the clean run, memory reads shifted to narrower widths, the permuted control, the in-frame part, the rest and the state edit." data-level="{{m|width|level}}" data-line-inside="In-frame part" data-line-rest="The rest" data-line-state="State edit" data-line-clean="Clean run" data-line-40="Head edit toward width 40" data-line-60="Head edit toward width 60" data-line-perm="Permuted control at width 40" data-axis-x="Characters in the line" data-axis-y="Mean line-break margin in logits">
         <ul class="keys" aria-hidden="true">
           <li><svg width="26" height="12"><path d="M1 6H25" class="series s-n"/></svg>Clean run</li>
-          <li class="c-c"><svg width="26" height="12"><path d="M1 6H25" class="series s-unit"/></svg>Memory read shifted to width 40</li>
-          <li class="c-b"><svg width="26" height="12"><path d="M1 6H25" class="series s-unit"/></svg>Memory read shifted to width 60</li>
-          <li><svg width="26" height="12"><path d="M1 6H25" class="series s-r recorded"/></svg>Width-40 shift with permuted channels</li>
-          <li><svg width="26" height="12"><path d="M1 6H25" class="series inside"/></svg>Inside the frame</li>
-          <li><svg width="26" height="12"><path d="M1 6H25" class="series outside"/></svg>Outside the frame</li>
+          <li class="c-c"><svg width="26" height="12"><path d="M1 6H25" class="series s-unit"/></svg>Head edit toward width 40</li>
+          <li class="c-b"><svg width="26" height="12"><path d="M1 6H25" class="series s-unit"/></svg>Head edit toward width 60</li>
+          <li><svg width="26" height="12"><path d="M1 6H25" class="series s-r recorded"/></svg>Permuted control at width 40</li>
+          <li><svg width="26" height="12"><path d="M1 6H25" class="series inside"/></svg>In-frame part</li>
+          <li><svg width="26" height="12"><path d="M1 6H25" class="series outside"/></svg>The rest</li>
           <li><svg width="26" height="12"><path d="M1 6H25" class="series state-edit"/></svg>State edit</li>
         </ul>
         <div class="plot" id="causal-plot"></div>
         <div class="layer-readout" id="causal-readout" aria-live="polite"></div>
-        <figcaption><b>Figure {{fig|causal}}.</b> Each curve shows the smoothed mean line-break margin at every measured character count. The dotted horizontal line marks the chosen threshold.</figcaption>
+        <figcaption><b>Figure {{fig|causal}}.</b> Each curve shows the smoothed mean line-break margin at every measured character count. The dotted horizontal line marks the chosen margin level.</figcaption>
       </figure>
-    <p>Moving the group’s coordinates directly by the difference between its mean codes at the two widths, matched by count, gives a crossing of {{m|width|rows|5|crossing}}. This edit acts at counts 1 to 40. Its curve peaks at count {{m|width|state_peak}} and retains {{m|width|rise_state}} of the head edit’s rise at counts 48 to 50. Its margin before an actual line break stays near the unedited value.</p>
+    <p>The state edit gives a crossing of {{m|width|rows|5|crossing}}. This edit acts at counts 1 to 40. Its curve peaks at count {{m|width|state_peak}} and retains {{m|width|rise_state}} of the head edit’s rise at counts 48 to 50. Its margin before an actual line break stays near the unedited value.</p>
     {{table|width}}
     <details class="measurement"><summary>Where the edit lies and what the controls change</summary>
-      <p>Group {{lc.g12}} ranks first of {{state.groups}} frames by the fraction of the head edit’s squared length inside it ({{m|width|in_share}}, runner-up {{m|width|next_share}}). We use the frame as a subspace. On width-100 text, the clean dictionary selects the group on {{width.active}} of tokens by count from ten through fifty-eight. Selection becomes frequent near the line end. For the direct edit we use mean gated codes at each width, counting an unselected group’s code as zero.</p>
+      <p>Group {{lc.g12}} ranks first of {{state.groups}} frames by the fraction of the head edit’s squared length inside it ({{m|width|in_share}}, runner-up {{m|width|next_share}}). We use the frame as a subspace. On width-100 text, the clean dictionary selects the group on {{width.active}} of tokens by count from ten through fifty-eight. Selection becomes frequent near the line end. For the state edit we compute the mean code at each width, counting an unselected group’s code as zero.</p>
       <p>At counts 48 to 50 the in-frame part gives {{m|width|rise_inside}} of the head edit’s rise and the rest gives {{m|width|rise_rest}}. Projecting into five random subspaces or five other groups injects much smaller changes (relative size {{m|width|small_size}}), with crossings from {{m|width|small_cross}}. Those projections give margins of {{m|width|control_margin}} at counts 48 to 50 and {{m|width|control_end}} before a line break. The larger changes outside the frame and in permuted channels raise the margin at counts 48 to 50 by {{m|width|rest_rise}} and {{m|width|perm_rise}} logits, respectively. Repeating the state edit in group {{m|width|other_group}} gives a crossing at {{m|width|other_cross}}, a margin of {{m|width|other_margin}} at counts 48 to 50 and {{m|width|other_end}} before a line break.</p>
-      <p>Of five random directions inside the frame, the one most aligned with the state edit (cosine {{width.close_cos}}) also gives an early crossing, at {{m|width|close_cross}}. The other directions (cosines {{width.other_cos}}) cross near the original line end. With width 60 as target, the head edit, its in-frame part and the state edit cross at {{m|width|sixty}} characters, respectively. The other-group and random-direction controls cross at {{m|width|sixty_control}}.</p>
-      <p>The location depends on the margin chosen. At a level of -2 the head edit crosses only near the end. At count 50 the smoothed margin rises from {{causal|clean|50}} to {{causal|shift40|50}} logits. Within two characters of the width-100 end the mean margin falls from {{m|width|end_clean}} to {{m|width|end_head}}. <a href="data/width-edit.json">Fixed-text measurements</a></p>
+      <p>Of five random directions inside the frame, the one most aligned with the state edit (cosine {{width.close_cos}}) also gives an early crossing, at {{m|width|close_cross}}. The other directions (cosines {{width.other_cos}}) cross near the original line end. With width 60 as target, the head edit, its in-frame part and the state edit cross at {{m|width|sixty}} characters, respectively. The controls using another group or a random direction cross at {{m|width|sixty_control}}.</p>
+      <p>The crossing depends on the chosen margin level. At a level of -2 the head edit crosses only near the end. At count 50 the smoothed margin rises from {{causal|clean|50}} to {{causal|shift40|50}} logits. Within two characters of the width-100 end the mean margin falls from {{m|width|end_clean}} to {{m|width|end_head}}. <a href="data/width-edit.json">Fixed-text measurements</a></p>
     </details>
     <h3 id="generated">Where do the generated lines end?</h3>
     <p>We gave the model the first eight lines of each of {{m|gen|documents}} new documents wrapped at width 100. We sampled {{m|gen|tokens}} tokens at temperature one, using the same random numbers across conditions and applying each edit throughout the run. We measured completed, non-empty lines in the continuation.</p>
-    <p>The head edit shortened the median line by <strong>{{m|gen|reduction}} characters</strong> (95% bootstrap interval over documents). The in-frame part gave {{m|gen|retained}} times that reduction. Permuting the channels moved the median by {{m|gen|perm_delta}} characters, beyond the {{m|gen|allowed}} allowed by our advance rule, while the mean and the fraction of lines of at most 60 characters stayed close to their unedited values.</p>
+    <p>The head edit shortened the median line by <strong>{{m|gen|reduction}} characters</strong> (95% bootstrap interval over documents). The in-frame part gave {{m|gen|retained}} times that reduction. The permuted control moved the median by {{m|gen|perm_delta}} characters, beyond the {{m|gen|allowed}} allowed by our advance rule, while the mean and the fraction of lines of at most 60 characters stayed close to their unedited values.</p>
     <figure id="fig-lengths">
       {{lengths}}
-      <figcaption><b>Figure {{fig|lengths}}.</b> Each bar shows the share of lines in a ten-character bin, on the same scale in every row. The last bin includes all longer lines. Brackets give 95% intervals for the median. We used the same documents wrapped at 40 as the unedited reference. <a href="data/generated-lines.json">Line-length data</a></figcaption>
+      <figcaption><b>Figure {{fig|lengths}}.</b> Each bar shows the fraction of lines in a ten-character bin, on the same scale in every row. The last bin includes all longer lines. Brackets give 95% intervals for the median. We used the same documents wrapped at 40 as the unedited reference. <a href="data/generated-lines.json">Line-length data</a></figcaption>
     </figure>
     <p>Full lines and short paragraph ends both contribute to the unedited median. Under the head edit the most common lengths are 40 to 49 characters, against 30 to 39 in the width-40 reference. Of the first completed lines, {{m|gen|long_first}} still reach 80 characters, compared with {{m|gen|long_later}} from the fourth line onward.</p>
     <details class="measurement" id="sampled-pair"><summary>Read the paired continuations and inspect the line counts</summary>
@@ -238,16 +266,16 @@
       <blockquote class="task-prompt">{{m|gen|example|prompt_end}}</blockquote>
       <div class="continuations">{{continuations}}</div>
       {{table|lengths}}
-      <p>The sampled continuations remain prose on the prompt topic. Letters and spaces account for {{m|gen|letters|0}} of characters without the edit and {{m|gen|letters|1}} with it. Empty and repeated lines do not increase. The random in-frame direction (cosine {{width.random_cos}}) also shortens lines. The other group’s median stays close to the unedited one.</p>
-      <p>With width 60 as target, the median lengths for the head edit, its in-frame part, the state edit and the reference are {{m|gen|sixty}}. Greedy decoding loops in every condition. Its medians for no edit, head, in-frame, state and permuted edits are {{m|gen|greedy}} characters.</p>
+      <p>The sampled continuations remain prose on the prompt topic. Letters and spaces account for {{m|gen|letters|0}} of characters without the edit and {{m|gen|letters|1}} with it. Empty and repeated lines do not increase. The random in-frame direction (cosine {{width.random_cos}}) also shortens lines. Repeating the state edit in another group gives a median close to the unedited one.</p>
+      <p>With width 60 as target, the median lengths for the head edit, its in-frame part, the state edit and the reference are {{m|gen|sixty}}. Greedy decoding loops in every condition. Its medians for no edit, the head edit, its in-frame part, the state edit and the permuted control are {{m|gen|greedy}} characters.</p>
     </details>
 <!--endif trace-->
     <h3 id="baselines">How does the learned frame compare with other subspaces?</h3>
     <p>We held each choice fixed on {{m|comparison|pairs}} new document pairs, {{m|comparison|per_condition}} in each condition. We projected the same layer-9 mixer change into each subspace and passed it through the same six MLP transforms. The denominator is the change in mean line-break margin when the full mixer change takes that route.</p>
+    <p>We fitted the principal components to this task’s uncentred mixer changes on the ranking pairs. A scalar sparse autoencoder (SAE) direction here is the decoder vector for a single feature with one activation value. We chose four such directions one at a time by how much squared change they captured. The state dictionary, trained without this task, supplies four directions together as one learned group. <a href="https://github.com/mconcat/statescope/blob/main/docs/l9-state-subspaces.csv">Measurements and intervals</a></p>
     {{table|subspaces}}
-    <p>We fitted the principal components to this task’s uncentred mixer changes on the ranking pairs. For the scalar sparse autoencoder (SAE), we chose four decoder directions one at a time by how much squared change they captured. The state dictionary, trained without this task, supplies four directions together as one learned group. <a href="https://github.com/mconcat/statescope/blob/main/docs/l9-state-subspaces.csv">Measurements and intervals</a></p>
     <h3 id="reproduce">Reproduce the counting study</h3>
-    <p>After <a href="#use">installing the reader</a>, download the 0.8B release and check its files. The first demonstration remeasures the early layer-8 and layer-9 pathway in under two minutes on one RTX 5090, including model loading.</p>
+    <p>After <a href="#use">installing the reader</a>, download the 0.8B release and check its files. The first demonstration remeasures the pathway through layers 8 and 9 in under two minutes on one RTX 5090, including model loading.</p>
     <div class="codeblock"><span class="lang">sh</span><pre><code>hf download mconcat/statescope-qwen3.5-0.8b --local-dir &lt;folder&gt;
 python demo/verify_release.py --release &lt;folder&gt;
 python demo/line_count.py --release &lt;folder&gt; --device cuda:0 --out &lt;folder for the counting results&gt;</code></pre></div>
@@ -298,20 +326,20 @@ The three lines show the mean gate input, the mean frame part and the threshold 
 The chart below shows the firing rate at each count.
 The R² values for how the mean frame part follows the mean gate input at wrapping widths of 60 and 100 are {{read.t410_r2_w60}} and {{read.t410_r2_w100}} for transform {{demo.l9_transform_short}}, and {{read.t1749_r2_w60}} and {{read.t1749_r2_w100}} for transform {{demo.l9_transform_long}}.
 These are means by count, and individual tokens scatter around them.
-The frame part gives most, but not all, of the movement of the gate input; the rest comes from other parts of the residual stream.</figcaption>
+The frame part accounts for most of the change in gate input. Other parts of the residual stream also contribute.</figcaption>
     </figure>
 <!--endif curve-->
 
         <p>In Figure {{fig|lead}}, layer-8 transform {{demo.l8_transform}} fires on {{demo.t189_line_first}} of first tokens, {{demo.t189_newline}} of line-break tokens and {{demo.t189_other}} of other tokens. Layer-9 transform {{demo.l9_transform_short}} fires on {{rate|L9 transform 410|40-49}} to {{rate|L9 transform 410|30-39}} of tokens at counts of 20 to 49 characters, falling to {{rate|L9 transform 410|70-79}} at 70 to 79 characters. Transform {{demo.l9_transform_long}} fires on {{rate|L9 transform 1749|60-69}} of tokens below 70 characters and {{rate|L9 transform 1749|90-99}} at 90 to 99 characters.</p>
 
-        <h3 id="confirm">Swaps and doses confirm the first links</h3>
+        <h3 id="confirm">Patching the first links</h3>
     <div class="split even">
       <div>
-        <p>Each item pairs {{demo.tokens_per_text}}-token texts ending on the same words. In every cell, the <dfn>clean</dfn> text's last line is full, at most {{demo.clean_short_max}} characters short of the width, so a line break is due. In the <dfn>corrupt</dfn> text a line break is not due.</p>
-        <p>A <dfn>cell</dfn> is a task setting defined by the wrapping width and how the corrupt text is made. The three cells are <code>count:60</code>, <code>count:100</code> and <code>width:100</code>. Each cell contains {{demo.items_per_cell}} pairs.</p>
+        <p>Each item pairs {{demo.tokens_per_text}}-token texts ending on the same words. In every condition, the <dfn>clean</dfn> text's last line is full, at most {{demo.clean_short_max}} characters short of the width, so a line break is due. In the <dfn>corrupt</dfn> text a line break is not due.</p>
+        <p>A <dfn>condition</dfn> is a task setting defined by the wrapping width and how the corrupt text is made. The three conditions are <code>count:60</code>, <code>count:100</code> and <code>width:100</code>. Each condition contains {{demo.items_per_cell}} pairs.</p>
         <ul>
-          <li>In the count cells, the corrupt text's last line starts at a later word than the clean text's, chosen so that the line holds between {{demo.corrupt_fill_low}}% and {{demo.corrupt_fill_high}}% of the width at the last word, and the preceding lines are wrapped backward from that word at the same width, moving their line breaks too.</li>
-          <li>In the width cell, the corrupt text's last line starts at the same word as the clean text's, and the preceding lines are wrapped backward at {{demo.width_factor}} times the width.</li>
+          <li>In the count conditions, the corrupt text's last line starts at a later word than the clean text's, chosen so that the line holds between {{demo.corrupt_fill_low}}% and {{demo.corrupt_fill_high}}% of the width at the last word, and the preceding lines are wrapped backward from that word at the same width, moving their line breaks too.</li>
+          <li>In the width condition, the corrupt text's last line starts at the same word as the clean text's, and the preceding lines are wrapped backward at {{demo.width_factor}} times the width.</li>
         </ul>
       </div>
       <div class="defs">
@@ -320,7 +348,7 @@ The frame part gives most, but not all, of the movement of the gate input; the r
           <pre class="formula">m = logsumexp(logits of newline tokens) - logsumexp(logits of tokens that start with a space)</pre>
         </div>
         <div class="def">
-          <p>A <dfn>patch</dfn> replaces a tensor in the clean run with a value built from the corrupt run and moved onto the clean run's token positions. Each row called a swap on this page is one such patched run of the clean texts. A <dfn>share</dfn> is the part of the clean/corrupt margin difference carried by the patched tensor. At 0 the mean margin equals the clean mean. At 1 it equals the corrupt mean. Individual items can move in either direction. Shares can be negative or exceed 1, and shares along a path can overlap.</p>
+          <p>An activation <dfn>patch</dfn> replaces a tensor in the clean run with a value built from the corrupt run and moved onto the clean run's token positions. Each row called a swap on this page is one such patched run of the clean texts. A <dfn>share</dfn> is the part of the clean/corrupt margin difference carried by the patched tensor. At 0 the mean margin equals the clean mean. At 1 it equals the corrupt mean. Individual items can move in either direction. Shares can be negative or exceed 1, and shares along a path can overlap.</p>
           <pre class="formula">share = mean(m_clean - m_patched) / mean(m_clean - m_corrupt)</pre>
         </div>
       </div>
@@ -328,13 +356,13 @@ The frame part gives most, but not all, of the movement of the gate input; the r
 
     <div class="cols">
       <p>Figure {{fig|chain}} ties each step to its swaps. In every step, the swap of one named unit stands next to the swap of the whole tensor it belongs to, measured by the same route.</p>
-      <p>In the count cells, transform {{demo.l8_transform}} or group {{demo.l8_group}} carries about as much as the whole L8 MLP output through the L9 mixer. Head {{demo.head}}'s read alone gives a larger share than the whole mixer output. Transform {{demo.l9_transform_short}} carries the L9 MLP's effect in <code>count:60</code>, and transform {{demo.l9_transform_long}} carries it in <code>width:100</code>. In <code>count:100</code> their shares are {{ci|count:100|l9/t410}} and {{ci|count:100|l9/t1749}}, against {{ci|count:100|l9/mlp9_y}} for the whole MLP. The same computation is also visible in individual MLP neurons.</p>
+      <p>In the count conditions, transform {{demo.l8_transform}} or group {{demo.l8_group}} carries about as much as the whole L8 MLP output through the L9 mixer. Head {{demo.head}}'s read alone gives a larger share than the whole mixer output. Transform {{demo.l9_transform_short}} carries the L9 MLP's effect in <code>count:60</code>, and transform {{demo.l9_transform_long}} carries it in <code>width:100</code>. In <code>count:100</code> their shares are {{ci|count:100|l9/t410}} and {{ci|count:100|l9/t1749}}, against {{ci|count:100|l9/mlp9_y}} for the whole MLP. The same computation is also visible in individual MLP neurons.</p>
     </div>
 
     <figure class="needs-js" id="fig-chain">
     <div class="figure-head">
       <div class="controls">
-        <div class="control"><span class="label" id="cell-label-chain">Cell</span><div class="seg code" role="group" aria-labelledby="cell-label-chain" data-scope="cell"></div></div>
+        <div class="control"><span class="label" id="cell-label-chain">Condition</span><div class="seg code" role="group" aria-labelledby="cell-label-chain" data-scope="cell"></div></div>
         <div class="control"><span class="label" id="half-label-chain">Items</span><div class="seg" role="group" aria-labelledby="half-label-chain" data-scope="half"></div></div>
       </div>
     </div>
@@ -342,7 +370,7 @@ The frame part gives most, but not all, of the movement of the gate input; the r
       <figcaption><b>Figure {{fig|chain}}.</b> Each row shows a separate swap, which replaces one unit's clean-run value with its value on the corrupt text. The dot shows the share of the mean clean-to-corrupt margin change carried by that swap, and the bar shows its bootstrap interval from {{demo.interval_low}}% to {{demo.interval_high}}%. Filled dots mark named units, while open dots mark whole tensors or whole dictionaries measured through the same route. The rows do not add up, and GatedDeltaNet head {{demo.head}} is read directly as the model head that carries the count inside the layer-9 mixer. Selecting a row shows its items in Figure {{fig|items}}.</figcaption>
     </figure>
     <div class="toggles">
-      <details class="more"><summary>Table: the eleven main swaps in the three cells</summary>
+      <details class="more"><summary>Table: the eleven main swaps in the three conditions</summary>
 {{table|shares}}
       </details>
       <details class="more"><summary>Table: firing rates of the three transforms</summary>
@@ -355,7 +383,7 @@ The frame part gives most, but not all, of the movement of the gate input; the r
     <figure class="needs-js" id="fig-pair">
     <div class="figure-head">
       <div class="controls">
-        <div class="control"><span class="label" id="cell-label-pair">Cell</span><div class="seg code" role="group" aria-labelledby="cell-label-pair" data-scope="cell"></div></div>
+        <div class="control"><span class="label" id="cell-label-pair">Condition</span><div class="seg code" role="group" aria-labelledby="cell-label-pair" data-scope="cell"></div></div>
         <div class="control">
           <span class="label" id="item-label">Item</span>
           <span class="stepper" role="group" aria-labelledby="item-label">
@@ -387,13 +415,13 @@ The frame part gives most, but not all, of the movement of the gate input; the r
     </figure>
 
     <h3 id="by-item">One swap, item by item</h3>
-    <p class="lead">A share is a ratio of two means over items. Figure {{fig|items}} shows what is behind one share: for each of the {{demo.items_per_cell}} items of a cell, the margin of the clean run, of the corrupt run, and of the clean run with one swap.</p>
+    <p class="lead">A share is a ratio of two means over items. Figure {{fig|items}} shows what is behind one share: for each of the {{demo.items_per_cell}} items of a condition, the margin of the clean run, of the corrupt run, and of the clean run with one swap.</p>
 
     <figure class="needs-js" id="fig-items">
       <div class="figure-head">
         <div class="controls">
           <div class="control"><label for="arm-select">Swap</label><select id="arm-select"></select></div>
-          <div class="control"><span class="label" id="cell-label-items">Cell</span><div class="seg code" role="group" aria-labelledby="cell-label-items" data-scope="cell"></div></div>
+          <div class="control"><span class="label" id="cell-label-items">Condition</span><div class="seg code" role="group" aria-labelledby="cell-label-items" data-scope="cell"></div></div>
           <div class="control"><span class="label" id="half-label-items">Items</span><div class="seg" role="group" aria-labelledby="half-label-items" data-scope="half"></div></div>
           <div class="control"><div class="seg" role="group" aria-label="Order of the items" id="sort-seg">
             <button type="button" data-value="clean" aria-pressed="true">by clean margin</button>
@@ -415,7 +443,7 @@ The frame part gives most, but not all, of the movement of the gate input; the r
       </ul>
       <div class="plot" id="items-plot" data-zero="above: the model prefers a line break" data-mean="Mean swap" data-target="Corrupt mean" data-start="Clean mean" data-y="Preference for a line break over a space" data-x="Items ordered by clean margin" data-aria="Thin arrows show each item's margin before and after the swap, faint marks show corrupt margins, and a bold arrow shows the mean change."></div>
       <p class="look">Look at how swapping one unit moves the model from preferring a line break toward preferring a space, and how far the bold arrow moves on average.</p>
-      <figcaption><b>Figure {{fig|items}}.</b> Each thin arrow shows one item, from its clean-run margin to its margin after the swap. A faint mark shows its corrupt-run margin, and items are ordered by their clean margin. The bold arrow at the right runs from the mean clean margin to the mean margin after the swap, with the mean corrupt margin as its target. The share is the bold arrow's length divided by the distance from the clean mean to the corrupt mean. Selecting an item shows its two texts in Figure {{fig|pair}}.</figcaption>
+      <figcaption><b>Figure {{fig|items}}.</b> Each thin arrow shows one item, from its clean-run margin to its margin after the swap. A faint mark shows its corrupt-run margin, and items are ordered by their clean margin. The bold arrow at the right runs from the mean clean margin to the mean margin after the swap, with the mean corrupt margin as its target. The share is the signed change from the clean mean to the patched mean divided by the change from the clean mean to the corrupt mean. Selecting an item shows its two texts in Figure {{fig|pair}}.</figcaption>
       <details class="more" id="items-details"><summary>Table: the margins of the items for the selected swap</summary>
         <div id="items-table"></div>
       </details>
@@ -426,7 +454,7 @@ The frame part gives most, but not all, of the movement of the gate input; the r
     <div class="split curve">
       <div>
         <p>The chain reached state group {{demo.l9_group}} at <code>resid_mid.9</code>. It showed that the part of the layer-9 mixer's write inside this group's frame moves the layer-9 MLP transforms about as much as the whole write. Figure {{fig|curve}} shows that the count is a position along a curve in a plane inside the group's {{demo.frame_dim}}-dimensional frame.</p>
-        <p>Group {{demo.l9_group}} is a dense group with {{demo.frame_dim}}-dimensional coordinates that are active on most tokens and carry information in those coordinates.</p>
+        <p>The dictionary selects group {{demo.l9_group}} on most tokens. Its {{demo.frame_dim}} coordinates can change even while it stays selected.</p>
       </div>
       <figure class="needs-js" id="fig-curve" data-first="Start of a new line" data-x="First component" data-y="Second component" data-aria="Mean codes trace a curve as the character count grows, with the start of a new line apart and texts with a wider wrapping width continuing along the same path." data-count="Character count" data-tokens="Contributing tokens">
         <div class="figure-head">
@@ -444,13 +472,13 @@ The frame part gives most, but not all, of the movement of the gate input; the r
     </div>
 <!--endif curve-->
 <!--if steer-->
-    <h3 id="steer">Steering one unit by a dose</h3>
-    <p class="lead">A dose α scales the change from a unit’s clean value toward its corrupt value, aligned to the clean text’s token positions, and we varied the dose across {{steer.doses}} values from {{steer.dose_min}} to {{steer.dose_max}} for {{steer.units}} units. The shares in Figure {{fig|steer}} are over all {{steer.items}} items of a cell, while the early-chain comparison uses the {{demo.items_per_half}} even-numbered items, so the numbers differ. For L8 transform {{demo.l8_transform}} in <code>count:60</code>, over all {{steer.items}} items, we observed a share of {{steer|count:60|l8/t189|1}} at the full swap and {{steer|count:60|l8/t189|2}} at α = {{steer.dose_max}}, so going past the full swap adds nothing there, while the share of {{steer|count:60|l8/t189|-1}} at α = {{steer.dose_min}} shows that a negative dose is not the mirror image of a positive one.</p>
+    <h3 id="steer">Steering one unit by scaling a patch</h3>
+    <p class="lead">A dose α scales the change from a unit’s clean value toward its corrupt value, aligned to the clean text’s token positions, and we varied the dose across {{steer.doses}} values from {{steer.dose_min}} to {{steer.dose_max}} for {{steer.units}} units. The patch shares in Figure {{fig|steer}} are over all {{steer.items}} items of a condition, while the early-chain comparison uses the {{demo.items_per_half}} even-numbered items, so the numbers differ. For L8 transform {{demo.l8_transform}} in <code>count:60</code>, over all {{steer.items}} items, we observed a share of {{steer|count:60|l8/t189|1}} at the full swap and {{steer|count:60|l8/t189|2}} at α = {{steer.dose_max}}, so going past the full swap adds nothing there, while the share of {{steer|count:60|l8/t189|-1}} at α = {{steer.dose_min}} shows that a negative dose is not the mirror image of a positive one.</p>
     <figure class="needs-js" id="fig-steer" data-zone="Extrapolated values" data-aria-share="The curve shows how the share changes with dose, with a bootstrap interval band and the chosen dose marked." data-aria-mean="The curve shows how the mean margin changes with dose against horizontal clean and corrupt means, with the chosen dose marked." data-aria-items="The plot compares each item's clean, corrupt and dosed margins at the chosen dose." data-key-clean="Clean margin" data-key-corrupt="Corrupt margin" data-key-dosed="Dosed margin" data-readout-interval="Bootstrap interval">
       <div class="figure-head">
         <div class="controls">
           <div class="control"><label for="steer-unit">Unit</label><select id="steer-unit"></select></div>
-          <div class="control"><span class="label" id="steer-cell-label">Cell</span><div class="seg code" role="group" aria-labelledby="steer-cell-label" id="steer-cell"></div></div>
+          <div class="control"><span class="label" id="steer-cell-label">Condition</span><div class="seg code" role="group" aria-labelledby="steer-cell-label" id="steer-cell"></div></div>
           <div class="control dose"><label for="steer-dose">Dose α</label><input type="range" id="steer-dose" min="0" max="0" step="1" value="0"><output class="mono" id="steer-dose-value" for="steer-dose"></output></div>
         </div>
       </div>
@@ -485,7 +513,7 @@ The frame part gives most, but not all, of the movement of the gate input; the r
           <div class="plot" id="steer-items-plot"></div>
         </div>
       </div>
-      <figcaption><b>Figure {{fig|steer}}.</b> A dose α replaces a unit's clean value with that value plus α times the difference from its corrupt value, aligned to the clean text's token positions. At α = 0 and α = 1, the margins exactly equal the demonstration's tested clean-run and full-swap values. Values outside [0, 1] extrapolate beyond the corrupt text. The first part shows the share over α, its bootstrap interval from {{demo.interval_low}}% to {{demo.interval_high}}% and the chosen dose; for layer-8 units and layer-9 transforms, a dashed line shows the whole component measured through the same route. The second part shows the mean margin over α against the clean and corrupt means, and the third shows each item's clean, corrupt and dosed margins at the chosen dose. Shares here use all {{steer.items}} items of the chosen cell. We measured this for this page with the published reader and weights, and it is not part of our repository's tests.</figcaption>
+      <figcaption><b>Figure {{fig|steer}}.</b> A dose α replaces a unit's clean value with that value plus α times the difference from its corrupt value, aligned to the clean text's token positions. At α = 0 and α = 1, the margins exactly equal the demonstration's tested clean-run and full-swap values. Values outside [0, 1] extrapolate beyond the corrupt text. The first part shows the share over α, its bootstrap interval from {{demo.interval_low}}% to {{demo.interval_high}}% and the chosen dose; for layer-8 units and layer-9 transforms, a dashed line shows the whole component measured through the same route. The second part shows the mean margin over α against the clean and corrupt means, and the third shows each item's clean, corrupt and dosed margins at the chosen dose. Shares here use all {{steer.items}} items of the chosen condition. We measured this for this page with the published reader and weights, and it is not part of our repository's tests.</figcaption>
     </figure>
 <!--endif steer-->
     <h3 id="mixer-to-mlp">A four-dimensional frame preserves the effect on six downstream transforms</h3>
@@ -496,7 +524,7 @@ The frame part gives most, but not all, of the movement of the gate input; the r
     <div class="figure-head">
       <div class="controls">
         <div class="control"><span class="label" id="base-label">Change at the L9 mixer output</span><div class="seg" role="group" aria-labelledby="base-label" id="base-seg"></div></div>
-        <div class="control"><span class="label" id="cell-label-link">Cell</span><div class="seg code" role="group" aria-labelledby="cell-label-link" data-scope="cell"></div></div>
+        <div class="control"><span class="label" id="cell-label-link">Condition</span><div class="seg code" role="group" aria-labelledby="cell-label-link" data-scope="cell"></div></div>
         <div class="control"><span class="label" id="half-label-link">Items</span><div class="seg" role="group" aria-labelledby="half-label-link" data-scope="half"></div></div>
       </div>
     </div>
@@ -509,7 +537,7 @@ The frame part gives most, but not all, of the movement of the gate input; the r
     <div class="cols">
       <p>On even-numbered items, for the whole mixer swap, the rest carries {{link.rest_six.count60}} in <code>count:60</code>, {{link.rest_six.count100}} in <code>count:100</code> and {{link.rest_six.width100}} in <code>width:100</code> through the six transforms. Through the two transforms alone, the rest carries {{link.rest_two.count60}}, {{link.rest_two.count100}} and {{link.rest_two.width100}}. A random {{demo.frame_dim}}-dimensional frame carries at most {{link.random_six_max}} through the six transforms and {{link.random_two_max}} through the two.</p>
       <p>With everything downstream, the rest carries {{link.rest_down.count60}} in <code>count:60</code>, {{link.rest_down.count100}} in <code>count:100</code> and {{link.rest_down.width100}} in <code>width:100</code>. The frame is therefore not the only route to the answer. The downstream shares of the two parts do not add up to the whole.</p>
-      <p>We registered a pass rule for the mixer-to-MLP link. The rule requires at least {{rule.inside_min}} of the whole share inside the frame, at most {{rule.rest_max_fraction}} of it and at most {{rule.rest_max}} in the rest, and at most {{rule.random_max}} in random frames, in both count cells. Our verdict was that the rule holds for the route through the six transforms and holds only in part for the route through {{demo.l9_transform_short}} and {{demo.l9_transform_long}} alone, because this run gives a share of {{link.rest_two.count100}} for the rest in <code>count:100</code> through those two transforms.</p>
+      <p>We registered a pass rule for the mixer-to-MLP link. The rule requires at least {{rule.inside_min}} of the whole share inside the frame, at most {{rule.rest_max_fraction}} of it and at most {{rule.rest_max}} in the rest, and at most {{rule.random_max}} in random frames, in both count conditions. Our verdict was that the rule holds for the route through the six transforms and holds only in part for the route through {{demo.l9_transform_short}} and {{demo.l9_transform_long}} alone, because this run gives a share of {{link.rest_two.count100}} for the rest in <code>count:100</code> through those two transforms.</p>
     </div>
 {{table|link}}
       </details>
@@ -524,9 +552,9 @@ The frame part gives most, but not all, of the movement of the gate input; the r
   <div class="wrap">
     <h2 id="other-examples">Other examples</h2>
     <article class="short-example" id="qwen35-4b">
-      <h3 id="prompt-states">A prompt-state edit changes later Python code in Qwen3.5-4B</h3>
-      <p>We obtained the direction from the difference between two prompts, one asking for input validation and one neutral, projected into layer {{su.layer}} group {{su.group}}. With identical prompt text, the share of outputs containing <code>raise</code> or <code>isinstance</code> rose from {{m|code|rows|nbase|guard_pct}} unedited to {{m|code|rows|n_g2879_d1|guard_pct}} at the mean dose and {{m|code|rows|n_g2879_d2|guard_pct}} at twice the dose (95% intervals over tasks). On two other neutral sentences the increases were {{m|code|other|n21}} and {{m|code|other|n31}} percentage points at the mean dose, and {{m|code|other|n22}} and {{m|code|other|n32}} points at twice the dose. When we ran the functions, twice the dose raised rejection of wrong types from {{m|code|rows|nbase|wrong_type_pct}} to {{m|code|rows|n_g2879_d2|wrong_type_pct}}, while the share passing every valid case fell from {{m|code|rows|nbase|valid_pct}} to {{m|code|rows|n_g2879_d2|valid_pct}}.</p>
-<figure class="needs-js" id="fig-su" data-aria="The chart compares rates of outputs containing a raise statement or an isinstance call across doses for the main neutral sentence, the plain prompt and two other neutral sentences, with grey control marks and a horizontal line for the real instruction." data-axis-x="Dose relative to the instruction’s mean level" data-axis-y="Outputs containing raise or isinstance (fraction)" data-line-neutral="Main neutral sentence" data-line-plain="Plain prompt" data-line-second="Second neutral sentence" data-line-third="Third neutral sentence" data-instructed="With the real instruction" data-dose="Dose">
+      <h3 id="prompt-states">Editing the residual stream at prompt tokens changes later Python code in Qwen3.5-4B</h3>
+      <p>In a prompt-state edit we keep the prompt text identical and change the residual stream at some prompt tokens. We took the mean state difference between prompts asking for input validation and paired neutral prompts, then projected it into the frame of layer {{su.layer}} group {{su.group}}. Adding this vector once at its measured size at each edited token is the mean dose. The fraction of outputs containing <code>raise</code> or <code>isinstance</code> rose from {{m|code|rows|nbase|guard_pct}} unedited to {{m|code|rows|n_g2879_d1|guard_pct}} at the mean dose and {{m|code|rows|n_g2879_d2|guard_pct}} at twice the dose (95% intervals over tasks). On two other neutral sentences the increases were {{m|code|other|n21}} and {{m|code|other|n31}} percentage points at the mean dose, and {{m|code|other|n22}} and {{m|code|other|n32}} points at twice the dose. When we ran the functions, twice the dose raised rejection of wrong types from {{m|code|rows|nbase|wrong_type_pct}} to {{m|code|rows|n_g2879_d2|wrong_type_pct}}, while the fraction passing every valid case fell from {{m|code|rows|nbase|valid_pct}} to {{m|code|rows|n_g2879_d2|valid_pct}}.</p>
+<figure class="needs-js" id="fig-su" data-aria="The chart compares rates of outputs containing a raise statement or an isinstance call across doses for the main neutral sentence, the plain prompt and two other neutral sentences, with grey control marks and a horizontal line for the real instruction." data-axis-x="Dose as a multiple of the mean dose" data-axis-y="Outputs containing raise or isinstance (fraction)" data-line-neutral="Main neutral sentence" data-line-plain="Plain prompt" data-line-second="Second neutral sentence" data-line-third="Third neutral sentence" data-instructed="With the real instruction" data-dose="Dose">
           <ul class="keys" aria-hidden="true">
             <li class="c-c"><svg width="26" height="12"><path d="M1 6H25" class="series s-unit"/></svg>Main neutral sentence</li>
             <li><svg width="26" height="12"><path d="M1 6H25" class="series s-n"/></svg>Plain prompt</li>
@@ -556,8 +584,8 @@ The frame part gives most, but not all, of the movement of the gate input; the r
     </article>
     <article class="short-example">
       <h3 id="carrying">Repetition rules travel through a plane</h3>
-      <p>In the repetition task, “sun, tree, sun” follows ABA and “sun, tree, tree” follows ABB. At the third item, a plane in group {{aba.group}} separates whether a word repeats from which word it repeats. Attention head 14 of layer 15 reads both directions and writes at the answer position. Moving from one rule toward the other inside this frame changes the answer by {{aba.move_low}} to {{aba.move_high}} of the natural difference measured inside four destination frames, and by {{aba.full_low}} and {{aba.full_high}} along the full rule direction for the two swaps. <a href="https://arxiv.org/abs/2502.20332">Yang et al., Emergent Symbolic Mechanisms</a></p>
-<figure class="needs-js" id="fig-aba" data-aria="The plane separates repetition from which item repeats, with arrows showing the head’s read directions." data-x="Repeat axis" data-y="Which-item axis" data-arrow1="Reads repetition" data-arrow2="Reads which item" data-label-aba="Repeats first item" data-label-abb="Repeats preceding item" data-label-new="New word" data-label-earlier="Repeats earlier items" data-label-noun="Repeated nouns">
+      <p>In the repetition task, “sun, tree, sun” follows ABA and “sun, tree, tree” follows ABB. At the third item, one direction in group {{aba.group}}’s plane tracks whether a word repeats. The which-item direction distinguishes a repeat of the first word from a repeat of the second. Attention head 14 of layer 15 reads both directions and writes at the answer position. The destination frames are the frames of groups at the answer position. The natural difference is the difference between the mean states there for unedited ABA and ABB prompts. Moving the input within the source frame toward the other rule reproduces {{aba.move_low}} to {{aba.move_high}} of that difference inside four destination frames. Along the full rule direction the fractions are {{aba.full_low}} and {{aba.full_high}} for the two directions of the edit. <a href="https://arxiv.org/abs/2502.20332">Yang et al., Emergent Symbolic Mechanisms</a></p>
+<figure class="needs-js" id="fig-aba" data-aria="The plane separates repetition from which item repeats, with arrows showing the head’s read directions." data-x="Repeat axis" data-y="Which-item direction" data-arrow1="Reads repetition" data-arrow2="Reads which item" data-label-aba="Repeats first item" data-label-abb="Repeats preceding item" data-label-new="New word" data-label-earlier="Repeats earlier items" data-label-noun="Repeated nouns">
           <ul class="keys" aria-hidden="true">
             <li><svg width="14" height="14"><circle cx="7" cy="7" r="5" class="cond task"/></svg>Third items in the repetition task</li>
             <li><svg width="14" height="14"><path d="M7 2L12 7L7 12L2 7z" class="cond line"/></svg>List conditions</li>
@@ -570,7 +598,7 @@ The frame part gives most, but not all, of the movement of the gate input; the r
         </figure>
       <details class="fold"><summary>Destination frames and histories of several lines</summary>
         <p>We changed only the state that the mixer reads. An equally sized move in one randomly drawn frame gave {{aba.move_random_low}} to {{aba.move_random_high}} in the destination frames. Of the which-item direction’s write, {{aba.dest_share_0}} lies in group {{aba.dest_0}}’s frame, {{aba.dest_share_1}} in {{aba.dest_1}}’s and {{aba.dest_share_2}} in {{aba.dest_2}}’s.</p>
-        <p>At the answer position the whole residual at <code>resid_mid.15</code> lies near a plane ordered by the mix of ABA, ABB and ABC lines. Decomposing variation between histories attributes {{avg.head}} to head 14’s write, {{avg.mix}} to the whole mixer including that head and {{avg.prior}} to the incoming state. The head’s measured attention weights predict its write with R² {{avg.mixture_r2}}.</p>
+        <p>At the answer position the whole residual at <code>resid_mid.15</code> lies near a plane ordered by the mix of ABA, ABB and ABC lines (three different words in an ABC line). Decomposing variation between histories attributes {{avg.head}} to head 14’s write, {{avg.mix}} to the whole mixer including that head and {{avg.prior}} to the incoming state. The head’s measured attention weights predict its write with R² {{avg.mixture_r2}}.</p>
 <figure id="fig-avg" data-aria="Histories form a plane ordered by line type counts, alongside attention by line position showing how the head weights each line." data-x="Plane coordinate x" data-y="Plane coordinate y" data-corner-a="{{avg.lines}} ABA lines" data-corner-b="{{avg.lines}} ABB lines" data-corner-c="{{avg.lines}} lines without repetition">
           <div class="avg-grid">
           <div class="needs-js">
@@ -583,7 +611,7 @@ The frame part gives most, but not all, of the movement of the gate input; the r
           <div class="bars quarter">
             <h4>Head 14’s attention by line position</h4>
             <div class="hbar ref"><span class="hbar-label">Line 1</span><b>{{avg.attention_1}}</b><div class="hbar-track"><i style="--v:{{avg.attention_1}}"></i></div></div><div class="hbar ref"><span class="hbar-label">Line 2</span><b>{{avg.attention_2}}</b><div class="hbar-track"><i style="--v:{{avg.attention_2}}"></i></div></div><div class="hbar ref"><span class="hbar-label">Line 3</span><b>{{avg.attention_3}}</b><div class="hbar-track"><i style="--v:{{avg.attention_3}}"></i></div></div><div class="hbar ref"><span class="hbar-label">Line 4</span><b>{{avg.attention_4}}</b><div class="hbar-track"><i style="--v:{{avg.attention_4}}"></i></div></div><div class="hbar ref"><span class="hbar-label">Line 5</span><b>{{avg.attention_5}}</b><div class="hbar-track"><i style="--v:{{avg.attention_5}}"></i></div></div><div class="hbar ref"><span class="hbar-label">Line 6</span><b>{{avg.attention_6}}</b><div class="hbar-track"><i style="--v:{{avg.attention_6}}"></i></div></div>
-            <div class="hbar-axis" aria-hidden="true"><span>0</span><span>Share of the head’s attention</span><span>0.25</span></div>
+            <div class="hbar-axis" aria-hidden="true"><span>0</span><span>Fraction of the head’s attention</span><span>0.25</span></div>
           </div>
           </div>
           <figcaption><b>Figure {{fig|avg}}.</b> The state panel shows {{avg.histories}} histories coloured by the number of ABA lines minus the number of ABB lines. The attention panel shows head 14's weight on each line's third item; the first line receives {{avg.attention_first}} and contributes least.</figcaption>
@@ -609,15 +637,15 @@ The frame part gives most, but not all, of the movement of the gate input; the r
       </details>
     </article>
     <article class="short-example">
-      <h3 id="frame-holds">A randomly drawn frame holds signed distinctions between words</h3>
-      <p>Among the groups we drew at random, group {{leth.group}} at <code>resid_post.{{leth.layer}}</code> separated “vital” from death words. We moved “vital” within the frame to match one coordinate of “fatal”, “deadly”, “lethal” or “mortal” in each of six sentence frames. The mean margin between two sets of eight nouns moved by {{leth.move}} nats, toward the death-word set in all {{leth.pairs}} pairs, covering {{leth.move_share}} of the original gap. “Mistake” and “accident” belong to that set.</p>
+      <h3 id="frame-holds">A randomly chosen group separates words along one direction</h3>
+      <p>Among the groups we drew at random, group {{leth.group}} at <code>resid_post.{{leth.layer}}</code> separated “vital” from death words. We moved “vital” within the frame to match one coordinate of “fatal”, “deadly”, “lethal” or “mortal” in each of six sentence templates. We compared the summed probabilities of two sets of eight nouns. Their mean log probability ratio moved by {{leth.move}} nats, toward the death-word set in all {{leth.pairs}} pairs, covering {{leth.move_share}} of the original gap. “Mistake” and “accident” belong to that set.</p>
 <figure class="needs-js" id="fig-leth" data-rest="{n} more words appear as small points; point to read them" data-aria="Labelled words show how the lethality coordinate separates death words from words such as alive and vital." data-x="Fourth frame coordinate" data-y="Second frame coordinate">
           <div class="plot" id="leth-plot"></div>
           <p class="sample-note" id="leth-rest" hidden></p>
           <figcaption><b>Figure {{fig|leth}}.</b> Each point places an adjective by its fourth and second coordinates, in the learned basis for “It was a W”. Changing the basis would change these coordinate labels.</figcaption>
         </figure>
       <details class="fold"><summary>Coordinates in the learned basis and control moves</summary>
-        <p>In “It was a W”, {{leth.words}} adjectives all have negative values on the second coordinate, with “vital”, “fatal” and “pivotal” the most negative. The plot shows two coordinates in this particular learned basis. The intervention tests a direction within the subspace. Equally sized random moves changed the noun-set margin by {{leth.other_low}} to {{leth.other_high}} nats.</p>
+        <p>In “It was a W”, {{leth.words}} adjectives all have negative values on the second coordinate, with “vital”, “fatal” and “pivotal” the most negative. The plot shows two coordinates in this particular learned basis. The intervention tests a direction within the subspace. Equally sized random moves changed the logit preference between noun sets by {{leth.other_low}} to {{leth.other_high}} nats.</p>
       </details>
     </article>
   </div>
@@ -628,7 +656,7 @@ The frame part gives most, but not all, of the movement of the gate input; the r
 <section class="band tint" aria-labelledby="dictionaries">
   <div class="wrap">
     <h2 id="dictionaries">How the dictionaries connect a state to the operations that read it</h2>
-    <p class="lead"><!--if 4b-->We use a state dictionary to describe the shapes in the residual stream and an MLP dictionary to describe the cuts and moves applied to them; Figure {{fig|layer}} shows where each reads. <span class="nw">Qwen3.5-4B</span> has {{b4.layers}} layers of width {{b4.width}}, and <span class="nw">Qwen3.5-0.8B</span> has {{model.layers}} layers of width {{model.width}}. The examples in this section come from <span class="nw">Qwen3.5-0.8B</span>.<!--endif 4b--></p>
+    <p class="lead"><!--if 4b-->We use a state dictionary to describe the residual-stream activations and an MLP dictionary to describe the transforms that read them. Figure {{fig|layer}} shows the input to each dictionary. <span class="nw">Qwen3.5-4B</span> has {{b4.layers}} layers of width {{b4.width}}, and <span class="nw">Qwen3.5-0.8B</span> has {{model.layers}} layers of width {{model.width}}. The examples in this section come from <span class="nw">Qwen3.5-0.8B</span>.<!--endif 4b--></p>
 
     <div class="split diagram">
       <figure id="fig-layer">
@@ -701,15 +729,15 @@ The frame part gives most, but not all, of the movement of the gate input; the r
         <article class="unit mlp">
           <h3 class="unit-title"><i></i>MLP dictionary: transforms</h3>
           <p>The <dfn>MLP dictionary</dfn> represents the layer's MLP operations, taking the post-norm MLP input and reconstructing the raw MLP output. Our MLP dictionary’s form, a sparse mixture of linear transforms (MOLT), follows <a href="https://transformer-circuits.pub/2025/bulk-update/index.html">Lindsey et al. (2025)</a>, with <a href="https://arxiv.org/abs/2505.21364">Oldfield et al. (2025)</a> providing closely related work on decomposing MLP layers into sparse mixtures of linear maps.</p>
-          <p>A transform compares a linear reading of the normalized MLP input to a learned threshold. This is the straight cut. When the gate opens, the transform writes an input-dependent, gated low-rank update.</p>
+          <p>A transform compares a linear reading of the normalized MLP input to a learned threshold. The cut shows where they are equal. When the gate opens, the transform writes a low-rank function of the input scaled by the gate.</p>
         <p>We can inspect a transform's gate and write, or change its gate and recompute the output.</p>
         </article>
       </div>
     </div>
 
 
-    <p class="aside-note">A related approach, the subspace-aware sparse autoencoder (SASA) of <a href="https://arxiv.org/abs/2606.06333">Dalili and Mahdavi</a>, selects groups with a top-s gate and uses a nuclear-norm penalty to regularize their effective rank. In our BSF, four directions per group is a design choice. The same layer dictionary serves both sides of the MLP, with separate normalization at each site.</p>
-    <p class="aside-note">We read mixers at the level of the model’s own heads so that we can test its recurrent memory directly. <!--if trace-->A stateful transcoder trained on 18 GatedDeltaNet layers reproduced {{transcoder.mlp}} percent of the counting head’s response to a layer-8 MLP-output swap and {{transcoder.residual}} percent for a whole-residual swap.<!--endif trace--></p>
+    <p class="aside-note">A related approach, the subspace-aware sparse autoencoder (SASA) of <a href="https://arxiv.org/abs/2606.06333">Dalili and Mahdavi</a>, keeps the s highest-scoring groups and uses a nuclear-norm penalty to regularize their effective rank. In our state dictionary, four directions per group is a design choice. The same layer dictionary serves both sides of the MLP, with separate normalization at each site.</p>
+    <p class="aside-note">We read mixers at the level of the model’s own heads so that we can test its recurrent memory directly. <!--if trace-->A transcoder with recurrent memory was trained on 18 GatedDeltaNet layers. This stateful transcoder reproduced {{transcoder.mlp}} percent of the counting head’s response to a layer-8 MLP-output swap and {{transcoder.residual}} percent for a whole-residual swap.<!--endif trace--></p>
   </div>
 </section>
 
@@ -730,7 +758,7 @@ pip install -e '.[model]'</code></pre></div>
 <!--endif 4b-->
     <p>The <a href="#reproduce">counting demonstrations</a> use the full 0.8B release.</p>
     <h3 id="limits">How much do the dictionaries reconstruct?</h3>
-    <p>After the MLP, the median fraction of held-out variance left unexplained across layers is {{fvu.small_median}} for 0.8B<!--if 4b--> and {{fvu.large_median}} for 4B<!--endif 4b-->. Pooling both state sites gives a median of {{fvu.small_pooled}} and a maximum of {{fvu.small_max}} for 0.8B<!--if 4b-->, and a median of {{fvu.large_pooled}} and a maximum of {{fvu.large_max}} at layer 31 for 4B<!--endif 4b-->. The <a href="#numbers">per-layer measurements</a> drop position 0. In the 0.8B training evaluation, replacing the final-layer state with its reconstruction increased cross-entropy by {{last_state_loss}} nats.</p>
+    <p>After the MLP, the median fraction of variance unexplained (FVU) on held-out tokens across layers is {{fvu.small_median}} for 0.8B<!--if 4b--> and {{fvu.large_median}} for 4B<!--endif 4b-->. Pooling both state sites gives a median of {{fvu.small_pooled}} and a maximum of {{fvu.small_max}} for 0.8B<!--if 4b-->, and a median of {{fvu.large_pooled}} and a maximum of {{fvu.large_max}} at layer 31 for 4B<!--endif 4b-->. The <a href="#numbers">per-layer measurements</a> drop position 0. In the 0.8B training evaluation, replacing the final-layer state with its reconstruction increased cross-entropy by {{last_state_loss}} nats. We call this increase the spliced-in loss.</p>
     <p class="small">Without flash-linear-attention, transformers silently uses a slow GatedDeltaNet reference implementation. The repository contains the reader, both counting demonstrations and tests.</p>
   </div>
 </section>
@@ -790,7 +818,7 @@ pip install -e '.[model]'</code></pre></div>
     </div>
     <div class="layer-readout" id="b4-readout" aria-live="polite"></div>
     <div class="panel-grid" id="b4-panels"></div>
-          <figcaption><b>Figure {{fig|4b}}.</b> The panels show state FVU, MLP FVU, transforms alive, and transforms that fire on at least 90% of tokens across the {{b4.layers}} layers of <span class="nw">Qwen3.5-4B</span>. The last panel also shows the share of summed write energy those transforms carry on web text. We measured the high-firing counts and energy after training. The first count and energy use FineWeb-Edu, and the second count uses held-out training-mix text.</figcaption>
+          <figcaption><b>Figure {{fig|4b}}.</b> The panels show state FVU, MLP FVU, transforms alive, and transforms that fire on at least 90% of tokens across the {{b4.layers}} layers of <span class="nw">Qwen3.5-4B</span>. The last panel also shows the fraction of summed write energy those transforms carry on web text. We measured the high-firing counts and energy after training. The first count and energy use FineWeb-Edu, and the second count uses held-out training-mix text.</figcaption>
         </figure>
         <details class="more"><summary>Table: all {{b4.layers}} layers of the <span class="nw">Qwen3.5-4B</span> set</summary>
 {{table|layers4b}}
@@ -843,7 +871,7 @@ pip install -e '.[model]'</code></pre></div>
       <div class="figures"><span>differing gate decisions <b>{{check.mlp_differ}}</b>, at layer {{check.mlp_differ_layer}}</span><span>outputs on other tokens agree within <b>{{check.mlp_out}}</b> relative</span><span>sum of firing transforms' writes matches within <b>{{check.mlp_sum}}</b> relative</span></div></dd></div>
     <div><dt>Reconstruction error on all held-out tokens</dt><dd>We measured reconstruction error on all held-out tokens, {{fvu.tokens}} per layer. The state dictionary's raw FVU agreed with our table at all {{model.layers}} layers and both sites.
       <div class="figures"><span>largest difference <b>{{check.fvu_agree}}</b></span><span>limit <b>{{check.fvu_limit}}</b></span></div></dd></div>
-    <div><dt>Every share of the demonstration</dt><dd>Every demonstration share agreed with the original harness's reference run and our recorded numbers: {{check.share_swaps}} swaps in {{check.share_cells}} cells on {{check.share_halves}} sets of items. The item file matched the original items exactly.
+    <div><dt>Every share of the demonstration</dt><dd>Every demonstration share agreed with the original harness's reference run and our recorded numbers across {{check.share_swaps}} swaps in {{check.share_cells}} conditions on {{check.share_halves}} sets of items. The item file matched the original items exactly.
       <div class="figures"><span>comparisons <b>{{check.share_n}}</b></span><span>largest difference <b>{{check.share_agree}}</b></span><span>tolerance registered beforehand <b>{{check.share_limit}}</b></span></div></dd></div>
     <div><dt>The published files</dt><dd>All {{set.files}} release files matched the manifest. MLP tensors for layers {{model.first_layer}} to {{mlp.penalty_main_last_layer}} were bit-identical to the training exports used by the reader tests. Layer {{model.last_layer}} passed its own comparison with the public forward pass. No file header or config held a machine path.</dd></div>
     <div><dt>A fresh download, in the tested library versions</dt><dd>A fresh clone, a new environment and a fresh download reproduce the demonstration byte for byte with torch {{check.tested_torch}} and transformers {{check.tested_transformers}}.</dd></div>

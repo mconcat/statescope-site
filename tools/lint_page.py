@@ -28,7 +28,7 @@ OPTIONAL_DATA = ["layers-4b.json", "steer.json", "count-curve.json", "count-read
                  "width-edit.json", "generated-lines.json", "state-subspaces.json", "code-behaviour.json"]
 REFERENCES = os.path.join("tools", "references.json")                          # bibliographic data of the works the page refers to
 ALLOWED_LINKS = ("https://github.com/mconcat/statescope", "https://huggingface.co/mconcat/statescope-qwen3.5-0.8b",
-                 "https://huggingface.co/mconcat/statescope-qwen3.5-4b", "https://arxiv.org/abs/2601.04480", "https://arxiv.org/abs/2502.20332",
+                 "https://huggingface.co/mconcat/statescope-qwen3.5-4b", "https://arxiv.org/abs/2412.06464", "https://arxiv.org/abs/2601.04480", "https://arxiv.org/abs/2502.20332",
                  "https://transformer-circuits.pub/2025/bulk-update/index.html", "https://arxiv.org/abs/2505.21364",
                  "https://arxiv.org/abs/2611.13270", "https://arxiv.org/abs/2606.06333", "https://arxiv.org/abs/2606.25234",
                  "https://statescope.ai/")           # the page's own address, in the link-preview tags only

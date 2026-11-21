@@ -2,6 +2,13 @@
   "note": "Works the page refers to, in the order in which it refers to them. Bibliographic data, typed by hand from the works' own pages; tools/build_page.py writes the list.",
   "references": [
     {
+      "authors": "Songlin Yang, Jan Kautz, Ali Hatamizadeh",
+      "title": "Gated Delta Networks: Improving Mamba2 with Delta Rule",
+      "id": "arXiv:2412.06464",
+      "date": "9 December 2024",
+      "url": "https://arxiv.org/abs/2412.06464"
+    },
+    {
       "authors": "Thomas Fel, Matthew Kowal, Mozes Jacobs, Dron Hazra, Usha Bhalla, Lee Sharkey, Lucius Bushnaq, Satchel Grant, Tal Haklay, Thomas Icard, Can Rager, Michael Pearce, Daniel Wurgaft, Aiden Swann, Fenil Doshi, Siddharth Boppana, Curt Tigges, Nick Cammarata, Thomas Serre, Vasudev Shyam, Owen Lewis, Thomas McGrath, Jack Merullo, Ekdeep Singh Lubana, Atticus Geiger",
       "title": "Structuring Sparsity: Block-Sparse Featurizers Capture Visual Concept Manifolds",
       "id": "arXiv:2606.25234",

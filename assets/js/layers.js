@@ -209,7 +209,7 @@ export function initFourB(four) {
       [col.mlp_train, r.mlp_train],
       [col.alive, r.alive_text],
       ["On at 90% of tokens or more, web text / training mix", r.always_text],
-      ["Their share of the write energy, web text", r.always_energy],
+      ["Their fraction of the write energy, web text", r.always_energy],
     ],
     panels: [
       {
@@ -234,9 +234,9 @@ export function initFourB(four) {
         bars: { value: (r) => r.alive, total: four.rows[0].transforms },
       },
       {
-        title: "Write energy of the always-on transforms",
-        sub: () => "Share of summed write energy from transforms active on at least 90% of tokens, measured after training on FineWeb-Edu.",
-        series: [{ label: "share", cls: "s-n", shape: "circle", recorded: true, value: (r) => Number(r.always_energy) }],
+        title: "Write energy of frequently firing transforms",
+        sub: () => "Fraction of summed write energy from transforms active on at least 90% of tokens, measured after training on FineWeb-Edu.",
+        series: [{ label: "fraction", cls: "s-n", shape: "circle", recorded: true, value: (r) => Number(r.always_energy) }],
       },
     ],
   });

@@ -99,6 +99,13 @@ DETAILS_CAPTION_4B = ("This table lists the dictionary sizes, training settings,
 DETAILS_CAPTION_08B = ("This table lists the dictionary sizes, training settings, file counts, and file sizes for our Qwen3.5-0.8B set, using values from the "
                        "README, model card, and manifest.")
 
+GENERATED_EDIT_LABELS = {
+    "perm:40": "Permuted control",
+    "frame:40": "In-frame part",
+    "state_rand:40": "Random direction in the frame",
+    "state_other:40": "State edit in another group",
+}
+
 
 def tables(facts: dict) -> dict[str, str]:
     layers, splice, demo = data("layers.json"), data("splice.json"), data("demo.json")
@@ -142,7 +149,7 @@ def tables(facts: dict) -> dict[str, str]:
     for i, b in enumerate(bins):
         rate_rows.append([f"other token, {b} characters in the line"] + [demo["firing_rate"][u]["by_chars_in_line"][i]["rate"] for u in units])
     out["rates"] = table(
-        "Fraction of tokens at which each transform's gate is open, on the clean texts of the two count cells.", ["Tokens"] + units, rate_rows,
+        "Fraction of tokens at which each transform's gate is open, on the clean texts of the two count conditions.", ["Tokens"] + units, rate_rows,
         row_header=True)
     out["details08b"] = details_table(facts, DETAILS_CAPTION_08B, False)
     if exists("layers-4b.json"):
@@ -152,23 +159,35 @@ def tables(facts: dict) -> dict[str, str]:
         out["layers4b"] = table(
             "Qwen3.5-4B set, numbers per layer. The first three value columns were re-measured with the published reader with position 0 dropped. "
             "Training records supply MLP FVU, transforms on per token and transforms alive. The last two columns were measured after training. The counts use FineWeb-Edu and held-out training-mix tokens respectively. The write energy uses FineWeb-Edu.",
-            ["Layer", col["state_mid"], col["state_post"], col["mlp"], col["mlp_train"], col["on_per_token"], col["alive"], col["always"], col["always_energy"]],
+            ["Layer", col["state_mid"], col["state_post"], col["mlp"], col["mlp_train"], col["on_per_token"], col["alive"], col["always"], "Fraction of summed write energy carried by those transforms on web text"],
             [[str(r["layer"]), r["dropped"]["state_mid"], r["dropped"]["state_post"], r["dropped"]["mlp"], r["mlp_train"], r["on_per_token"],
               r["alive_text"], r["always_text"], r["always_energy"]] for r in four["rows"]])
     comparison = data("state-subspaces.json")
     conditions = comparison["conditions"]
+    subspace_labels = {"One learned BSF group": "One learned group of the state dictionary"}
     out["subspaces"] = table("Percentage of the full mixer effect retained through the six transforms, with paired 95% bootstrap intervals over new document pairs.",
-                            ["Subspace", *conditions], [[label, *(values[c] for c in conditions)] for label, values in comparison["rows"].items()], True)
+                            ["Subspace", *conditions], [[subspace_labels.get(label, label), *(values[c] for c in conditions)] for label, values in comparison["rows"].items()], True)
     if exists("width-edit.json"):
         widths = data("width-edit.json")
-        out["width"] = table("Fixed-text edits. Size is the RMS of the edit divided by the RMS of the mixer output. Brackets give 95% bootstrap intervals over documents where measured.",
+        group = facts["lc.g12"]["display"]
+        labels = {
+            "clean": "No edit",
+            "shift:40": "Head edit (head 13, toward width 40)",
+            "perm:40": "Permuted control",
+            "in_frame:40": f"In-frame part (group {group})",
+            "rest:40": "The rest",
+            "state_gated:40": f"State edit (group {group}, toward width 40)",
+            "state_randdir0:40": "Random direction in the frame",
+        }
+        out["width"] = table("Fixed-text edits. Size is the root mean square (RMS) of the edit divided by the RMS of the mixer output. Brackets give 95% bootstrap intervals over documents where measured.",
                              ["Edit", "Relative size", "First crossing (characters)", "Mean margin at counts 48–50", "Margin before a line break"],
-                             [[row[k] for k in ("label", "size", "crossing", "margin", "end")] for row in widths["rows"]], True)
+                             [[labels[row["arm"]], row["size"], row["crossing"], row["margin"], row["end"]] for row in widths["rows"]], True)
     if exists("generated-lines.json"):
         gen = data("generated-lines.json")
         out["lengths"] = table("Completed non-empty lines in the sampled continuations. The interval on the median resamples documents.",
                                ["Condition", "Lines", "Median [95% interval]", "Mean", "At most 60 characters", "At least 80 characters"],
-                               [[r[k] for k in ("label", "lines", "median", "mean", "short", "long")] for r in gen["rows"].values()], True)
+                               [[GENERATED_EDIT_LABELS.get(arm, r["label"]), r["lines"], r["median"], r["mean"], r["short"], r["long"]]
+                                for arm, r in gen["rows"].items()], True)
     if exists("code-behaviour.json"):
         scores = data("code-behaviour.json")
         out["behaviour"] = table("Generated Python on the main wording. Percentages with 95% bootstrap intervals over tasks. Rejection means a raise statement in the generated code fired.",
@@ -316,7 +335,7 @@ def length_histograms(generated: dict) -> str:
             height = 34 * count / n / peak
             bars.append(f'<rect x="{i * 10 + 0.5}" y="{35-height:.2f}" width="9" height="{height:.2f}" data-lines="{count}"/>')
         out.append(
-            f'<div class="length-row" data-arm="{esc(arm)}"><div class="length-summary"><b>{esc(row["label"])}</b>'
+            f'<div class="length-row" data-arm="{esc(arm)}"><div class="length-summary"><b>{esc(GENERATED_EDIT_LABELS.get(arm, row["label"]))}</b>'
             f'<span>Median {esc(row["median"])} · mean {esc(row["mean"])}</span></div>'
             f'<div class="length-chart" aria-hidden="true"><svg viewBox="0 0 {extent} 35" preserveAspectRatio="none">'
             f'{"".join(bars)}{guides}</svg><div class="length-scale">{"".join(ticks)}</div></div></div>'

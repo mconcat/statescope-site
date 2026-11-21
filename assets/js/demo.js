@@ -87,7 +87,7 @@ export function initDemo(demo, load) {
     } catch (error) {
       const box = document.getElementById("load-error-demo");
       box.hidden = false;
-      box.textContent = `The texts of this cell could not be loaded (${error.message}).`;
+      box.textContent = `The texts for this condition could not be loaded (${error.message}).`;
       return;
     }
     if (cell !== state.cell || item !== state.item || arm !== state.arm) return; // a newer selection is already being drawn
@@ -141,7 +141,7 @@ export function initDemo(demo, load) {
     {
       site: "state dictionary, resid_mid.9",
       unit: `group ${c.l9_group}`,
-      note: "a dense group; its frame carries the count to the L9 transforms",
+      note: "selected on most tokens, its frame carries the count to the L9 transforms",
       route: "The whole mixer swap, read through the six selected L9 transforms.",
       rows: [
         { arm: `link/mix/g${c.l9_group}/F2`, name: `only the part inside group ${c.l9_group}'s frame`, unit: true },
