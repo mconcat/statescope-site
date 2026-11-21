@@ -4,10 +4,10 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>statescope: How does a hybrid language model with mostly recurrent mixers count characters to the end of a line?</title>
+<title>statescope: How does a hybrid language model count characters to the end of a line?</title>
 <meta name="description" content="A recurrent head counts characters. A later head combines that count with line width. We edit its read and measure where generated lines end.">
 <meta property="og:type" content="website">
-<meta property="og:title" content="statescope: How does a hybrid language model with mostly recurrent mixers count characters to the end of a line?">
+<meta property="og:title" content="statescope: How does a hybrid language model count characters to the end of a line?">
 <meta property="og:description" content="A recurrent head counts characters. A later head combines that count with line width. We edit its read and measure where generated lines end.">
 <meta property="og:site_name" content="statescope">
 <meta property="og:url" content="https://statescope.ai/">
@@ -17,7 +17,7 @@
 <meta property="og:image:alt" content="Count curves at five wrapping widths before and after the layer-12 mixer writes. Cell means at equal distance from the line end converge in the two directions shown.">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:image" content="https://statescope.ai/assets/og-card.png">
-<meta name="twitter:title" content="statescope: How does a hybrid language model with mostly recurrent mixers count characters to the end of a line?">
+<meta name="twitter:title" content="statescope: How does a hybrid language model count characters to the end of a line?">
 <meta name="twitter:description" content="A recurrent head counts characters. A later head combines that count with line width. We edit its read and measure where generated lines end.">
 <meta name="color-scheme" content="light dark">
 <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
@@ -32,7 +32,7 @@
 
 <header class="hero" id="top">
   <p class="project-name">statescope</p>
-  <h1>How does a hybrid language model with mostly recurrent mixers count characters to the end of a line?</h1>
+  <h1>How does a hybrid language model count characters to the end of a line?</h1>
   <p class="sets">Gurnee et al. traced how an attention model turns a character count into the distance to a line end. How does Qwen3.5-0.8B do it when most of its mixers are recurrent? With statescope, we release a reader and two dictionaries for every layer of Qwen3.5-0.8B and Qwen3.5-4B, one that represents residual-stream states with groups of four learned directions and one that describes the MLP’s operations. We trace a recurrent head’s character clock as a curve in one learned state group, then follow a layer-12 head that combines count with a width read from earlier lines. Moving just the part of that head’s width edit inside another group’s frame brings the line-break margin to its threshold earlier and shortens the lines the model generates.</p>
   <nav class="links" aria-label="Code and weights">
     <a class="pill" href="https://github.com/mconcat/statescope"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M5.6 3.6 1.6 8l4 4.4M10.4 3.6l4 4.4-4 4.4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>Code</a>
@@ -958,10 +958,10 @@ gate, y_hat = M.forward(acts[&quot;resid_mid&quot;])               # gate (token
 <section class="band tint" aria-labelledby="cite">
   <div class="wrap mid">
     <h2 id="cite"><a href="#cite">How to cite</a></h2>
-    <p class="citation">mconcat. statescope: How does a hybrid language model with mostly recurrent mixers count characters to the end of a line? 2026. <a href="https://github.com/mconcat/statescope">https://github.com/mconcat/statescope</a></p>
+    <p class="citation">mconcat. statescope: How does a hybrid language model count characters to the end of a line? 2026. <a href="https://github.com/mconcat/statescope">https://github.com/mconcat/statescope</a></p>
     <div class="codeblock"><span class="lang">bibtex</span><pre><code>@misc{statescope,
   author = {mconcat},
-  title = {statescope: How does a hybrid language model with mostly recurrent mixers count characters to the end of a line?},
+  title = {statescope: How does a hybrid language model count characters to the end of a line?},
   year = {2026},
   url = {https://github.com/mconcat/statescope},
   note = {Weights: https://huggingface.co/mconcat/statescope-qwen3.5-4b and https://huggingface.co/mconcat/statescope-qwen3.5-0.8b}
